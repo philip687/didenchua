@@ -19,10 +19,12 @@ import { log } from '../logger.js';
  */
 export async function runAllQuests(options = {}) {
   const {
-    skipHang = false,           // Bỏ qua nhiệm vụ treo 5 phút (dành cho chế độ chạy nhanh)
+    skipHang = false,           // Bỏ qua nhiệm vụ treo (dành cho chế độ chạy nhanh)
     skipMilestones = false,     // Bỏ qua giai đoạn cày thành tích nếu chỉ muốn làm nhiệm vụ ngày
     moCount = 30,
-    beadsCount = 20
+    beadsCount = 20,
+    meditateSeconds = null,     // Thời gian ngồi thiền tĩnh tâm (giây)
+    autoWaterOthers = null      // Tự động tưới nước giúp luống hoa của bạn đồng tu
   } = options;
 
   const client = new DiDenChuaClient();
@@ -72,8 +74,10 @@ export async function runAllQuests(options = {}) {
     await client.doPet();
     await client.humanDelay('đi dạo ra vườn sen');
 
-    // 9. Chăm sóc hoa sen
-    await client.doGarden();
+    // 9. Chăm sóc hoa sen & tưới nước giúp bạn đồng tu (+2 công đức/luống)
+    await client.doGarden({
+      autoWaterOthers: autoWaterOthers ?? client.config.autoWaterOthers ?? true
+    });
     await client.humanDelay('bước vào gian chánh điện');
 
     // 10. Gõ mõ tụng kinh
@@ -179,14 +183,16 @@ export async function runAllQuests(options = {}) {
     // =========================================================================
     if (!skipHang) {
       console.log('----------------------------------------------------------------------');
-      log.temple('🧘', '--- [GIAI ĐOẠN 3: NHIỆM VỤ TREO / TĨNH TÂM (HANGING / MEDITATION)] ---');
-      log.info('Tiến hành ngồi thiền tĩnh tâm 5 phút (nhiệm vụ treo cuối cùng)...');
+      const medSec = Number(meditateSeconds ?? client.config.meditateSeconds ?? 300);
+      const medMins = Math.ceil(medSec / 60);
+      log.temple('🧘', `--- [GIAI ĐOẠN 3: NHIỆM VỤ TREO / TĨNH TÂM (${medMins} PHÚT)] ---`);
+      log.info(`Tiến hành ngồi thiền tĩnh tâm ${medMins} phút (${medSec}s) để tích lũy công đức và hồi hướng...`);
 
-      // Ngồi thiền 5 phút (300 giây)
-      await client.doMeditate(300);
+      // Ngồi thiền với thời gian tùy biến
+      await client.doMeditate(medSec);
 
       // Nhận thưởng nhiệm vụ ngồi tĩnh sau khi hoàn thành thời gian treo
-      log.info('Nhận thưởng nhiệm vụ ngồi tĩnh 5 phút...');
+      log.info('Nhận thưởng nhiệm vụ ngồi tĩnh sau khi hoàn thành thời gian thiền...');
       client.claimQuest('ngoi');
       await client.sleep(1500);
 
@@ -211,9 +217,12 @@ if (process.argv[1]?.endsWith('all.js')) {
   const wantHang = process.argv.includes('--hang') || process.argv.includes('--full') || process.argv.includes('-m');
   const skipMilestones = process.argv.includes('--skip-milestones') || process.argv.includes('--no-farm');
 
+  const medArgIdx = process.argv.indexOf('--meditate');
+  const meditateSeconds = medArgIdx !== -1 && process.argv[medArgIdx + 1] ? parseInt(process.argv[medArgIdx + 1], 10) : null;
+
   const skipHang = isCI && !wantHang;
 
-  runAllQuests({ skipHang, skipMilestones })
+  runAllQuests({ skipHang, skipMilestones, meditateSeconds })
     .then(() => process.exit(0))
     .catch(() => process.exit(1));
 }

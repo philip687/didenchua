@@ -17,6 +17,7 @@ export class DiDenChuaClient {
     this.chores = null;
     this.lanterns = [];
     this.journal = null;
+    this.garden = null;
     this.heartbeatTimer = null;
   }
 
@@ -119,6 +120,10 @@ export class DiDenChuaClient {
 
       case 'journal':
         this.journal = msg.j;
+        break;
+
+      case 'garden':
+        this.garden = msg;
         break;
 
       case 'merit':
@@ -357,13 +362,93 @@ export class DiDenChuaClient {
     await this.sleep(1000);
   }
 
-  async doGarden() {
-    log.temple('🪷', 'Chăm sóc vườn sen:');
-    await this.humanDelay('múc gáo nước mát tưới sen');
+  async doGarden(options = {}) {
+    const plantSeed = options.plantSeed || 'sen';
+    const autoWaterOthers = options.autoWaterOthers ?? this.config.autoWaterOthers ?? true;
+    const maxWaterOthers = options.maxWaterOthers ?? this.config.maxWaterOthers ?? 50;
+
+    log.temple('🪷', 'Chăm sóc vườn hoa chùa & tưới nước tích công đức:');
+    await this.humanDelay('thong thả dạo bước ra góc vườn hoa');
+
+    // 1. Lấy dữ liệu vườn hoa hiện tại từ máy chủ
+    this.garden = null;
     this.send({ t: 'garden' });
-    await this.sleep(1500);
-    this.send({ t: 'water', pid: this.myPid });
-    await this.sleep(1000);
+    let waitCount = 0;
+    while (!this.garden && waitCount < 15) {
+      await this.sleep(300);
+      waitCount++;
+    }
+
+    if (!this.garden) {
+      log.warn('Không nhận được dữ liệu vườn hoa từ máy chủ, gửi lệnh tưới thông thường.');
+      this.send({ t: 'water', pid: this.myPid });
+      await this.sleep(1000);
+      return;
+    }
+
+    const mine = this.garden.mine;
+
+    // 2. Chăm sóc luống hoa của bản thân
+    if (!mine) {
+      log.temple('🌱', `Luống hoa của bạn đang trống. Tiến hành gieo hạt giống [${plantSeed}]...`);
+      this.send({ t: 'plant', k: plantSeed });
+      await this.sleep(1500);
+    } else {
+      // Nếu hoa đã nở (stage === 3) -> hái hoa và dâng Chánh điện
+      if (mine.stage === 3) {
+        log.temple('🌸', `Hoa [${mine.k}] trong luống của bạn đã nở trọn vẹn! Tiến hành hái hoa...`);
+        this.send({ t: 'pick' });
+        await this.sleep(1500);
+        log.temple('💐', 'Thành tâm dâng hoa tươi lên Phật đài Chánh điện (+công đức dâng hoa)...');
+        this.send({ t: 'offer-flowers' });
+        await this.sleep(1500);
+        // Gieo tiếp hạt giống mới
+        log.temple('🌱', `Gieo tiếp đợt hạt giống mới [${plantSeed}]...`);
+        this.send({ t: 'plant', k: plantSeed });
+        await this.sleep(1500);
+      }
+
+      // Tưới luống hoa của mình nếu chưa tưới
+      if (!mine.watered) {
+        log.info('-> Múc gáo nước mát tưới luống hoa của bản thân...');
+        this.send({ t: 'water', pid: this.myPid });
+        await this.sleep(1500);
+      } else {
+        log.info(`-> Luống hoa của bạn hôm nay đã được tưới (${mine.grown}/${mine.need} ngày lớn).`);
+      }
+    }
+
+    // Kiểm tra nếu trong tay còn hoa đã hái mà chưa dâng
+    const flowersInHand = Object.values(this.garden.flowers || {}).reduce((a, b) => a + (b || 0), 0);
+    if (flowersInHand > 0) {
+      log.temple('💐', `Phát hiện ${flowersInHand} bông hoa tươi trong tay, tiến hành dâng hoa lên Phật đài...`);
+      this.send({ t: 'offer-flowers' });
+      await this.sleep(1200);
+    }
+
+    // 3. TỰ ĐỘNG TƯỚI NƯỚC GIÚP BẠN ĐỒNG TU (+2 CÔNG ĐỨC MỖI LUỐNG)
+    if (autoWaterOthers) {
+      const unwateredBeds = (this.garden.beds || []).filter(
+        b => b.pid !== this.myPid && !b.watered && (b.stage === undefined || b.stage < 3)
+      );
+
+      if (unwateredBeds.length > 0) {
+        const toWater = unwateredBeds.slice(0, maxWaterOthers);
+        log.temple('💧', `Phát hiện ${toWater.length} luống hoa của bạn đồng tu chưa được tưới nước. Bắt đầu tưới giúp (+2 công đức/luống)...`);
+
+        for (let i = 0; i < toWater.length; i++) {
+          const bed = toWater[i];
+          const bedOwner = bed.name || bed.pid;
+          log.info(`[${i + 1}/${toWater.length}] Tưới nước giúp luống hoa của [${bedOwner}]...`);
+          this.send({ t: 'water', pid: bed.pid });
+          const waterDelay = Math.floor(2500 + Math.random() * 1500);
+          await this.sleep(waterDelay);
+        }
+        log.success(`Đã tưới nước giúp ${toWater.length} luống hoa! Tích lũy thêm ước tính +${toWater.length * 2} công đức.`);
+      } else {
+        log.info('Tất cả các luống hoa của bạn đồng tu hôm nay đều đã được tưới đủ nước.');
+      }
+    }
   }
 
   async doMo(count = 30) {
@@ -429,7 +514,7 @@ export class DiDenChuaClient {
       this.send({ t: 'hb' });
     }
 
-    log.success('Đã hoàn thành 5 phút tĩnh tâm thiền định!');
+    log.success(`Đã hoàn thành ${mins} phút tĩnh tâm thiền định!`);
     this.claimQuest('ngoi');
     await this.sleep(1000);
   }

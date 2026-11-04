@@ -46,7 +46,7 @@ async function refreshAccountData() {
 }
 
 // Hàm thực thi chu trình tự động
-async function executeRoutine(triggerSource = 'Manual / Web') {
+async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
   if (state.isRunning) {
     return { ok: false, message: 'Đang có một tiến trình nhiệm vụ đang chạy dở, vui lòng đợi.' };
   }
@@ -65,7 +65,7 @@ async function executeRoutine(triggerSource = 'Manual / Web') {
     initClient.close();
 
     // Chạy chu trình 3 Giai đoạn
-    await runAllQuests({ skipHang: false });
+    await runAllQuests({ skipHang: false, ...runOptions });
 
     // Lấy lại dữ liệu mới nhất
     await refreshAccountData();
@@ -298,9 +298,14 @@ function renderDashboardHTML() {
         <h1>🪷 ${me.name || cfg.name} <span>(@${me.user || cfg.name})</span></h1>
         <p>Cấp bậc: <b>${me.level || 'Hoan hỷ'} (Lv.${me.lv || 3})</b> · Chuỗi lên chùa: <b>${me.days || 2} ngày liên tục</b></p>
       </div>
-      <div class="actions">
+      <div class="actions" style="display:flex; align-items:center; gap:8px;">
+        <select id="meditateSelect" style="background:#2b221a; color:var(--gold); border:1px solid var(--card-border); padding:9px 12px; border-radius:10px; font-size:13px; outline:none; cursor:pointer;" ${isRunning ? 'disabled' : ''}>
+          <option value="300">🧘 Thiền 5 phút (Chuẩn)</option>
+          <option value="1800">🧘 Thiền 30 phút (Cày Top)</option>
+          <option value="3600">🧘 Thiền 60 phút (Cày Top 1)</option>
+        </select>
         <button id="runBtn" class="btn" onclick="triggerRun()" ${isRunning ? 'disabled' : ''}>
-          ${isRunning ? '⏳ Đang làm nhiệm vụ…' : '⚡ Chạy Nhiệm Vụ Ngay'}
+          ${isRunning ? '⏳ Đang làm nhiệm vụ…' : '⚡ Bắt Đầu Làm Nhiệm Vụ'}
         </button>
       </div>
     </header>
@@ -411,22 +416,24 @@ function renderDashboardHTML() {
   <script>
     async function triggerRun() {
       const btn = document.getElementById('runBtn');
+      const medSel = document.getElementById('meditateSelect');
+      const medVal = medSel ? medSel.value : '300';
       btn.disabled = true;
       btn.innerText = '⏳ Đang khởi chạy…';
       try {
-        const res = await fetch('/api/run', { method: 'POST' });
+        const res = await fetch('/api/run?meditate=' + medVal, { method: 'POST' });
         const data = await res.json();
         if (data.ok) {
           location.reload();
         } else {
           alert(data.message || 'Lỗi khi kích hoạt');
           btn.disabled = false;
-          btn.innerText = '⚡ Chạy Nhiệm Vụ Ngay';
+          btn.innerText = '⚡ Bắt Đầu Làm Nhiệm Vụ';
         }
       } catch (err) {
         alert('Lỗi kết nối: ' + err.message);
         btn.disabled = false;
-        btn.innerText = '⚡ Chạy Nhiệm Vụ Ngay';
+        btn.innerText = '⚡ Bắt Đầu Làm Nhiệm Vụ';
       }
     }
 
@@ -539,9 +546,22 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    res.end(JSON.stringify({ ok: true, running: false, message: 'Đã kích hoạt chu trình nhiệm vụ thành công!' }));
+    const runOptions = {};
+    if (url.searchParams.has('meditate')) {
+      const parsedMed = parseInt(url.searchParams.get('meditate'), 10);
+      if (!isNaN(parsedMed) && parsedMed >= 60) {
+        runOptions.meditateSeconds = parsedMed;
+      }
+    }
+
+    res.end(JSON.stringify({
+      ok: true,
+      running: false,
+      message: 'Đã kích hoạt chu trình nhiệm vụ thành công!',
+      options: runOptions
+    }));
     // Chạy ngầm trong background
-    executeRoutine(`API Trigger (${url.pathname})`).catch(console.error);
+    executeRoutine(`API Trigger (${url.pathname})`, runOptions).catch(console.error);
     return;
   }
 

@@ -12,6 +12,9 @@
   "safeMode": true,
   "minDelaySec": 3.5,
   "maxDelaySec": 7,
+  "meditateSeconds": 300,
+  "autoWaterOthers": true,
+  "maxWaterOthers": 50,
   "milestoneFarming": {
     "enabled": true,
     "dailyBows": 18,
