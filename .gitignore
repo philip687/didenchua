@@ -3,4 +3,8 @@ node_modules/
 .env
 .env.*
 config.local.json
+AGENT_UPGRADE_GUIDE.md
+SYSTEM_LOG_REPORT_UPGRADE_GUIDE.md
+*_GUIDE.md
+*GUIDE.md
 
