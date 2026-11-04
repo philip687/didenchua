@@ -149,7 +149,7 @@ async function main() {
 
     case 'meditate':
     case 'ngoi':
-      await runMeditate(args[0] ? parseInt(args[0], 10) : 300);
+      await runMeditate(args[0] ? parseInt(args[0], 10) : 3600);
       break;
 
     case 'claim':

@@ -22,8 +22,8 @@ export async function startDaemon() {
     const today = getTodayString();
     log.info(`[${new Date().toLocaleTimeString('vi-VN')}] Bắt đầu chu kỳ làm nhiệm vụ cho ngày: ${today} (UTC+7)`);
     try {
-      // Chạy với skipHang: true (đồng bộ với all.js để bỏ qua nhiệm vụ treo thiền 5 phút)
-      await runAllQuests({ skipHang: true });
+      // Mặc định chạy tự động đủ 4 tầng và treo máy 60 phút (3600s) cho phần tự động
+      await runAllQuests({ skipHang: false, meditateSeconds: 3600 });
       lastRunDate = today;
       log.success(`Đã hoàn tất chu kỳ hôm nay (${today}). Lần chạy tiếp theo: Sau 00:01 sáng mai (giờ VN).`);
     } catch (err) {

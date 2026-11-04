@@ -241,7 +241,7 @@ export async function runAllQuests(options = {}) {
     // =========================================================================
     if (!skipHang) {
       console.log('----------------------------------------------------------------------');
-      const medSec = Number(meditateSeconds ?? client.config.meditateSeconds ?? 300);
+      const medSec = Number(meditateSeconds ?? client.config.meditateSeconds ?? 3600);
       const medMins = Math.ceil(medSec / 60);
       log.temple('🧘', `--- [TẦNG 4: HOẠT ĐỘNG TREO MÁY / TĨNH TÂM (${medMins} PHÚT - LÀM CUỐI CÙNG)] ---`);
       log.info(`Tiến hành ngồi thiền tĩnh tâm ${medMins} phút (${medSec}s) để tích lũy công đức và hồi hướng...`);

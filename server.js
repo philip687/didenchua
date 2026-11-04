@@ -287,7 +287,7 @@ function startDailyScheduler() {
       isSchedulerRunning = true;
       log.temple('⏰', `Đến lịch chạy tự động ngày mới ${todayStr} (giờ Việt Nam). Khởi động chu kỳ...`);
       try {
-        const res = await executeRoutine(`Daily Scheduler (${todayStr})`);
+        const res = await executeRoutine(`Daily Scheduler (${todayStr})`, { meditateSeconds: 3600 });
         if (res && res.ok) {
           lastScheduledRunDate = todayStr;
           log.success(`Đã hoàn thành lịch chạy tự động ngày ${todayStr}.`);
@@ -474,9 +474,9 @@ function renderDashboardHTML() {
       </div>
       <div class="actions" style="display:flex; align-items:center; gap:8px;">
         <select id="meditateSelect" style="background:#2b221a; color:var(--gold); border:1px solid var(--card-border); padding:9px 12px; border-radius:10px; font-size:13px; outline:none; cursor:pointer;" ${isRunning ? 'disabled' : ''}>
-          <option value="300">🧘 Thiền 5 phút (Chuẩn)</option>
+          <option value="3600" selected>🧘 Thiền 60 phút (Mặc định - Cày Top 1)</option>
           <option value="1800">🧘 Thiền 30 phút (Cày Top)</option>
-          <option value="3600">🧘 Thiền 60 phút (Cày Top 1)</option>
+          <option value="300">🧘 Thiền 5 phút (Chuẩn)</option>
         </select>
         <button id="runBtn" class="btn" onclick="triggerRun()" ${isRunning ? 'disabled' : ''}>
           ${isRunning ? '⏳ Đang làm nhiệm vụ…' : '⚡ Bắt Đầu Làm Nhiệm Vụ'}
@@ -591,7 +591,7 @@ function renderDashboardHTML() {
     async function triggerRun() {
       const btn = document.getElementById('runBtn');
       const medSel = document.getElementById('meditateSelect');
-      const medVal = medSel ? medSel.value : '300';
+      const medVal = medSel ? medSel.value : '3600';
       const csrfMeta = document.querySelector('meta[name="csrf-token"]');
       const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
 

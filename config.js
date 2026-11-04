@@ -20,7 +20,7 @@ const DEFAULT_CONFIG = {
   minDelaySec: 3.5,  // Giãn cách tối thiểu giữa các hành động (giây)
   maxDelaySec: 7.0,  // Giãn cách tối đa giữa các hành động (giây)
   chromePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-  meditateSeconds: 300, // Thời gian thiền mặc định (300s = 5 phút; có thể tăng lên 1800s = 30p hoặc 3600s = 60p để cày Top 10 Bảng Vàng)
+  meditateSeconds: 3600, // Thời gian treo máy thiền mặc định (3600s = 60 phút cho phần tự động để cày Top 1 Bảng Vàng)
   autoWaterOthers: true, // Tự động tưới nước giúp các luống hoa của bạn đồng tu (+2 công đức/luống)
   maxWaterOthers: 50,    // Số luống tối đa tưới giúp mỗi chu kỳ
   // Cấu hình mức độ cày tích lũy thành tích (Milestone Farming) sau khi làm xong nhiệm vụ ngày

@@ -521,7 +521,7 @@ export class DiDenChuaClient {
     }
   }
 
-  async doMeditate(seconds = 300, onProgress = null) {
+  async doMeditate(seconds = 3600, onProgress = null) {
     const mins = Math.ceil(seconds / 60);
     log.temple('🧘', `Bắt đầu ngồi thiền tĩnh tâm trong ${mins} phút (${seconds}s)...`);
     

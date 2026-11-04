@@ -131,8 +131,8 @@ export async function runMaximumQuests() {
     // PHẦN 3: NHIỆM VỤ TREO / TĨNH TÂM (LÀM SAU CÙNG)
     // =========================================================================
     console.log('----------------------------------------------------------------------');
-    log.temple('🧘', '--- [PHẦN 3: NGỒI THIỀN TĨNH TÂM 5 PHÚT (NHIỆM VỤ TREO CUỐI CÙNG)] ---');
-    await client.doMeditate(300);
+    log.temple('🧘', '--- [PHẦN 3: NGỒI THIỀN TĨNH TÂM 60 PHÚT (NHIỆM VỤ TREO CUỐI CÙNG)] ---');
+    await client.doMeditate(3600);
 
     // Chốt quest thiền
     client.claimQuest('ngoi');
