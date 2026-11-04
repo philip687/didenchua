@@ -1,7 +1,7 @@
 import http from 'node:http';
 import { runAllQuests } from './src/tasks/all.js';
 import { DiDenChuaClient } from './src/client.js';
-import { log } from './src/logger.js';
+import { log, setLogHook } from './src/logger.js';
 import { notifyRunResult } from './src/notify.js';
 import { loadConfig } from './config.js';
 
@@ -24,6 +24,8 @@ function addWebLog(msg) {
   state.currentLogs.unshift(`[${time}] ${msg}`);
   if (state.currentLogs.length > 50) state.currentLogs.pop();
 }
+
+setLogHook(addWebLog);
 
 // Cập nhật thông tin tài khoản từ máy chủ chùa
 async function refreshAccountData() {

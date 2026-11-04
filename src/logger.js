@@ -16,12 +16,41 @@ function timestamp() {
   return d.toTimeString().split(' ')[0];
 }
 
+let logHook = null;
+export function setLogHook(fn) {
+  logHook = fn;
+}
+
+function notifyHook(prefix, msg) {
+  if (logHook) {
+    try { logHook(`${prefix} ${msg}`); } catch {}
+  }
+}
+
 export const log = {
-  info: (msg, ...args) => console.log(`${COLORS.dim}[${timestamp()}]${COLORS.reset} ℹ️  ${msg}`, ...args),
-  success: (msg, ...args) => console.log(`${COLORS.dim}[${timestamp()}]${COLORS.reset} ${COLORS.green}✅ ${msg}${COLORS.reset}`, ...args),
-  warn: (msg, ...args) => console.log(`${COLORS.dim}[${timestamp()}]${COLORS.reset} ${COLORS.yellow}⚠️  ${msg}${COLORS.reset}`, ...args),
-  error: (msg, ...args) => console.error(`${COLORS.dim}[${timestamp()}]${COLORS.reset} ${COLORS.red}❌ ${msg}${COLORS.reset}`, ...args),
-  temple: (icon, msg, ...args) => console.log(`${COLORS.dim}[${timestamp()}]${COLORS.reset} ${COLORS.bright}${icon} ${msg}${COLORS.reset}`, ...args),
-  merit: (msg, ...args) => console.log(`${COLORS.dim}[${timestamp()}]${COLORS.reset} ${COLORS.yellow}✨ [CÔNG ĐỨC]${COLORS.reset} ${msg}`, ...args)
+  info: (msg, ...args) => {
+    console.log(`${COLORS.dim}[${timestamp()}]${COLORS.reset} ℹ️  ${msg}`, ...args);
+    notifyHook('ℹ️', msg);
+  },
+  success: (msg, ...args) => {
+    console.log(`${COLORS.dim}[${timestamp()}]${COLORS.reset} ${COLORS.green}✅ ${msg}${COLORS.reset}`, ...args);
+    notifyHook('✅', msg);
+  },
+  warn: (msg, ...args) => {
+    console.log(`${COLORS.dim}[${timestamp()}]${COLORS.reset} ${COLORS.yellow}⚠️  ${msg}${COLORS.reset}`, ...args);
+    notifyHook('⚠️', msg);
+  },
+  error: (msg, ...args) => {
+    console.error(`${COLORS.dim}[${timestamp()}]${COLORS.reset} ${COLORS.red}❌ ${msg}${COLORS.reset}`, ...args);
+    notifyHook('❌', msg);
+  },
+  temple: (icon, msg, ...args) => {
+    console.log(`${COLORS.dim}[${timestamp()}]${COLORS.reset} ${COLORS.bright}${icon} ${msg}${COLORS.reset}`, ...args);
+    notifyHook(icon, msg);
+  },
+  merit: (msg, ...args) => {
+    console.log(`${COLORS.dim}[${timestamp()}]${COLORS.reset} ${COLORS.yellow}✨ [CÔNG ĐỨC]${COLORS.reset} ${msg}`, ...args);
+    notifyHook('✨', msg);
+  }
 };
 
