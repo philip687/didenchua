@@ -26,6 +26,8 @@ export async function runAllQuests(options = {}) {
   const autoWaterOthers = options.autoWaterOthers ?? null;
 
   const client = new DiDenChuaClient();
+  // Trả về số claim chưa được xác nhận để report phân biệt run hoàn tất với kết quả đã verify.
+  let unverifiedCount = 0;
 
   log.temple('🪷', '=== BẮT ĐẦU CHU KỲ TỰ ĐỘNG HÓA CÔNG ĐỨC (CI/CD 3-PHASE STANDARD) ===');
   console.log('----------------------------------------------------------------------');
@@ -97,6 +99,7 @@ export async function runAllQuests(options = {}) {
     // 13. CHỐT NHẬN THƯỞNG TOÀN BỘ NHIỆM VỤ HÀNH ĐỘNG GIAI ĐOẠN 1
     log.info('🔒 Gửi yêu cầu nhận thưởng tất cả nhiệm vụ hành động Giai đoạn 1...');
     const claimRes = await client.claimAllQuests();
+    unverifiedCount += claimRes.unverified?.length || 0;
     if (claimRes.claimed?.length > 0) {
       log.success(`Máy chủ đã xác nhận ghi nhận thưởng ${claimRes.claimed.length} nhiệm vụ.`);
     }
@@ -200,6 +203,7 @@ export async function runAllQuests(options = {}) {
         log.success('[ĐÃ XÁC NHẬN] Máy chủ đã ghi nhận hoàn thành nhiệm vụ tĩnh tâm thiền định.');
       } else {
         log.info('[ĐÃ GỬI YÊU CẦU] Đã hoàn thành thời gian thiền định và gửi yêu cầu nhận thưởng (chờ máy chủ đồng bộ).');
+        unverifiedCount++;
       }
 
       log.success('HOÀN THÀNH CHU KỲ 3 GIAI ĐOẠN: HÀNH ĐỘNG -> CÀY THÀNH TÍCH -> TREO THIỀN!');
@@ -209,6 +213,9 @@ export async function runAllQuests(options = {}) {
       log.info('⏩ Đã bỏ qua nhiệm vụ treo (Phase 3) theo tùy chọn CI/CD nhanh.');
       client.printJournal();
     }
+
+    // Không trả về trạng thái verified vì các hành động khác chưa có ACK tổng hợp từ server.
+    return { unverifiedCount, verificationStatus: 'unverified' };
 
   } catch (err) {
     log.error('Có lỗi xảy ra trong quá trình chạy chu trình tự động:', err.message);

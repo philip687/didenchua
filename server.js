@@ -4,7 +4,6 @@ import { runAllQuests } from './src/tasks/all.js';
 import { DiDenChuaClient } from './src/client.js';
 import { log, setLogHook } from './src/logger.js';
 import { notifyRunResult } from './src/notify.js';
-import { loadConfig } from './config.js';
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const HOST = '0.0.0.0';
@@ -109,11 +108,15 @@ async function refreshAccountData() {
   try {
     await client.connect(8000);
     const j = await client.fetchJournal();
+    // Không ghi đè snapshot cũ hoặc thời điểm cập nhật nếu lần đồng bộ mới thiếu dữ liệu.
+    if (!client.merit?.me || !j) return false;
     state.merit = client.merit;
     state.journal = j;
-    state.lastUpdated = new Date(Date.now() + 7 * 3600 * 1000).toLocaleString('vi-VN', { timeZone: 'UTC' }) + ' (UTC+7)';
+    state.lastUpdated = new Date().toISOString();
+    return true;
   } catch (err) {
     log.error('Lỗi làm mới dữ liệu chùa:', err.message);
+    return false;
   } finally {
     client.close();
   }
@@ -131,7 +134,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
   state.runStartTime = Date.now();
   state.runTriggerSource = triggerSource;
   
-  const startTimeVN = new Date(Date.now() + 7 * 3600 * 1000).toLocaleString('vi-VN', { timeZone: 'UTC' }) + ' (UTC+7)';
+  const startedAt = new Date().toISOString();
   addWebLog(`⚡ [${runId}] Khởi động chu kỳ tự động (Nguồn: ${triggerSource})...`, 'info', '⚡');
   const startTime = Date.now();
 
@@ -151,24 +154,36 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
     routineResult = await runAllQuests({ skipHang: false, ...runOptions });
 
     // Lấy lại dữ liệu mới nhất sau khi chạy xong
-    await refreshAccountData();
+    const snapshotAvailable = await refreshAccountData();
 
     const durationSec = Math.round((Date.now() - startTime) / 1000);
-    const newlyUnlocked = (state.journal?.titles || []).filter(t => t.got && !prevTitles.has(t.name));
+    // Chỉ so danh hiệu khi có snapshot trước và sau; nếu thiếu dữ liệu thì không suy ra danh hiệu mới.
+    const titlesComparisonAvailable = Array.isArray(initJ?.titles) && snapshotAvailable && Array.isArray(state.journal?.titles);
+    const newlyUnlocked = titlesComparisonAvailable
+      ? state.journal.titles.filter(t => t.got && !prevTitles.has(t.name))
+      : [];
 
-    // Đánh giá trạng thái xác nhận
-    runStatus = routineResult?.unverifiedCount > 0 ? 'partial' : 'success';
+    // Chỉ đánh dấu success khi toàn routine tuyên bố đã xác minh; claim count riêng chưa chứng minh mọi action.
+    runStatus = routineResult?.verificationStatus === 'verified'
+      ? 'success'
+      : (Number(routineResult?.unverifiedCount) > 0 ? 'partial' : 'unverified');
+    const finishedAt = new Date().toISOString();
 
     const result = {
       id: runId,
+      runId,
       source: triggerSource,
       status: runStatus,
-      startTime: startTimeVN,
-      timestamp: startTimeVN,
+      startTime: startedAt,
+      finishedAt,
+      timestamp: finishedAt,
       durationSec,
-      totalMerit: state.merit?.me?.total !== undefined ? state.merit.me.total : null,
-      todayMerit: state.merit?.me?.today !== undefined ? state.merit.me.today : null,
-      meritLevel: state.merit?.me?.level || null,
+      snapshotAt: snapshotAvailable ? state.lastUpdated : null,
+      snapshotStatus: snapshotAvailable ? 'available' : 'unavailable',
+      titlesComparison: titlesComparisonAvailable ? 'available' : 'unavailable',
+      totalMerit: snapshotAvailable ? (state.merit?.me?.total ?? null) : null,
+      todayMerit: snapshotAvailable ? (state.merit?.me?.today ?? null) : null,
+      meritLevel: snapshotAvailable ? (state.merit?.me?.level ?? null) : null,
       newlyUnlocked,
       storagePolicy: 'Bộ nhớ tạm phiên làm việc (In-memory buffer tối đa 15 lượt)',
       error: null
@@ -177,7 +192,8 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
     state.runHistory.unshift(result);
     if (state.runHistory.length > 15) state.runHistory.pop();
 
-    addWebLog(`✅ [${runId}] Hoàn tất chu trình (${runStatus}) sau ${durationSec}s!`, 'success', '✅');
+    // Hết luồng chạy không đồng nghĩa server đã ghi nhận; ghi status tương ứng với bằng chứng hiện có.
+    addWebLog(`⚠️ [${runId}] Đã chạy hết luồng (${runStatus}) sau ${durationSec}s.`, runStatus === 'success' ? 'success' : 'warn', runStatus === 'success' ? '✅' : '⚠️');
 
     // Gửi thông báo Telegram/Discord nếu cấu hình (không làm đứt chu trình nếu notify lỗi)
     try {
@@ -185,8 +201,11 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
         runId,
         source: triggerSource,
         status: runStatus,
-        journal: state.journal,
-        merit: state.merit,
+        finishedAt,
+        snapshotAt: result.snapshotAt,
+        snapshotStatus: result.snapshotStatus,
+        journal: snapshotAvailable ? state.journal : null,
+        merit: snapshotAvailable ? state.merit : null,
         durationSec,
         newlyUnlocked
       });
@@ -197,21 +216,29 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
     return { ok: true, result };
   } catch (err) {
     const durationSec = Math.round((Date.now() - startTime) / 1000);
-    safeErrorMessage = err.message || 'Lỗi không xác định';
+    // Cắt và che thông tin xác thực phổ biến trước khi ghi lỗi vào dashboard/notification.
+    safeErrorMessage = String(err.message || 'Lỗi không xác định')
+      .replace(/(authorization|token|secret|cookie|webhook)\s*[:=]\s*\S+/gi, '$1=[đã ẩn]')
+      .replace(/https?:\/\/\S+/gi, '[URL đã ẩn]')
+      .slice(0, 500);
     errorStep = 'routine_execution';
     runStatus = 'failed';
+    const finishedAt = new Date().toISOString();
 
     addWebLog(`❌ [${runId}] Thất bại tại bước [${errorStep}]: ${safeErrorMessage}`, 'error', '❌');
 
     const result = {
       id: runId,
+      runId,
       source: triggerSource,
       status: 'failed',
       error: safeErrorMessage,
       errorStep,
-      startTime: startTimeVN,
-      timestamp: startTimeVN,
+      startTime: startedAt,
+      finishedAt,
       durationSec,
+      snapshotAt: state.lastUpdated,
+      snapshotStatus: state.lastUpdated ? 'stale' : 'unavailable',
       storagePolicy: 'Bộ nhớ tạm phiên làm việc (In-memory buffer tối đa 15 lượt)'
     };
     state.runHistory.unshift(result);
@@ -222,9 +249,12 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
         runId,
         source: triggerSource,
         status: 'failed',
+        finishedAt,
+        snapshotAt: result.snapshotAt,
+        snapshotStatus: result.snapshotStatus,
         error: safeErrorMessage,
-        journal: state.journal,
-        merit: state.merit,
+        journal: null,
+        merit: null,
         durationSec
       });
     } catch {}
@@ -281,7 +311,12 @@ function startDailyScheduler() {
 function renderDashboardHTML() {
   const me = state.merit?.me || {};
   const j = state.journal || {};
-  const cfg = loadConfig();
+  // Dữ liệu thiếu phải hiện là thiếu, không dùng giá trị mẫu làm báo cáo thật.
+  const reportValue = value => value === null || value === undefined ? 'Chưa có dữ liệu' : escapeHTML(value);
+  const nextLevelPoints = me.next !== null && me.next !== undefined && me.total !== null && me.total !== undefined
+    && Number.isFinite(Number(me.next)) && Number.isFinite(Number(me.total))
+    ? Number(me.next) - Number(me.total)
+    : null;
 
   const questsHTML = (me.quests || []).map(q => {
     const badge = q.claimed
@@ -311,10 +346,10 @@ function renderDashboardHTML() {
   const historyHTML = state.runHistory.map(h => `
     <div class="history-item ${escapeHTML(h.status)}">
       <div>
-        <b>${h.status === 'success' ? '✅ Thành công' : (h.status === 'partial' ? '⚠️ Một phần' : '❌ Thất bại')}</b> · <span>${escapeHTML(h.source)}</span>
-        <small class="time">${escapeHTML(h.timestamp)} (${escapeHTML(h.durationSec)}s) [ID: ${escapeHTML(h.id)}]</small>
+        <b>${h.status === 'success' ? '✅ Đã xác nhận' : (h.status === 'partial' ? '⚠️ Hoàn tất một phần' : (h.status === 'unverified' ? '⚠️ Chưa xác minh' : '❌ Thất bại'))}</b> · <span>${escapeHTML(h.source)}</span>
+        <small class="time">Bắt đầu ${escapeHTML(h.startTime || 'chưa rõ')} · Kết thúc ${escapeHTML(h.timestamp || 'chưa rõ')} UTC · ${escapeHTML(h.durationSec)}s · ID: ${escapeHTML(h.id)}</small>
       </div>
-      <div>${h.status !== 'failed' && h.totalMerit !== null ? `+${escapeHTML(h.todayMerit)}đ (Tổng: ${escapeHTML(h.totalMerit)}đ)` : `<span class="err">${escapeHTML(h.error || 'Chưa hoàn tất')}</span>`}</div>
+      <div>${h.status === 'failed' ? `<span class="err">${escapeHTML(h.error || 'Lỗi không rõ')}</span>` : `Snapshot: ${escapeHTML(h.snapshotStatus || 'không rõ')} · Hôm nay: ${reportValue(h.todayMerit)}đ · Tổng: ${reportValue(h.totalMerit)}đ`}</div>
     </div>
   `).join('') || '<p class="empty">Chưa có lịch sử chạy nào trong phiên này (Bộ nhớ tạm lưu tối đa 15 lượt).</p>';
 
@@ -348,7 +383,7 @@ function renderDashboardHTML() {
         🟢 SẴN SÀNG · Nhân vật đang an nhiên tĩnh tâm tại chùa
       </div>
       <div style="color:var(--text-dim); font-size:12px;">
-        Cập nhật lần cuối: ${escapeHTML(state.lastUpdated || 'Đã đồng bộ')}
+        Cập nhật lần cuối (UTC): ${escapeHTML(state.lastUpdated || 'Chưa có dữ liệu')}
       </div>
     </div>
   `;
@@ -420,7 +455,7 @@ function renderDashboardHTML() {
     .title-info small { font-size: 11px; color: var(--text-dim); }
     .history-item { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--card-border); margin-bottom: 8px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
     .history-item.success { border-left: 3px solid var(--success); }
-    .history-item.partial { border-left: 3px solid var(--gold); }
+    .history-item.partial, .history-item.unverified { border-left: 3px solid var(--gold); }
     .history-item.error, .history-item.failed { border-left: 3px solid var(--danger); }
     .history-item .time { color: var(--text-dim); margin-left: 8px; }
     .history-item .err { color: var(--danger); }
@@ -434,8 +469,8 @@ function renderDashboardHTML() {
   <div class="container">
     <header>
       <div class="who">
-        <h1>🪷 ${escapeHTML(me.name || cfg.name || 'phat-tu')} <span>(@${escapeHTML(me.user || cfg.name || 'phat-tu')})</span></h1>
-        <p>Cấp bậc: <b>${escapeHTML(me.level || 'Hoan hỷ')} (Lv.${escapeHTML(me.lv || 3)})</b> · Chuỗi lên chùa: <b>${escapeHTML(me.days || 2)} ngày liên tục</b></p>
+        <h1>🪷 ${reportValue(me.name)} <span>(@${reportValue(me.user)})</span></h1>
+        <p>Cấp bậc: <b>${reportValue(me.level)} (Lv.${reportValue(me.lv)})</b> · Chuỗi lên chùa: <b>${reportValue(me.days)} ngày liên tục</b></p>
       </div>
       <div class="actions" style="display:flex; align-items:center; gap:8px;">
         <select id="meditateSelect" style="background:#2b221a; color:var(--gold); border:1px solid var(--card-border); padding:9px 12px; border-radius:10px; font-size:13px; outline:none; cursor:pointer;" ${isRunning ? 'disabled' : ''}>
@@ -455,24 +490,24 @@ function renderDashboardHTML() {
     <div class="grid">
       <!-- CÔNG ĐỨC & CẤP BẬC -->
       <div class="card">
-        <h2>✨ Công Đức & Tích Lũy <small style="font-size:11px; color:var(--text-dim); font-weight:normal;">Cập nhật: ${escapeHTML(state.lastUpdated || 'Đang nạp...')}</small></h2>
+        <h2>✨ Công Đức & Tích Lũy <small style="font-size:11px; color:var(--text-dim); font-weight:normal;">Cập nhật UTC: ${escapeHTML(state.lastUpdated || 'Chưa có dữ liệu')}</small></h2>
         <div class="stat-row">
           <div class="stat-box">
-            <b>${escapeHTML(me.total || 0)}</b>
+            <b>${reportValue(me.total)}</b>
             <span>Tổng công đức</span>
           </div>
           <div class="stat-box">
-            <b>+${escapeHTML(me.today || 0)}</b>
+            <b>${reportValue(me.today)}</b>
             <span>Hôm nay</span>
           </div>
         </div>
         <div class="stat-row">
           <div class="stat-box">
-            <b>${escapeHTML((me.next || 1200) - (me.total || 0))}</b>
+            <b>${reportValue(nextLevelPoints)}</b>
             <span>Cần đến cấp sau</span>
           </div>
           <div class="stat-box">
-            <b>${escapeHTML(j.streak || 2)} ngày</b>
+            <b>${reportValue(j.streak)} ngày</b>
             <span>Kỷ lục liên tiếp</span>
           </div>
         </div>
@@ -491,31 +526,31 @@ function renderDashboardHTML() {
         <h2>🎯 Tiến Độ Thành Tựu Vĩnh Viễn</h2>
         <div class="stat-row">
           <div class="stat-box">
-            <b>${escapeHTML(j.bows || 0)} / 108</b>
-            <span>Lạy Phật (Trăm lạy: ${j.bows >= 108 ? '✅' : 'đang cày'})</span>
+            <b>${reportValue(j.bows)} / 108</b>
+            <span>Lạy Phật (Trăm lạy: ${j.bows === null || j.bows === undefined ? 'chưa xác định' : j.bows >= 108 ? '✅' : 'đang cày'})</span>
           </div>
           <div class="stat-box">
-            <b>${escapeHTML(j.beads || 0)} hạt</b>
-            <span>Tràng hạt (${escapeHTML(j.rounds || 0)} chuỗi tròn)</span>
+            <b>${reportValue(j.beads)} hạt</b>
+            <span>Tràng hạt (${reportValue(j.rounds)} chuỗi tròn)</span>
           </div>
         </div>
         <div class="stat-row">
           <div class="stat-box">
-            <b>${escapeHTML(j.incense || 0)} / 30</b>
+            <b>${reportValue(j.incense)} / 30</b>
             <span>Dâng hương (Hương trầm)</span>
           </div>
           <div class="stat-box">
-            <b>${escapeHTML(j.lanterns || 0)} / 10</b>
+            <b>${reportValue(j.lanterns)} / 10</b>
             <span>Hoa đăng (Người thả đèn)</span>
           </div>
         </div>
         <div class="stat-row">
           <div class="stat-box">
-            <b>${escapeHTML(j.sitMin || 0)} / 60 phút</b>
+            <b>${reportValue(j.sitMin)} / 60 phút</b>
             <span>Ngồi tĩnh tâm (Tĩnh tọa)</span>
           </div>
           <div class="stat-box">
-            <b>${escapeHTML(j.visited || 10)} / 10 khu</b>
+            <b>${reportValue(j.visited)} / ${reportValue(j.zones)} khu</b>
             <span>Khám phá toàn chùa</span>
           </div>
         </div>
@@ -684,6 +719,8 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify({
       isRunning: state.isRunning,
       runningSeconds: state.isRunning && state.runStartTime ? Math.round((Date.now() - state.runStartTime) / 1000) : 0,
+      currentRunId: state.currentRunId,
+      runTriggerSource: state.runTriggerSource,
       lastUpdated: state.lastUpdated,
       merit: state.merit,
       journal: state.journal,
