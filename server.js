@@ -406,11 +406,11 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/run' || url.pathname === '/run' || url.pathname === '/cron') {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     if (state.isRunning) {
-      res.end(JSON.stringify({ ok: false, message: 'Chu trình đang chạy dở, vui lòng đợi.' }));
+      res.end(JSON.stringify({ ok: true, running: true, message: 'Chu trình nhiệm vụ hiện đang được thực hiện.' }));
       return;
     }
 
-    res.end(JSON.stringify({ ok: true, message: 'Đã kích hoạt chu trình nhiệm vụ thành công!' }));
+    res.end(JSON.stringify({ ok: true, running: false, message: 'Đã kích hoạt chu trình nhiệm vụ thành công!' }));
     // Chạy ngầm trong background
     executeRoutine(`API Trigger (${url.pathname})`).catch(console.error);
     return;
