@@ -532,25 +532,50 @@ export class DiDenChuaClient {
   async doMeditate(seconds = 3600, onProgress = null) {
     const mins = Math.ceil(seconds / 60);
     log.temple('🧘', `Bắt đầu ngồi thiền tĩnh tâm trong ${mins} phút (${seconds}s)...`);
-    
-    // Gửi trạng thái ngồi thiền (s = 2)
-    this.send({ t: 'state', s: 2, seat: 'thap-1' });
+
+    // 1. Chuyển đến khu vực Vườn thiền (vị trí thiền định tĩnh tâm chính thức)
+    this.send({ t: 'visit', zone: 'Vườn thiền' });
+    await this.sleep(600);
+
+    // 2. Tọa độ chuẩn Vườn thiền: x: -36, y: 0, z: 30, ry: 1.57, s: 2 (ngồi tại chỗ id: 'dat')
+    // Không gửi seat ảo tránh bị server kiểm tra khoảng cách và loại bỏ
+    const sitPayload = { t: 'state', x: -36, y: 0, z: 30, ry: 1.57, s: 2 };
+    this.send(sitPayload);
 
     const start = Date.now();
     let elapsed = 0;
+    let lastStateSend = Date.now();
+    let lastHeartbeat = Date.now();
 
     while (elapsed < seconds) {
-      await this.sleep(5000);
-      elapsed = Math.floor((Date.now() - start) / 1000);
+      await this.sleep(1000);
+      const now = Date.now();
+      elapsed = Math.floor((now - start) / 1000);
       const remain = Math.max(0, seconds - elapsed);
+
+      // Gửi cập nhật trạng thái s = 2 liên tục mỗi 2 giây (đồng bộ đúng chuẩn ticker so() của game)
+      // Giúp máy chủ luôn nhận diện người chơi đang ngồi tĩnh và tích lũy từng phút lẻ (sitMin)
+      if (now - lastStateSend >= 2000) {
+        this.send(sitPayload);
+        lastStateSend = now;
+      }
+
+      // Gửi heartbeat duy trì kết nối WebSocket mỗi 20 giây
+      if (now - lastHeartbeat >= 20000) {
+        this.send({ t: 'hb' });
+        lastHeartbeat = now;
+      }
+
       if (onProgress) {
         onProgress(elapsed, seconds);
       } else if (elapsed % 30 === 0 || remain === 0) {
         log.info(`Thiền định: Đã ngồi ${Math.floor(elapsed / 60)}p${elapsed % 60}s / ${mins} phút (còn ${remain}s)`);
       }
-      // Giữ kết nối
-      this.send({ t: 'hb' });
     }
+
+    // 3. Đứng dậy trở về trạng thái bình thường (s = 0)
+    this.send({ t: 'state', x: -36, y: 0, z: 30, ry: 1.57, s: 0 });
+    await this.sleep(800);
 
     log.info(`Đã hoàn thành ${mins} phút tĩnh tâm thiền định. Gửi yêu cầu nhận thưởng...`);
     this.send({ t: 'claim', q: 'ngoi' });
