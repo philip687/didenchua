@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: didenchua-bot
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: CID
+        value: c332df6e-1e07-48a3-b46d-f5dc8d6c04a4
+      - key: NAME
+        value: thichkngan
+      - key: ROOM
+        value: chua-1
+      - key: SAFE_MODE
+        value: "true"
+      - key: NODE_VERSION
+        value: 22
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: DISCORD_WEBHOOK_URL
+        sync: false

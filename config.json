@@ -1,0 +1,23 @@
+{
+  "cid": "c332df6e-1e07-48a3-b46d-f5dc8d6c04a4",
+  "name": "thichkngan",
+  "kind": "tieu",
+  "robe": "nau",
+  "skin": "dong",
+  "bio": "Nam Mô A Di Đà Phật · Thân tâm thường an lạc",
+  "beads": "go",
+  "cushion": "xam",
+  "room": "chua-1",
+  "chromePath": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "safeMode": true,
+  "minDelaySec": 3.5,
+  "maxDelaySec": 7,
+  "milestoneFarming": {
+    "enabled": true,
+    "dailyBows": 18,
+    "dailyBeads": 88,
+    "dailySweeps": 5,
+    "dailyIncense": 2,
+    "dailyLanterns": 1
+  }
+}

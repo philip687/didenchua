@@ -1,0 +1,21 @@
+import { DiDenChuaClient } from '../client.js';
+import { log } from '../logger.js';
+
+export async function runMo(count = 30) {
+  const client = new DiDenChuaClient();
+  try {
+    await client.connect();
+    await client.doMo(count);
+    client.printStatus();
+  } catch (err) {
+    log.error('Lỗi khi gõ mõ:', err.message);
+  } finally {
+    client.close();
+  }
+}
+
+if (process.argv[1]?.endsWith('mo.js')) {
+  const count = process.argv[2] ? parseInt(process.argv[2], 10) : 30;
+  runMo(count).then(() => process.exit(0));
+}
+

@@ -1,0 +1,33 @@
+name: Tự Động Điểm Danh & Làm Nhiệm Vụ Chùa Online
+
+on:
+  schedule:
+    # Chạy tự động mỗi ngày lúc 00:05 sáng giờ Việt Nam (UTC 17:05 hôm trước)
+    - cron: '5 17 * * *'
+  workflow_dispatch: # Cho phép bấm nút Run thủ công trên GitHub Actions bất kỳ lúc nào
+
+jobs:
+  didenchua-routine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Tải mã nguồn
+        uses: actions/checkout@v4
+
+      - name: Cài đặt Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Cài đặt dependencies
+        run: npm install
+
+      - name: Chạy Giai đoạn 1 (Hành động tức thời) & Giai đoạn 2 (Nhiệm vụ treo thiền định)
+        env:
+          CID: ${{ secrets.DIDENCHUA_CID }}
+          NAME: ${{ secrets.DIDENCHUA_NAME || 'thichkngan' }}
+          SAFE_MODE: 'true'
+        run: npm run cicd -- --full
+
