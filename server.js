@@ -142,8 +142,18 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
   let runStatus = 'success';
   let safeErrorMessage = null;
   let errorStep = null;
+  let keepAliveTimer = null;
 
   try {
+    // Tự động ping keep-alive mỗi 3 phút trong lúc làm nhiệm vụ để chống Render Free Tier ngủ gật
+    const keepAliveUrl = process.env.RENDER_EXTERNAL_URL
+      ? `${process.env.RENDER_EXTERNAL_URL}/health`
+      : `http://127.0.0.1:${PORT}/health`;
+    keepAliveTimer = setInterval(() => {
+      fetch(keepAliveUrl).catch(() => {});
+    }, 180000);
+    if (keepAliveTimer.unref) keepAliveTimer.unref();
+
     const initClient = new DiDenChuaClient();
     await initClient.connect(8000);
     const initJ = await initClient.fetchJournal();
@@ -261,6 +271,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
 
     return { ok: false, error: safeErrorMessage };
   } finally {
+    if (keepAliveTimer) clearInterval(keepAliveTimer);
     state.isRunning = false;
     state.runStartTime = null;
     state.runTriggerSource = null;

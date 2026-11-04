@@ -501,6 +501,14 @@ export class DiDenChuaClient {
     await this.sleep(1200);
   }
 
+  async doVow(text = 'Cầu cho muôn người bình an, thân tâm thường an lạc, vạn sự hanh thông') {
+    log.temple('🙏', `Gửi một lời nguyện chung tới cả chùa: "${text}"…`);
+    await this.humanDelay('thành tâm hướng về Tam Bảo gửi lời nguyện');
+    this.send({ t: 'vow', text });
+    log.info('-> Đã gửi lời nguyện chung tới cả chùa (hoàn thành nhiệm vụ lời nguyện).');
+    await this.sleep(1200);
+  }
+
   async doQaIncense() {
     log.temple('🪔', 'Dâng hương tại đài Quan Thế Âm Bồ Tát…');
     await this.humanDelay('tiến lại gần tôn tượng Bồ Tát Quan Âm');

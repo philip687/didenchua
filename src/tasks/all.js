@@ -103,9 +103,13 @@ export async function runAllQuests(options = {}) {
 
     // 12. Gieo quẻ xăm may mắn đầu ngày -> Nhiệm vụ xam
     await client.doXam();
-    await client.humanDelay('thong thả xếp hàng nhận thưởng');
+    await client.humanDelay('thong thả dạo bước');
 
-    // 13. CHỐT KHÓA NHẬN THƯỞNG TOÀN BỘ NHIỆM VỤ HÀNG NGÀY NGAY LẬP TỨC
+    // 13. Gửi một lời nguyện chung tới cả chùa -> Nhiệm vụ lời nguyện
+    await client.doVow('Cầu cho muôn người bình an, thân tâm thường an lạc, vạn sự hanh thông');
+    await client.humanDelay('thành tâm hướng về đại chúng');
+
+    // 14. CHỐT KHÓA NHẬN THƯỞNG TOÀN BỘ NHIỆM VỤ HÀNG NGÀY NGAY LẬP TỨC
     log.info('🔒 Gửi yêu cầu nhận thưởng tất cả nhiệm vụ hàng ngày Tầng 1...');
     const claimRes = await client.claimAllQuests();
     unverifiedCount += claimRes.unverified?.length || 0;
@@ -161,9 +165,14 @@ export async function runAllQuests(options = {}) {
       }
 
       // 4. Cày thêm dâng hương (mốc 30 lần danh hiệu "Hương trầm")
-      if (dailyIncense > 0) {
-        log.temple('🪔', `[Cày thành tích] Dâng thêm ${dailyIncense} nén hương thành kính...`);
-        await client.doIncense(dailyIncense);
+      let incenseCount = dailyIncense;
+      if (initialJournal && typeof initialJournal.incense === 'number' && initialJournal.incense < 30) {
+        const remainingTo30 = 30 - initialJournal.incense;
+        incenseCount = Math.max(dailyIncense, Math.min(remainingTo30, 5));
+      }
+      if (incenseCount > 0) {
+        log.temple('🪔', `[Cày thành tích] Dâng thêm ${incenseCount} nén hương thành kính (tiến tới mốc 30)...`);
+        await client.doIncense(incenseCount);
         await client.humanDelay('thành tâm khấn nguyện');
       }
 
