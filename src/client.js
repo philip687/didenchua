@@ -491,6 +491,36 @@ export class DiDenChuaClient {
     await this.humanDelay('lắng lòng nghe tiếng chuông ngân');
   }
 
+  async doXam() {
+    log.temple('📜', 'Gieo quẻ xăm may mắn đầu ngày (+công đức quẻ xăm)…');
+    await this.humanDelay('thành tâm lắc ống xăm');
+    const randomXam = Math.floor(Math.random() * 100) + 1;
+    this.send({ t: 'xam', n: randomXam });
+    log.info(`-> Đã gieo quẻ xăm số [${randomXam}] cầu bình an cát tường.`);
+    this.claimQuest('xam');
+    await this.sleep(1200);
+  }
+
+  async doQaIncense() {
+    log.temple('🪔', 'Dâng hương tại đài Quan Thế Âm Bồ Tát…');
+    await this.humanDelay('tiến lại gần tôn tượng Bồ Tát Quan Âm');
+    this.send({ t: 'qa-incense' });
+    log.info('-> Đã gửi yêu cầu dâng nén tâm hương cúng dường Bồ Tát Quan Âm.');
+    await this.sleep(1200);
+  }
+
+  async doTuyHy(maxCount = 5) {
+    if (!this.lanterns || this.lanterns.length === 0) return;
+    log.temple('🏮', 'Tùy hỷ công đức hoa đăng của bạn đồng tu trên hồ sen…');
+    await this.humanDelay('ngắm những ngọn hoa đăng lung linh trên mặt hồ');
+    const toTuyhy = this.lanterns.slice(0, maxCount);
+    for (const lantern of toTuyhy) {
+      this.send({ t: 'tuyhy', lantern: lantern.id });
+      log.info(`-> Tùy hỷ hoa đăng: "${lantern.text}"`);
+      await this.sleep(800);
+    }
+  }
+
   async doMeditate(seconds = 300, onProgress = null) {
     const mins = Math.ceil(seconds / 60);
     log.temple('🧘', `Bắt đầu ngồi thiền tĩnh tâm trong ${mins} phút (${seconds}s)...`);
