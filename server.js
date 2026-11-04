@@ -14,6 +14,8 @@ const state = {
   merit: null,
   journal: null,
   isRunning: false,
+  runStartTime: null,
+  runTriggerSource: null,
   runHistory: [],
   currentLogs: []
 };
@@ -50,6 +52,8 @@ async function executeRoutine(triggerSource = 'Manual / Web') {
   }
 
   state.isRunning = true;
+  state.runStartTime = Date.now();
+  state.runTriggerSource = triggerSource;
   addWebLog(`⚡ Bắt đầu chạy chu kỳ nhiệm vụ (Nguồn: ${triggerSource})...`);
   const startTime = Date.now();
 
@@ -117,6 +121,8 @@ async function executeRoutine(triggerSource = 'Manual / Web') {
     return { ok: false, error: err.message };
   } finally {
     state.isRunning = false;
+    state.runStartTime = null;
+    state.runTriggerSource = null;
   }
 }
 
@@ -180,6 +186,39 @@ function renderDashboardHTML() {
   `).join('') || '<p class="empty">Chưa có lịch sử chạy nào trong phiên này.</p>';
 
   const logsHTML = state.currentLogs.map(l => `<div>${l}</div>`).join('') || '<div>Hệ thống sẵn sàng. Đang chờ tác vụ…</div>';
+  const isRunning = state.isRunning;
+  const elapsedSec = isRunning && state.runStartTime ? Math.round((Date.now() - state.runStartTime) / 1000) : 0;
+
+  // Khối thông báo trạng thái & Log trực tiếp khi đang làm nhiệm vụ
+  const runningBannerHTML = isRunning ? `
+    <div class="card live-task-card" style="border: 2px solid var(--gold); background: #1a140f; box-shadow: 0 0 25px rgba(233,194,122,0.25); margin-bottom: 20px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+        <h2 style="color:var(--gold); font-size:16px; margin:0; border:none; padding:0; display:flex; align-items:center; gap:8px;">
+          <span class="pulse-dot"></span> 🟡 ĐANG THỰC HIỆN NHIỆM VỤ TỰ ĐỘNG
+        </h2>
+        <span id="elapsedTimer" style="font-size:13px; color:#ffd98d; font-family:monospace; background:rgba(0,0,0,0.4); padding:4px 10px; border-radius:6px; border:1px solid var(--card-border);">
+          ⏱️ Đã chạy: ${elapsedSec}s
+        </span>
+      </div>
+      <div class="logs-box" id="liveLogsContainer" style="max-height: 280px; background:#080604; color:#ffe3a8; font-size:13px; line-height:1.7;">
+        ${logsHTML}
+      </div>
+      <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-dim); flex-wrap:wrap; gap:8px;">
+        <span>📡 Đang truyền nhật ký trực tiếp (Tự động cập nhật mỗi 2 giây)...</span>
+        <span style="color:var(--gold);">⚡ Xin vui lòng không tắt tab</span>
+      </div>
+    </div>
+  ` : `
+    <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(103,185,130,0.1); border:1px solid rgba(103,185,130,0.3); padding:10px 16px; border-radius:10px; margin-bottom:20px; font-size:13px; flex-wrap:wrap; gap:10px;">
+      <div style="color:var(--success); font-weight:600; display:flex; align-items:center; gap:8px;">
+        <span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:var(--success);"></span>
+        🟢 SẴN SÀNG · Nhân vật đang an nhiên tĩnh tâm tại chùa
+      </div>
+      <div style="color:var(--text-dim); font-size:12px;">
+        Cập nhật lần cuối: ${state.lastUpdated || 'Đã đồng bộ'}
+      </div>
+    </div>
+  `;
 
   return `<!DOCTYPE html>
 <html lang="vi">
@@ -209,6 +248,20 @@ function renderDashboardHTML() {
     button.btn { background: var(--gold); color: #1c150e; border: none; padding: 10px 18px; border-radius: 10px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; transition: 0.2s; }
     button.btn:hover { background: #ffd98d; transform: translateY(-1px); }
     button.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .pulse-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #f1c40f;
+      margin-right: 6px;
+      animation: pulse 1.2s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.3; transform: scale(0.85); }
+      100% { opacity: 1; transform: scale(1); }
+    }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 20px; }
     .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px; padding: 18px; }
     .card h2 { font-size: 15px; color: var(--gold); border-bottom: 1px solid var(--card-border); padding-bottom: 10px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
@@ -246,11 +299,14 @@ function renderDashboardHTML() {
         <p>Cấp bậc: <b>${me.level || 'Hoan hỷ'} (Lv.${me.lv || 3})</b> · Chuỗi lên chùa: <b>${me.days || 2} ngày liên tục</b></p>
       </div>
       <div class="actions">
-        <button id="runBtn" class="btn" onclick="triggerRun()" ${state.isRunning ? 'disabled' : ''}>
-          ${state.isRunning ? '⏳ Đang làm nhiệm vụ…' : '⚡ Chạy Nhiệm Vụ Ngay'}
+        <button id="runBtn" class="btn" onclick="triggerRun()" ${isRunning ? 'disabled' : ''}>
+          ${isRunning ? '⏳ Đang làm nhiệm vụ…' : '⚡ Chạy Nhiệm Vụ Ngay'}
         </button>
       </div>
     </header>
+
+    <!-- TRẠNG THÁI & KHỐI LIVE TASK LOGS KHI ĐANG CHẠY -->
+    ${runningBannerHTML}
 
     <div class="grid">
       <!-- CÔNG ĐỨC & CẤP BẬC -->
@@ -340,15 +396,15 @@ function renderDashboardHTML() {
       </div>
 
       <div class="card">
-        <h2>💻 Nhật Ký Trực Tiếp (Live Logs)</h2>
-        <div class="logs-box">
+        <h2>💻 Nhật Ký Hệ Thống</h2>
+        <div class="logs-box" id="bottomLogsBox">
           ${logsHTML}
         </div>
       </div>
     </div>
 
     <footer>
-      <p>Hệ thống tự động hóa công đức chùa An Tự Duyên · Triển khai trên Render Cloud · <a href="/api/status" target="_blank">Xem API JSON</a></p>
+      <p>Hệ thống tự động hóa công đức chùa An Tự Duyên · Triển khai trên Render Cloud · <a href="/api/status" target="_blank">Xem API JSON</a> · <a href="/health">Health Monitor</a></p>
     </footer>
   </div>
 
@@ -361,18 +417,57 @@ function renderDashboardHTML() {
         const res = await fetch('/api/run', { method: 'POST' });
         const data = await res.json();
         if (data.ok) {
-          alert('Đã kích hoạt chạy chu trình tự động! Vui lòng đợi trong giây lát, trang sẽ tự làm mới.');
+          location.reload();
         } else {
           alert(data.message || 'Lỗi khi kích hoạt');
+          btn.disabled = false;
+          btn.innerText = '⚡ Chạy Nhiệm Vụ Ngay';
         }
       } catch (err) {
         alert('Lỗi kết nối: ' + err.message);
+        btn.disabled = false;
+        btn.innerText = '⚡ Chạy Nhiệm Vụ Ngay';
       }
-      setTimeout(() => location.reload(), 4000);
     }
 
-    // Tự động làm mới trang mỗi 30 giây để cập nhật trạng thái
-    setTimeout(() => location.reload(), 30000);
+    // Tự động đồng bộ Live Logs từng giây khi đang làm nhiệm vụ
+    const isCurrentlyRunning = ${isRunning ? 'true' : 'false'};
+
+    if (isCurrentlyRunning) {
+      const pollTimer = setInterval(async () => {
+        try {
+          const res = await fetch('/api/status');
+          const data = await res.json();
+
+          if (!data.isRunning) {
+            clearInterval(pollTimer);
+            location.reload();
+            return;
+          }
+
+          // Cập nhật số giây
+          const timerEl = document.getElementById('elapsedTimer');
+          if (timerEl && data.runningSeconds !== undefined) {
+            timerEl.innerText = '⏱️ Đã chạy: ' + data.runningSeconds + 's';
+          }
+
+          // Cập nhật Live Logs box
+          const logBox = document.getElementById('liveLogsContainer');
+          if (logBox && Array.isArray(data.liveTaskLogs)) {
+            logBox.innerHTML = data.liveTaskLogs.map(l => '<div>' + l + '</div>').join('');
+          }
+        } catch {}
+      }, 2000);
+    } else {
+      // Khi rảnh rỗi, kiểm tra trạng thái mỗi 15 giây
+      setTimeout(async () => {
+        try {
+          const res = await fetch('/api/status');
+          const data = await res.json();
+          if (data.isRunning) location.reload();
+        } catch {}
+      }, 15000);
+    }
   </script>
 </body>
 </html>`;
@@ -382,10 +477,42 @@ function renderDashboardHTML() {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
-  // 1. Health check (Render giám sát)
+  // 1. Health check (Hỗ trợ cả UptimeRobot JSON lẫn Browser xem trạng thái & Live Logs)
   if (url.pathname === '/health') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: 'ok', time: new Date().toISOString() }));
+    const isHtml = req.headers.accept?.includes('text/html');
+
+    if (isHtml) {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(renderDashboardHTML());
+      return;
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({
+      status: 'ok',
+      time: new Date().toISOString(),
+      isRunning: state.isRunning,
+      runningSeconds: state.isRunning && state.runStartTime ? Math.round((Date.now() - state.runStartTime) / 1000) : 0,
+      character: {
+        name: state.merit?.me?.name || 'thichkngan',
+        user: state.merit?.me?.user || 'thichkngan',
+        level: state.merit?.me?.level || 'Hoan hỷ',
+        lv: state.merit?.me?.lv || 3,
+        totalMerit: state.merit?.me?.total || 0,
+        todayMerit: state.merit?.me?.today || 0,
+        days: state.merit?.me?.days || 2,
+        bows: `${state.journal?.bows || 0}/108`,
+        beads: state.journal?.beads || 0,
+        incense: `${state.journal?.incense || 0}/30`,
+        lanterns: `${state.journal?.lanterns || 0}/10`,
+        quests: (state.merit?.me?.quests || []).map(q => ({
+          title: q.title,
+          reward: q.reward,
+          status: q.claimed ? 'Đã nhận' : (q.have >= q.need ? 'Chờ nhận' : `${q.have}/${q.need}`)
+        }))
+      },
+      liveTaskLogs: state.currentLogs
+    }, null, 2));
     return;
   }
 
@@ -394,9 +521,11 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({
       isRunning: state.isRunning,
+      runningSeconds: state.isRunning && state.runStartTime ? Math.round((Date.now() - state.runStartTime) / 1000) : 0,
       lastUpdated: state.lastUpdated,
       merit: state.merit,
       journal: state.journal,
+      liveTaskLogs: state.currentLogs,
       history: state.runHistory
     }, null, 2));
     return;
