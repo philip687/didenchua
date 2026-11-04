@@ -27,7 +27,7 @@ jobs:
       - name: Chạy Giai đoạn 1 (Hành động tức thời) & Giai đoạn 2 (Nhiệm vụ treo thiền định)
         env:
           CID: ${{ secrets.DIDENCHUA_CID }}
-          NAME: ${{ secrets.DIDENCHUA_NAME || 'thichkngan' }}
+          NAME: ${{ secrets.DIDENCHUA_NAME || 'phat-tu' }}
           SAFE_MODE: 'true'
         run: npm run cicd -- --full
 

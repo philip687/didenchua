@@ -18,14 +18,12 @@ import { log } from '../logger.js';
  *    Sau khi thiền xong chốt quest thiền (+15 điểm) và xuất báo cáo hoàn mãn.
  */
 export async function runAllQuests(options = {}) {
-  const {
-    skipHang = false,           // Bỏ qua nhiệm vụ treo (dành cho chế độ chạy nhanh)
-    skipMilestones = false,     // Bỏ qua giai đoạn cày thành tích nếu chỉ muốn làm nhiệm vụ ngày
-    moCount = 30,
-    beadsCount = 20,
-    meditateSeconds = null,     // Thời gian ngồi thiền tĩnh tâm (giây)
-    autoWaterOthers = null      // Tự động tưới nước giúp luống hoa của bạn đồng tu
-  } = options;
+  const skipHang = options.skipHang ?? options.skipMeditate ?? false;
+  const skipMilestones = options.skipMilestones ?? false;
+  const moCount = options.moCount ?? 30;
+  const beadsCount = options.beadsCount ?? 20;
+  const meditateSeconds = options.meditateSeconds ?? null;
+  const autoWaterOthers = options.autoWaterOthers ?? null;
 
   const client = new DiDenChuaClient();
 
@@ -97,9 +95,14 @@ export async function runAllQuests(options = {}) {
     await client.humanDelay('lắng nghe dư âm tiếng chuông');
 
     // 13. CHỐT NHẬN THƯỞNG TOÀN BỘ NHIỆM VỤ HÀNH ĐỘNG GIAI ĐOẠN 1
-    log.info('🔒 Chốt nhận thưởng tất cả nhiệm vụ hành động Giai đoạn 1...');
-    await client.claimAllQuests();
-    log.success('ĐÃ HOÀN TẤT VÀ KHÓA THÀNH CÔNG TOÀN BỘ NHIỆM VỤ HÀNH ĐỘNG (PHASE 1)!');
+    log.info('🔒 Gửi yêu cầu nhận thưởng tất cả nhiệm vụ hành động Giai đoạn 1...');
+    const claimRes = await client.claimAllQuests();
+    if (claimRes.claimed?.length > 0) {
+      log.success(`Máy chủ đã xác nhận ghi nhận thưởng ${claimRes.claimed.length} nhiệm vụ.`);
+    }
+    if (claimRes.unverified?.length > 0) {
+      log.warn(`Còn ${claimRes.unverified.length} nhiệm vụ đã gửi yêu cầu nhưng chưa nhận được xác nhận từ máy chủ.`);
+    }
     client.printStatus();
 
     // =========================================================================
@@ -191,12 +194,15 @@ export async function runAllQuests(options = {}) {
       // Ngồi thiền với thời gian tùy biến
       await client.doMeditate(medSec);
 
-      // Nhận thưởng nhiệm vụ ngồi tĩnh sau khi hoàn thành thời gian treo
-      log.info('Nhận thưởng nhiệm vụ ngồi tĩnh sau khi hoàn thành thời gian thiền...');
-      client.claimQuest('ngoi');
-      await client.sleep(1500);
+      // Kiểm tra phản hồi xác nhận từ máy chủ cho nhiệm vụ ngồi thiền
+      const ngoiQuest = client.merit?.me?.quests?.find(q => q.id === 'ngoi');
+      if (ngoiQuest?.claimed) {
+        log.success('[ĐÃ XÁC NHẬN] Máy chủ đã ghi nhận hoàn thành nhiệm vụ tĩnh tâm thiền định.');
+      } else {
+        log.info('[ĐÃ GỬI YÊU CẦU] Đã hoàn thành thời gian thiền định và gửi yêu cầu nhận thưởng (chờ máy chủ đồng bộ).');
+      }
 
-      log.success('HOÀN THÀNH TOÀN DIỆN CẢ 3 GIAI ĐOẠN: HÀNH ĐỘNG -> CÀY THÀNH TÍCH -> TREO THIỀN!');
+      log.success('HOÀN THÀNH CHU KỲ 3 GIAI ĐOẠN: HÀNH ĐỘNG -> CÀY THÀNH TÍCH -> TREO THIỀN!');
       client.printStatus();
       client.printJournal();
     } else {

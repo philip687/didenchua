@@ -1,4 +1,5 @@
 import http from 'node:http';
+import crypto from 'node:crypto';
 import { runAllQuests } from './src/tasks/all.js';
 import { DiDenChuaClient } from './src/client.js';
 import { log, setLogHook } from './src/logger.js';
@@ -8,26 +9,99 @@ import { loadConfig } from './config.js';
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const HOST = '0.0.0.0';
 
-// Bộ nhớ đệm lưu trạng thái và lịch sử chạy
+// Cấu hình mã bảo mật & xác thực (Priority 1)
+const AUTH_TOKEN = (process.env.AUTH_TOKEN || process.env.CRON_SECRET || process.env.ADMIN_KEY || '').trim();
+const CSRF_TOKEN = crypto.randomBytes(32).toString('hex');
+
+// Hàm escape HTML chống XSS (Priority 2)
+function escapeHTML(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Kiểm tra xác thực token an toàn (Timing-safe comparison)
+function verifyAuth(req) {
+  // 1. Kiểm tra CSRF header (dành cho browser client truy cập từ cùng origin)
+  const clientCsrf = req.headers['x-csrf-token'];
+  if (clientCsrf && typeof clientCsrf === 'string') {
+    try {
+      const a = Buffer.from(clientCsrf);
+      const b = Buffer.from(CSRF_TOKEN);
+      if (a.length === b.length && crypto.timingSafeEqual(a, b)) {
+        return true;
+      }
+    } catch {}
+  }
+
+  // 2. Nếu môi trường không cấu hình AUTH_TOKEN (chạy local dev), cho phép
+  if (!AUTH_TOKEN) {
+    return true;
+  }
+
+  // 3. Kiểm tra token từ các HTTP headers an toàn (Authorization, X-API-Key, X-Cron-Secret)
+  // Tuyệt đối không nhận token trong URL query string để tránh rò rỉ log
+  let providedToken = '';
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    providedToken = authHeader.slice(7).trim();
+  } else if (req.headers['x-api-key']) {
+    providedToken = String(req.headers['x-api-key']).trim();
+  } else if (req.headers['x-cron-secret']) {
+    providedToken = String(req.headers['x-cron-secret']).trim();
+  }
+
+  if (!providedToken) {
+    return false;
+  }
+
+  try {
+    const a = Buffer.from(providedToken);
+    const b = Buffer.from(AUTH_TOKEN);
+    if (a.length !== b.length) return false;
+    return crypto.timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
+
+// Bộ nhớ đệm lưu trạng thái và lịch sử chạy (In-memory buffer)
 const state = {
   lastUpdated: null,
   merit: null,
   journal: null,
   isRunning: false,
   runStartTime: null,
+  currentRunId: null,
   runTriggerSource: null,
   runHistory: [],
   currentLogs: []
 };
 
-// Ghi log vào bộ nhớ đệm để hiển thị trên web
-function addWebLog(msg) {
-  const time = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(11, 19);
-  state.currentLogs.unshift(`[${time}] ${msg}`);
-  if (state.currentLogs.length > 50) state.currentLogs.pop();
+// Ghi log vào bộ nhớ đệm theo cấu trúc sự kiện chuẩn (SYSTEM_LOG_REPORT)
+function addWebLog(msg, level = 'info', icon = 'ℹ️') {
+  const now = new Date();
+  const timeVN = new Date(now.getTime() + 7 * 3600 * 1000).toISOString().slice(11, 19);
+  const entry = {
+    id: 'evt-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6),
+    timestamp: now.toISOString(),
+    timeDisplay: `[${timeVN} UTC+7]`,
+    runId: state.currentRunId || null,
+    level,
+    icon,
+    message: String(msg)
+  };
+  state.currentLogs.unshift(entry);
+  if (state.currentLogs.length > 80) state.currentLogs.pop();
 }
 
-setLogHook(addWebLog);
+setLogHook((msg, level, icon) => {
+  addWebLog(msg, level, icon);
+});
 
 // Cập nhật thông tin tài khoản từ máy chủ chùa
 async function refreshAccountData() {
@@ -37,7 +111,7 @@ async function refreshAccountData() {
     const j = await client.fetchJournal();
     state.merit = client.merit;
     state.journal = j;
-    state.lastUpdated = new Date(Date.now() + 7 * 3600 * 1000).toLocaleString('vi-VN', { timeZone: 'UTC' });
+    state.lastUpdated = new Date(Date.now() + 7 * 3600 * 1000).toLocaleString('vi-VN', { timeZone: 'UTC' }) + ' (UTC+7)';
   } catch (err) {
     log.error('Lỗi làm mới dữ liệu chùa:', err.message);
   } finally {
@@ -45,17 +119,26 @@ async function refreshAccountData() {
   }
 }
 
-// Hàm thực thi chu trình tự động
+// Hàm thực thi chu trình tự động (Định danh Run ID & Ghi nhận trạng thái chuẩn)
 async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
   if (state.isRunning) {
     return { ok: false, message: 'Đang có một tiến trình nhiệm vụ đang chạy dở, vui lòng đợi.' };
   }
 
+  const runId = 'run-' + Date.now().toString(36) + '-' + crypto.randomBytes(3).toString('hex');
   state.isRunning = true;
+  state.currentRunId = runId;
   state.runStartTime = Date.now();
   state.runTriggerSource = triggerSource;
-  addWebLog(`⚡ Bắt đầu chạy chu kỳ nhiệm vụ (Nguồn: ${triggerSource})...`);
+  
+  const startTimeVN = new Date(Date.now() + 7 * 3600 * 1000).toLocaleString('vi-VN', { timeZone: 'UTC' }) + ' (UTC+7)';
+  addWebLog(`⚡ [${runId}] Khởi động chu kỳ tự động (Nguồn: ${triggerSource})...`, 'info', '⚡');
   const startTime = Date.now();
+
+  let routineResult = null;
+  let runStatus = 'success';
+  let safeErrorMessage = null;
+  let errorStep = null;
 
   try {
     const initClient = new DiDenChuaClient();
@@ -65,86 +148,136 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
     initClient.close();
 
     // Chạy chu trình 3 Giai đoạn
-    await runAllQuests({ skipHang: false, ...runOptions });
+    routineResult = await runAllQuests({ skipHang: false, ...runOptions });
 
-    // Lấy lại dữ liệu mới nhất
+    // Lấy lại dữ liệu mới nhất sau khi chạy xong
     await refreshAccountData();
 
     const durationSec = Math.round((Date.now() - startTime) / 1000);
     const newlyUnlocked = (state.journal?.titles || []).filter(t => t.got && !prevTitles.has(t.name));
 
+    // Đánh giá trạng thái xác nhận
+    runStatus = routineResult?.unverifiedCount > 0 ? 'partial' : 'success';
+
     const result = {
+      id: runId,
       source: triggerSource,
-      status: 'success',
-      timestamp: new Date(Date.now() + 7 * 3600 * 1000).toLocaleString('vi-VN', { timeZone: 'UTC' }),
+      status: runStatus,
+      startTime: startTimeVN,
+      timestamp: startTimeVN,
       durationSec,
-      totalMerit: state.merit?.me?.total || 0,
-      todayMerit: state.merit?.me?.today || 0,
-      newlyUnlocked
+      totalMerit: state.merit?.me?.total !== undefined ? state.merit.me.total : null,
+      todayMerit: state.merit?.me?.today !== undefined ? state.merit.me.today : null,
+      meritLevel: state.merit?.me?.level || null,
+      newlyUnlocked,
+      storagePolicy: 'Bộ nhớ tạm phiên làm việc (In-memory buffer tối đa 15 lượt)',
+      error: null
     };
 
     state.runHistory.unshift(result);
     if (state.runHistory.length > 15) state.runHistory.pop();
 
-    addWebLog(`✅ Đã hoàn thành toàn bộ chu trình sau ${durationSec} giây!`);
+    addWebLog(`✅ [${runId}] Hoàn tất chu trình (${runStatus}) sau ${durationSec}s!`, 'success', '✅');
 
-    // Gửi thông báo Telegram/Discord nếu cấu hình
-    await notifyRunResult({
-      status: 'success',
-      journal: state.journal,
-      merit: state.merit,
-      durationSec,
-      newlyUnlocked
-    });
+    // Gửi thông báo Telegram/Discord nếu cấu hình (không làm đứt chu trình nếu notify lỗi)
+    try {
+      await notifyRunResult({
+        runId,
+        source: triggerSource,
+        status: runStatus,
+        journal: state.journal,
+        merit: state.merit,
+        durationSec,
+        newlyUnlocked
+      });
+    } catch (notifErr) {
+      addWebLog(`⚠️ Gửi thông báo Telegram/Discord thất bại: ${notifErr.message}`, 'warn', '⚠️');
+    }
 
     return { ok: true, result };
   } catch (err) {
     const durationSec = Math.round((Date.now() - startTime) / 1000);
-    addWebLog(`❌ Lỗi chạy nhiệm vụ: ${err.message}`);
+    safeErrorMessage = err.message || 'Lỗi không xác định';
+    errorStep = 'routine_execution';
+    runStatus = 'failed';
+
+    addWebLog(`❌ [${runId}] Thất bại tại bước [${errorStep}]: ${safeErrorMessage}`, 'error', '❌');
 
     const result = {
+      id: runId,
       source: triggerSource,
-      status: 'error',
-      error: err.message,
-      timestamp: new Date(Date.now() + 7 * 3600 * 1000).toLocaleString('vi-VN', { timeZone: 'UTC' }),
-      durationSec
+      status: 'failed',
+      error: safeErrorMessage,
+      errorStep,
+      startTime: startTimeVN,
+      timestamp: startTimeVN,
+      durationSec,
+      storagePolicy: 'Bộ nhớ tạm phiên làm việc (In-memory buffer tối đa 15 lượt)'
     };
     state.runHistory.unshift(result);
+    if (state.runHistory.length > 15) state.runHistory.pop();
 
-    await notifyRunResult({
-      status: 'error',
-      journal: state.journal,
-      merit: state.merit,
-      durationSec
-    });
+    try {
+      await notifyRunResult({
+        runId,
+        source: triggerSource,
+        status: 'failed',
+        error: safeErrorMessage,
+        journal: state.journal,
+        merit: state.merit,
+        durationSec
+      });
+    } catch {}
 
-    return { ok: false, error: err.message };
+    return { ok: false, error: safeErrorMessage };
   } finally {
     state.isRunning = false;
     state.runStartTime = null;
     state.runTriggerSource = null;
+    state.currentRunId = null;
   }
 }
 
-// Lập lịch tự động chạy lúc 00:05 mỗi sáng giờ VN (UTC+7)
+// Lập lịch tự động chạy sau 00:05 mỗi sáng giờ VN (UTC+7) với cơ chế chạy bù an toàn (Priority 4)
+let lastScheduledRunDate = '';
+let isSchedulerRunning = false;
+
 function startDailyScheduler() {
-  function checkSchedule() {
+  async function checkSchedule() {
+    if (isSchedulerRunning || state.isRunning) return;
+
     const now = new Date(Date.now() + 7 * 3600 * 1000);
+    const todayStr = now.toISOString().slice(0, 10);
     const hour = now.getUTCHours();
     const minute = now.getUTCMinutes();
 
-    // Đúng 00:05 sáng
-    if (hour === 0 && minute === 5 && !state.isRunning) {
-      log.temple('⏰', 'Đã đến 00:05 sáng - Bắt đầu tự động làm nhiệm vụ ngày mới!');
-      executeRoutine('Scheduler 00:05 Daily').catch(console.error);
+    // Điều kiện: Sau 00:05 sáng (giờ VN) và ngày hôm nay chưa chạy thành công
+    const pastScheduledTime = (hour > 0) || (hour === 0 && minute >= 5);
+    if (pastScheduledTime && lastScheduledRunDate !== todayStr) {
+      isSchedulerRunning = true;
+      log.temple('⏰', `Đến lịch chạy tự động ngày mới ${todayStr} (giờ Việt Nam). Khởi động chu kỳ...`);
+      try {
+        const res = await executeRoutine(`Daily Scheduler (${todayStr})`);
+        if (res && res.ok) {
+          lastScheduledRunDate = todayStr;
+          log.success(`Đã hoàn thành lịch chạy tự động ngày ${todayStr}.`);
+        } else {
+          log.warn(`Lịch chạy ngày ${todayStr} chưa hoàn tất: ${res?.error || res?.message || 'Lỗi không xác định'}. Sẽ thử lại sau.`);
+        }
+      } catch (err) {
+        log.error(`Lỗi thực thi lịch tự động ngày ${todayStr}:`, err.message);
+      } finally {
+        isSchedulerRunning = false;
+      }
     }
   }
 
-  setInterval(checkSchedule, 60000); // Kiểm tra mỗi phút
-  log.info('⏰ Đã kích hoạt lịch trình tự động canh 00:05 sáng mỗi ngày (giờ Việt Nam).');
+  setInterval(checkSchedule, 60000);
+  checkSchedule();
+  log.info('⏰ Đã kích hoạt lịch trình tự động canh sau 00:05 sáng mỗi ngày (giờ Việt Nam) với cơ chế chạy bù an toàn.');
 }
 
-// Tạo mã HTML Dashboard
+// Tạo mã HTML Dashboard an toàn chống XSS (Priority 2 & SYSTEM_LOG_REPORT)
 function renderDashboardHTML() {
   const me = state.merit?.me || {};
   const j = state.journal || {};
@@ -153,12 +286,12 @@ function renderDashboardHTML() {
   const questsHTML = (me.quests || []).map(q => {
     const badge = q.claimed
       ? '<span class="badge badge-done">✅ Đã nhận</span>'
-      : (q.have >= q.need ? '<span class="badge badge-ready">🎁 Chờ nhận</span>' : `<span class="badge badge-wait">⏳ ${q.have}/${q.need}</span>`);
+      : (q.have >= q.need ? '<span class="badge badge-ready">🎁 Chờ nhận</span>' : `<span class="badge badge-wait">⏳ ${escapeHTML(q.have)}/${escapeHTML(q.need)}</span>`);
     return `
       <div class="quest-item">
-        <div class="quest-title">${q.title}</div>
+        <div class="quest-title">${escapeHTML(q.title)}</div>
         <div class="quest-meta">
-          <span class="quest-reward">+${q.reward} điểm</span>
+          <span class="quest-reward">+${escapeHTML(q.reward)} điểm</span>
           ${badge}
         </div>
       </div>`;
@@ -169,23 +302,23 @@ function renderDashboardHTML() {
       <div class="title-card ${t.got ? 'title-got' : 'title-locked'}">
         <div class="title-icon">${t.got ? '🏆' : '🔒'}</div>
         <div class="title-info">
-          <b>${t.name}</b>
-          <small>${t.desc}</small>
+          <b>${escapeHTML(t.name)}</b>
+          <small>${escapeHTML(t.desc)}</small>
         </div>
       </div>`;
   }).join('') || '<p class="empty">Đang tải danh hiệu…</p>';
 
   const historyHTML = state.runHistory.map(h => `
-    <div class="history-item ${h.status}">
+    <div class="history-item ${escapeHTML(h.status)}">
       <div>
-        <b>${h.status === 'success' ? '✅ Thành công' : '❌ Lỗi'}</b> · <span>${h.source}</span>
-        <small class="time">${h.timestamp} (${h.durationSec}s)</small>
+        <b>${h.status === 'success' ? '✅ Thành công' : (h.status === 'partial' ? '⚠️ Một phần' : '❌ Thất bại')}</b> · <span>${escapeHTML(h.source)}</span>
+        <small class="time">${escapeHTML(h.timestamp)} (${escapeHTML(h.durationSec)}s) [ID: ${escapeHTML(h.id)}]</small>
       </div>
-      <div>${h.status === 'success' ? `+${h.todayMerit}đ (Tổng: ${h.totalMerit}đ)` : `<span class="err">${h.error}</span>`}</div>
+      <div>${h.status !== 'failed' && h.totalMerit !== null ? `+${escapeHTML(h.todayMerit)}đ (Tổng: ${escapeHTML(h.totalMerit)}đ)` : `<span class="err">${escapeHTML(h.error || 'Chưa hoàn tất')}</span>`}</div>
     </div>
-  `).join('') || '<p class="empty">Chưa có lịch sử chạy nào trong phiên này.</p>';
+  `).join('') || '<p class="empty">Chưa có lịch sử chạy nào trong phiên này (Bộ nhớ tạm lưu tối đa 15 lượt).</p>';
 
-  const logsHTML = state.currentLogs.map(l => `<div>${l}</div>`).join('') || '<div>Hệ thống sẵn sàng. Đang chờ tác vụ…</div>';
+  const logsHTML = state.currentLogs.map(l => `<div><span style="color:var(--text-dim); margin-right:6px;">${escapeHTML(l.timeDisplay)}</span><span style="margin-right:4px;">${escapeHTML(l.icon || 'ℹ️')}</span>${escapeHTML(l.message)}</div>`).join('') || '<div>Hệ thống sẵn sàng. Đang chờ tác vụ…</div>';
   const isRunning = state.isRunning;
   const elapsedSec = isRunning && state.runStartTime ? Math.round((Date.now() - state.runStartTime) / 1000) : 0;
 
@@ -197,7 +330,7 @@ function renderDashboardHTML() {
           <span class="pulse-dot"></span> 🟡 ĐANG THỰC HIỆN NHIỆM VỤ TỰ ĐỘNG
         </h2>
         <span id="elapsedTimer" style="font-size:13px; color:#ffd98d; font-family:monospace; background:rgba(0,0,0,0.4); padding:4px 10px; border-radius:6px; border:1px solid var(--card-border);">
-          ⏱️ Đã chạy: ${elapsedSec}s
+          ⏱️ Đã chạy: ${escapeHTML(elapsedSec)}s
         </span>
       </div>
       <div class="logs-box" id="liveLogsContainer" style="max-height: 280px; background:#080604; color:#ffe3a8; font-size:13px; line-height:1.7;">
@@ -215,7 +348,7 @@ function renderDashboardHTML() {
         🟢 SẴN SÀNG · Nhân vật đang an nhiên tĩnh tâm tại chùa
       </div>
       <div style="color:var(--text-dim); font-size:12px;">
-        Cập nhật lần cuối: ${state.lastUpdated || 'Đã đồng bộ'}
+        Cập nhật lần cuối: ${escapeHTML(state.lastUpdated || 'Đã đồng bộ')}
       </div>
     </div>
   `;
@@ -225,6 +358,7 @@ function renderDashboardHTML() {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="${escapeHTML(CSRF_TOKEN)}">
   <title>An Tự Duyên - Trung Tâm Điều Hành & Báo Cáo Công Đức</title>
   <style>
     :root {
@@ -278,15 +412,20 @@ function renderDashboardHTML() {
     .badge-ready { background: rgba(233,194,122,0.25); color: var(--gold); }
     .badge-wait { background: rgba(255,255,255,0.1); color: var(--text-dim); }
     .title-grid { display: grid; grid-template-columns: 1fr; gap: 8px; max-height: 280px; overflow-y: auto; padding-right: 4px; }
-    .title-card { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 8px; background: rgba(0,0,0,0.2); border: 1px solid var(--card-border); }
-    .title-got { border-color: rgba(233,194,122,0.4); background: rgba(233,194,122,0.06); }
-    .title-info b { font-size: 13px; display: block; color: var(--text); }
-    .title-got .title-info b { color: var(--gold); }
+    .title-card { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--card-border); }
+    .title-got { background: rgba(233,194,122,0.1); border-color: rgba(233,194,122,0.3); }
+    .title-locked { background: rgba(0,0,0,0.15); opacity: 0.6; }
+    .title-icon { font-size: 20px; }
+    .title-info b { font-size: 13px; color: var(--text); display: block; }
     .title-info small { font-size: 11px; color: var(--text-dim); }
-    .history-item { font-size: 13px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; }
-    .history-item .time { display: block; font-size: 11px; color: var(--text-dim); }
-    .history-item.error { color: var(--danger); }
-    .logs-box { background: #0c0907; border: 1px solid var(--card-border); border-radius: 10px; padding: 12px; font-family: monospace; font-size: 12px; color: #a89984; max-height: 180px; overflow-y: auto; line-height: 1.6; }
+    .history-item { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--card-border); margin-bottom: 8px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
+    .history-item.success { border-left: 3px solid var(--success); }
+    .history-item.partial { border-left: 3px solid var(--gold); }
+    .history-item.error, .history-item.failed { border-left: 3px solid var(--danger); }
+    .history-item .time { color: var(--text-dim); margin-left: 8px; }
+    .history-item .err { color: var(--danger); }
+    .logs-box { background: rgba(0,0,0,0.4); border: 1px solid var(--card-border); border-radius: 10px; padding: 12px; font-family: monospace; font-size: 12px; max-height: 180px; overflow-y: auto; line-height: 1.6; }
+    .empty { color: var(--text-dim); font-size: 13px; text-align: center; padding: 15px; }
     footer { text-align: center; font-size: 12px; color: var(--text-dim); margin-top: 30px; }
     footer a { color: var(--gold-dim); text-decoration: none; }
   </style>
@@ -295,8 +434,8 @@ function renderDashboardHTML() {
   <div class="container">
     <header>
       <div class="who">
-        <h1>🪷 ${me.name || cfg.name} <span>(@${me.user || cfg.name})</span></h1>
-        <p>Cấp bậc: <b>${me.level || 'Hoan hỷ'} (Lv.${me.lv || 3})</b> · Chuỗi lên chùa: <b>${me.days || 2} ngày liên tục</b></p>
+        <h1>🪷 ${escapeHTML(me.name || cfg.name || 'phat-tu')} <span>(@${escapeHTML(me.user || cfg.name || 'phat-tu')})</span></h1>
+        <p>Cấp bậc: <b>${escapeHTML(me.level || 'Hoan hỷ')} (Lv.${escapeHTML(me.lv || 3)})</b> · Chuỗi lên chùa: <b>${escapeHTML(me.days || 2)} ngày liên tục</b></p>
       </div>
       <div class="actions" style="display:flex; align-items:center; gap:8px;">
         <select id="meditateSelect" style="background:#2b221a; color:var(--gold); border:1px solid var(--card-border); padding:9px 12px; border-radius:10px; font-size:13px; outline:none; cursor:pointer;" ${isRunning ? 'disabled' : ''}>
@@ -316,24 +455,24 @@ function renderDashboardHTML() {
     <div class="grid">
       <!-- CÔNG ĐỨC & CẤP BẬC -->
       <div class="card">
-        <h2>✨ Công Đức & Tích Lũy <small style="font-size:11px; color:var(--text-dim); font-weight:normal;">Cập nhật: ${state.lastUpdated || 'Đang nạp...'}</small></h2>
+        <h2>✨ Công Đức & Tích Lũy <small style="font-size:11px; color:var(--text-dim); font-weight:normal;">Cập nhật: ${escapeHTML(state.lastUpdated || 'Đang nạp...')}</small></h2>
         <div class="stat-row">
           <div class="stat-box">
-            <b>${me.total || 0}</b>
+            <b>${escapeHTML(me.total || 0)}</b>
             <span>Tổng công đức</span>
           </div>
           <div class="stat-box">
-            <b>+${me.today || 0}</b>
+            <b>+${escapeHTML(me.today || 0)}</b>
             <span>Hôm nay</span>
           </div>
         </div>
         <div class="stat-row">
           <div class="stat-box">
-            <b>${(me.next || 1200) - (me.total || 0)}</b>
+            <b>${escapeHTML((me.next || 1200) - (me.total || 0))}</b>
             <span>Cần đến cấp sau</span>
           </div>
           <div class="stat-box">
-            <b>${j.streak || 2} ngày</b>
+            <b>${escapeHTML(j.streak || 2)} ngày</b>
             <span>Kỷ lục liên tiếp</span>
           </div>
         </div>
@@ -352,31 +491,31 @@ function renderDashboardHTML() {
         <h2>🎯 Tiến Độ Thành Tựu Vĩnh Viễn</h2>
         <div class="stat-row">
           <div class="stat-box">
-            <b>${j.bows || 0} / 108</b>
+            <b>${escapeHTML(j.bows || 0)} / 108</b>
             <span>Lạy Phật (Trăm lạy: ${j.bows >= 108 ? '✅' : 'đang cày'})</span>
           </div>
           <div class="stat-box">
-            <b>${j.beads || 0} hạt</b>
-            <span>Tràng hạt (${j.rounds || 0} chuỗi tròn)</span>
+            <b>${escapeHTML(j.beads || 0)} hạt</b>
+            <span>Tràng hạt (${escapeHTML(j.rounds || 0)} chuỗi tròn)</span>
           </div>
         </div>
         <div class="stat-row">
           <div class="stat-box">
-            <b>${j.incense || 0} / 30</b>
+            <b>${escapeHTML(j.incense || 0)} / 30</b>
             <span>Dâng hương (Hương trầm)</span>
           </div>
           <div class="stat-box">
-            <b>${j.lanterns || 0} / 10</b>
+            <b>${escapeHTML(j.lanterns || 0)} / 10</b>
             <span>Hoa đăng (Người thả đèn)</span>
           </div>
         </div>
         <div class="stat-row">
           <div class="stat-box">
-            <b>${j.sitMin || 0} / 60 phút</b>
+            <b>${escapeHTML(j.sitMin || 0)} / 60 phút</b>
             <span>Ngồi tĩnh tâm (Tĩnh tọa)</span>
           </div>
           <div class="stat-box">
-            <b>${j.visited || 10} / 10 khu</b>
+            <b>${escapeHTML(j.visited || 10)} / 10 khu</b>
             <span>Khám phá toàn chùa</span>
           </div>
         </div>
@@ -409,7 +548,7 @@ function renderDashboardHTML() {
     </div>
 
     <footer>
-      <p>Hệ thống tự động hóa công đức chùa An Tự Duyên · Triển khai trên Render Cloud · <a href="/api/status" target="_blank">Xem API JSON</a> · <a href="/health">Health Monitor</a></p>
+      <p>Hệ thống tự động hóa công đức chùa An Tự Duyên · Múi giờ: Asia/Ho_Chi_Minh (UTC+7) · Lưu trữ: Bộ nhớ tạm phiên làm việc (In-memory buffer) · <a href="/health">Health Monitor</a></p>
     </footer>
   </div>
 
@@ -418,15 +557,27 @@ function renderDashboardHTML() {
       const btn = document.getElementById('runBtn');
       const medSel = document.getElementById('meditateSelect');
       const medVal = medSel ? medSel.value : '300';
+      const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+      const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
+
       btn.disabled = true;
       btn.innerText = '⏳ Đang khởi chạy…';
       try {
-        const res = await fetch('/api/run?meditate=' + medVal, { method: 'POST' });
+        const headers = { 'Content-Type': 'application/json' };
+        if (csrfToken) {
+          headers['X-CSRF-Token'] = csrfToken;
+        }
+
+        const res = await fetch('/api/run', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ meditate: Number(medVal) })
+        });
         const data = await res.json();
-        if (data.ok) {
+        if (res.ok && data.ok) {
           location.reload();
         } else {
-          alert(data.message || 'Lỗi khi kích hoạt');
+          alert(data.error || data.message || 'Lỗi khi kích hoạt');
           btn.disabled = false;
           btn.innerText = '⚡ Bắt Đầu Làm Nhiệm Vụ';
         }
@@ -437,13 +588,19 @@ function renderDashboardHTML() {
       }
     }
 
-    // Tự động đồng bộ Live Logs từng giây khi đang làm nhiệm vụ
+    // Tự động đồng bộ Live Logs từng giây khi đang làm nhiệm vụ (an toàn DOM textContent, chống XSS)
     const isCurrentlyRunning = ${isRunning ? 'true' : 'false'};
 
     if (isCurrentlyRunning) {
       const pollTimer = setInterval(async () => {
         try {
-          const res = await fetch('/api/status');
+          const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+          const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
+          const headers = {};
+          if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
+          const res = await fetch('/api/status', { headers });
+          if (!res.ok) return;
           const data = await res.json();
 
           if (!data.isRunning) {
@@ -452,24 +609,43 @@ function renderDashboardHTML() {
             return;
           }
 
-          // Cập nhật số giây
+          // Cập nhật số giây an toàn
           const timerEl = document.getElementById('elapsedTimer');
           if (timerEl && data.runningSeconds !== undefined) {
-            timerEl.innerText = '⏱️ Đã chạy: ' + data.runningSeconds + 's';
+            timerEl.textContent = '⏱️ Đã chạy: ' + String(data.runningSeconds) + 's';
           }
 
-          // Cập nhật Live Logs box
+          // Cập nhật Live Logs box an toàn tuyệt đối với textContent
           const logBox = document.getElementById('liveLogsContainer');
           if (logBox && Array.isArray(data.liveTaskLogs)) {
-            logBox.innerHTML = data.liveTaskLogs.map(l => '<div>' + l + '</div>').join('');
+            logBox.textContent = '';
+            for (const logItem of data.liveTaskLogs) {
+              const row = document.createElement('div');
+              const timeSpan = document.createElement('span');
+              timeSpan.style.color = 'var(--text-dim)';
+              timeSpan.style.marginRight = '6px';
+              timeSpan.textContent = typeof logItem === 'object' && logItem.timeDisplay ? logItem.timeDisplay : '';
+              
+              const iconSpan = document.createElement('span');
+              iconSpan.style.marginRight = '4px';
+              iconSpan.textContent = typeof logItem === 'object' && logItem.icon ? logItem.icon : '';
+
+              const msgSpan = document.createElement('span');
+              msgSpan.textContent = typeof logItem === 'object' && logItem.message ? logItem.message : String(logItem);
+
+              row.appendChild(timeSpan);
+              row.appendChild(iconSpan);
+              row.appendChild(msgSpan);
+              logBox.appendChild(row);
+            }
           }
         } catch {}
       }, 2000);
     } else {
-      // Khi rảnh rỗi, kiểm tra trạng thái mỗi 15 giây
       setTimeout(async () => {
         try {
           const res = await fetch('/api/status');
+          if (!res.ok) return;
           const data = await res.json();
           if (data.isRunning) location.reload();
         } catch {}
@@ -484,47 +660,26 @@ function renderDashboardHTML() {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
-  // 1. Health check (Hỗ trợ cả UptimeRobot JSON lẫn Browser xem trạng thái & Live Logs)
+  // 1. Health check tối thiểu (Priority 1: Chỉ trả thông tin cơ bản cho ping monitoring, không lộ dữ liệu tài khoản)
   if (url.pathname === '/health') {
-    const isHtml = req.headers.accept?.includes('text/html');
-
-    if (isHtml) {
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(renderDashboardHTML());
-      return;
-    }
-
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({
       status: 'ok',
-      time: new Date().toISOString(),
-      isRunning: state.isRunning,
-      runningSeconds: state.isRunning && state.runStartTime ? Math.round((Date.now() - state.runStartTime) / 1000) : 0,
-      character: {
-        name: state.merit?.me?.name || 'thichkngan',
-        user: state.merit?.me?.user || 'thichkngan',
-        level: state.merit?.me?.level || 'Hoan hỷ',
-        lv: state.merit?.me?.lv || 3,
-        totalMerit: state.merit?.me?.total || 0,
-        todayMerit: state.merit?.me?.today || 0,
-        days: state.merit?.me?.days || 2,
-        bows: `${state.journal?.bows || 0}/108`,
-        beads: state.journal?.beads || 0,
-        incense: `${state.journal?.incense || 0}/30`,
-        lanterns: `${state.journal?.lanterns || 0}/10`,
-        quests: (state.merit?.me?.quests || []).map(q => ({
-          title: q.title,
-          reward: q.reward,
-          status: q.claimed ? 'Đã nhận' : (q.have >= q.need ? 'Chờ nhận' : `${q.have}/${q.need}`)
-        }))
-      },
-      liveTaskLogs: state.currentLogs
+      timestamp: new Date().toISOString(),
+      uptimeSeconds: Math.round(process.uptime()),
+      running: state.isRunning
     }, null, 2));
     return;
   }
 
-  // 2. API lấy trạng thái JSON
+  // 2. API lấy trạng thái JSON (Priority 1: Bảo vệ trạng thái tài khoản)
   if (url.pathname === '/api/status') {
+    if (AUTH_TOKEN && !verifyAuth(req)) {
+      res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ ok: false, error: 'Yêu cầu không được phép (thiếu hoặc sai token xác thực).' }));
+      return;
+    }
+
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({
       isRunning: state.isRunning,
@@ -538,35 +693,91 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 3. API Kích hoạt chạy nhiệm vụ (POST hoặc GET)
+  // 3. API Kích hoạt chạy nhiệm vụ (Priority 1: Bắt buộc POST, Xác thực, Validate tham số meditate)
   if (url.pathname === '/api/run' || url.pathname === '/run' || url.pathname === '/cron') {
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    if (state.isRunning) {
-      res.end(JSON.stringify({ ok: true, running: true, message: 'Chu trình nhiệm vụ hiện đang được thực hiện.' }));
+    // Chỉ chấp nhận POST
+    if (req.method !== 'POST') {
+      res.writeHead(405, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Allow': 'POST'
+      });
+      res.end(JSON.stringify({
+        ok: false,
+        error: 'Phương thức không được hỗ trợ. Bắt buộc dùng POST để tạo tác vụ.'
+      }));
       return;
     }
 
-    const runOptions = {};
-    if (url.searchParams.has('meditate')) {
-      const parsedMed = parseInt(url.searchParams.get('meditate'), 10);
-      if (!isNaN(parsedMed) && parsedMed >= 60) {
-        runOptions.meditateSeconds = parsedMed;
+    // Kiểm tra xác thực (CSRF hoặc AUTH_TOKEN)
+    if (!verifyAuth(req)) {
+      res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({
+        ok: false,
+        error: 'Yêu cầu không được phép (thiếu hoặc sai token xác thực).'
+      }));
+      return;
+    }
+
+    // Đọc body JSON nếu có
+    let bodyData = {};
+    if (req.headers['content-type']?.includes('application/json')) {
+      try {
+        const buffers = [];
+        for await (const chunk of req) buffers.push(chunk);
+        const rawBody = Buffer.concat(buffers).toString('utf-8');
+        if (rawBody.trim()) {
+          bodyData = JSON.parse(rawBody);
+        }
+      } catch {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ ok: false, error: 'Dữ liệu body JSON không hợp lệ.' }));
+        return;
       }
     }
 
+    // Kiểm tra và validate tham số meditate
+    const runOptions = {};
+    const medRaw = bodyData.meditate ?? (url.searchParams.has('meditate') ? url.searchParams.get('meditate') : null);
+    if (medRaw !== null && medRaw !== undefined) {
+      const parsedMed = Number(medRaw);
+      if (!Number.isInteger(parsedMed) || parsedMed < 60 || parsedMed > 7200) {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({
+          ok: false,
+          error: 'Thời gian thiền không hợp lệ. Phải là số nguyên từ 60 đến 7200 giây (tối đa 2 giờ).'
+        }));
+        return;
+      }
+      runOptions.meditateSeconds = parsedMed;
+    }
+
+    // Nếu đang chạy dở, trả về HTTP 409 Conflict
+    if (state.isRunning) {
+      res.writeHead(409, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ ok: false, running: true, message: 'Chu trình nhiệm vụ hiện đang được thực hiện.' }));
+      return;
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({
       ok: true,
       running: false,
       message: 'Đã kích hoạt chu trình nhiệm vụ thành công!',
       options: runOptions
     }));
+
     // Chạy ngầm trong background
     executeRoutine(`API Trigger (${url.pathname})`, runOptions).catch(console.error);
     return;
   }
 
-  // 4. Trang Dashboard chính
+  // 4. Trang Dashboard chính (GET)
   if (url.pathname === '/' || url.pathname === '/dashboard') {
+    if (req.method !== 'GET') {
+      res.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8', 'Allow': 'GET' });
+      res.end('Method Not Allowed');
+      return;
+    }
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(renderDashboardHTML());
     return;
@@ -586,4 +797,3 @@ server.listen(PORT, HOST, async () => {
   // Khởi động lịch trình 00:05 sáng
   startDailyScheduler();
 });
-

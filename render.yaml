@@ -8,12 +8,14 @@ services:
     startCommand: npm start
     envVars:
       - key: CID
-        value: c332df6e-1e07-48a3-b46d-f5dc8d6c04a4
+        sync: false
       - key: NAME
-        value: thichkngan
+        value: phat-tu
       - key: ROOM
         value: chua-1
       - key: SAFE_MODE
         value: "true"
+      - key: AUTH_TOKEN
+        sync: false
       - key: NODE_VERSION
         value: "22"

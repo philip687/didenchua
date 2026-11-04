@@ -129,8 +129,8 @@ Mở file `config.json` để tùy chỉnh thông tin hoặc liên kết với n
 
 ```json
 {
-  "cid": "c332df6e-1e07-48a3-b46d-f5dc8d6c04a4",
-  "name": "thichkngan",
+  "cid": "YOUR_ACCOUNT_CID",
+  "name": "phat-tu",
   "kind": "tieu",
   "robe": "nau",
   "skin": "dong",
@@ -183,9 +183,10 @@ Hệ thống đã được thiết kế sẵn một **Web Dashboard giao diện 
    - **Start Command**: `npm start`
    - **Plan**: `Free`
 4. Tại phần **Environment Variables**, thêm các biến:
-   - `CID`: `c332df6e-1e07-48a3-b46d-f5dc8d6c04a4`
-   - `NAME`: `thichkngan`
-   - `ROOM`: `chua-1`
+   - `CID`: `YOUR_ACCOUNT_CID` (Bắt buộc - CID tài khoản của bạn)
+   - `NAME`: `phat-tu` (Tùy chọn - Tên hiển thị)
+   - `ROOM`: `chua-1` (Tùy chọn - Phòng chùa mặc định)
+   - `AUTH_TOKEN`: `YOUR_SECRET_TOKEN` (Tùy chọn - Mã bí mật bảo vệ API/Cron)
    - *(Tùy chọn nhận tin nhắn Telegram)*:
      - `TELEGRAM_BOT_TOKEN`: Token bot Telegram của bạn
      - `TELEGRAM_CHAT_ID`: Chat ID Telegram của bạn
@@ -223,6 +224,6 @@ npm run cicd -- --full
 Đã có sẵn file cấu hình tại [`.github/workflows/didenchua-daily.yml`](.github/workflows/didenchua-daily.yml). Bạn chỉ cần:
 1. Đưa mã nguồn lên repository GitHub của bạn.
 2. Vào **Settings** ➔ **Secrets and variables** ➔ **Actions**.
-3. Thêm Secret: `DIDENCHUA_CID` = `c332df6e-1e07-48a3-b46d-f5dc8d6c04a4`.
+3. Thêm Secret: `DIDENCHUA_CID` = `YOUR_ACCOUNT_CID`.
 4. GitHub Actions sẽ tự động chạy mỗi ngày lúc **00:05 sáng** (giờ VN) để giữ chuỗi điểm danh và tích công đức hoàn toàn tự động!
 

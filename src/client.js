@@ -206,7 +206,7 @@ export class DiDenChuaClient {
       this.claimQuest('huong');
       await this.sleep(1000);
     }
-    log.success(`Đã hoàn thành dâng ${count} nén tâm hương!`);
+    log.info(`Đã gửi hoàn tất yêu cầu dâng ${count} nén tâm hương (chờ máy chủ ghi nhận).`);
   }
 
   async doLantern(text = 'Cầu cho muôn người bình an, vạn sự hanh thông', color = 'vang', count = 1) {
@@ -223,7 +223,7 @@ export class DiDenChuaClient {
       this.claimQuest('den');
       await this.sleep(1000);
     }
-    log.success(`Đã hoàn thành thả ${count} ngọn hoa đăng sen!`);
+    log.info(`Đã gửi hoàn tất yêu cầu thả ${count} ngọn hoa đăng sen (chờ máy chủ ghi nhận).`);
   }
 
   async doGreet(targetPeerId = null) {
@@ -260,7 +260,7 @@ export class DiDenChuaClient {
       this.send({ t: 'viec', k: 'quet' });
       await this.sleep(1000);
     }
-    log.success(`Sân chùa sạch bong rồi! Đã hoàn thành ${count} lần quét lá sân chùa.`);
+    log.info(`Đã gửi hoàn tất yêu cầu ${count} lần quét lá sân chùa (chờ máy chủ ghi nhận).`);
   }
 
   async doLay(count = 108) {
@@ -273,7 +273,7 @@ export class DiDenChuaClient {
         await this.sleep(bowDelay);
       }
     }
-    log.success(`Đã hoàn thành ${count} lạy trang nghiêm trước Phật đài!`);
+    log.info(`Đã hoàn tất gửi ${count} lạy sám hối trước Phật đài.`);
   }
 
   async doVisitAll() {
@@ -465,7 +465,7 @@ export class DiDenChuaClient {
         await this.sleep(knockDelay);
       }
     }
-    log.success(`Hoàn thành ${count} tiếng mõ tụng kinh!`);
+    log.info(`Đã hoàn tất gửi ${count} tiếng mõ tụng kinh (chờ máy chủ ghi nhận).`);
   }
 
   async doBeads(count = 20) {
@@ -481,7 +481,7 @@ export class DiDenChuaClient {
         await this.sleep(beadDelay);
       }
     }
-    log.success(`Hoàn thành lăn ${count} hạt tràng niệm Phật!`);
+    log.info(`Đã hoàn tất gửi ${count} hạt tràng niệm Phật (chờ máy chủ ghi nhận).`);
   }
 
   async doBell() {
@@ -514,9 +514,9 @@ export class DiDenChuaClient {
       this.send({ t: 'hb' });
     }
 
-    log.success(`Đã hoàn thành ${mins} phút tĩnh tâm thiền định!`);
-    this.claimQuest('ngoi');
-    await this.sleep(1000);
+    log.info(`Đã hoàn thành ${mins} phút tĩnh tâm thiền định. Gửi yêu cầu nhận thưởng...`);
+    this.send({ t: 'claim', q: 'ngoi' });
+    await this.sleep(1200);
   }
 
   claimQuest(questId) {
@@ -524,20 +524,44 @@ export class DiDenChuaClient {
   }
 
   async claimAllQuests() {
-    if (!this.merit?.me?.quests) return;
+    if (!this.merit?.me?.quests) return { claimed: [], unverified: [] };
     const quests = this.merit.me.quests;
-    let claimedCount = 0;
-    for (const q of quests) {
-      if (q.have >= q.need && !q.claimed) {
-        log.merit(`Nhận thưởng nhiệm vụ: "${q.title}" (+${q.reward} công đức)`);
-        this.claimQuest(q.id);
-        claimedCount++;
-        await this.sleep(600);
+    const toClaim = quests.filter(q => q.have >= q.need && !q.claimed);
+
+    if (toClaim.length === 0) {
+      log.info('Không có nhiệm vụ nào đang chờ nhận thưởng.');
+      return { claimed: [], unverified: [] };
+    }
+
+    const claimed = [];
+    const unverified = [];
+
+    for (const q of toClaim) {
+      log.info(`-> Gửi yêu cầu nhận thưởng: "${q.title}" (+${q.reward} công đức)...`);
+      this.send({ t: 'claim', q: q.id });
+      await this.sleep(700);
+    }
+
+    // Chờ máy chủ cập nhật gói merit mới (tối đa 2.5s)
+    let waitCount = 0;
+    while (waitCount < 5) {
+      await this.sleep(500);
+      waitCount++;
+    }
+
+    const updatedQuests = this.merit?.me?.quests || [];
+    for (const q of toClaim) {
+      const current = updatedQuests.find(item => item.id === q.id);
+      if (current && current.claimed) {
+        log.merit(`[ĐÃ XÁC NHẬN] Máy chủ đã ghi nhận thưởng nhiệm vụ: "${q.title}" (+${q.reward} công đức)`);
+        claimed.push(q);
+      } else {
+        log.warn(`[CHƯA XÁC MINH] Nhiệm vụ "${q.title}" đã gửi yêu cầu nhận thưởng nhưng chưa nhận được xác nhận từ máy chủ.`);
+        unverified.push(q);
       }
     }
-    if (claimedCount === 0) {
-      log.info('Không có nhiệm vụ nào đang chờ nhận thưởng.');
-    }
+
+    return { claimed, unverified };
   }
 
   printStatus() {

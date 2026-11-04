@@ -1,5 +1,21 @@
 import { log } from './logger.js';
 
+// Telegram parse_mode=HTML treats dynamic account/task text as markup unless escaped.
+function escapeTelegramHTML(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function reportValue(value) {
+  return value === null || value === undefined ? 'Chưa có dữ liệu' : String(value);
+}
+
+function escapeDiscordMarkdown(value) {
+  return String(value ?? '').replace(/([\\`*_{}\[\]()#+\-.!|>~])/g, '\\$1');
+}
+
 /**
  * GỬI THÔNG BÁO TỔNG KẾT BÁO CÁO CÔNG ĐỨC QUA TELEGRAM HOẶC DISCORD
  * Đọc biến môi trường:
@@ -46,7 +62,8 @@ export async function sendDiscordNotification(content) {
     const res = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content })
+    // Không cho nội dung động trong report kích hoạt @everyone/@here hoặc role mention.
+    body: JSON.stringify({ content, allowed_mentions: { parse: [] } })
     });
     if (res.ok) {
       log.success('Đã gửi báo cáo công đức về Discord thành công!');
@@ -60,49 +77,67 @@ export async function sendDiscordNotification(content) {
 }
 
 export async function notifyRunResult(result) {
-  const { status, journal, merit, durationSec, newlyUnlocked = [] } = result;
-  const timeStr = new Date(Date.now() + 7 * 3600 * 1000).toLocaleString('vi-VN', { timeZone: 'UTC' });
+  const { status, journal, merit, durationSec, newlyUnlocked = [], runId, finishedAt, snapshotAt, snapshotStatus, error } = result;
+  // Render from the recorded UTC timestamp so the notification matches the run record.
+  const timeStr = finishedAt
+    ? new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'medium', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(finishedAt))
+    : 'Chưa có thời gian';
+  const statusText = {
+    success: 'Đã xác nhận',
+    partial: 'Hoàn tất một phần',
+    failed: 'Thất bại',
+    error: 'Thất bại',
+    unverified: 'Đã chạy hết luồng; chưa xác minh kết quả phía máy chủ'
+  }[status] || 'Không xác định';
+  const playerName = reportValue(merit?.me?.name);
+  const playerUser = reportValue(merit?.me?.user);
 
   // 1. Soạn tin nhắn Telegram (HTML)
   let tg = `<b>🪷 BÁO CÁO CÔNG ĐỨC CHÙA ONLINE</b>\n`;
-  tg += `⏰ <i>Thời gian: ${timeStr} (UTC+7)</i>\n`;
-  tg += `👤 <b>Phật tử:</b> ${merit?.me?.name || 'thichkngan'} (@${merit?.me?.user || 'thichkngan'})\n`;
-  tg += `🏅 <b>Cấp bậc:</b> ${merit?.me?.level || 'Hoan hỷ'} (Lv.${merit?.me?.lv || 3})\n`;
-  tg += `✨ <b>Tổng công đức:</b> ${merit?.me?.total || 0} (+${merit?.me?.today || 0} hôm nay)\n`;
-  tg += `📅 <b>Chuỗi lên chùa:</b> ${merit?.me?.days || 0} ngày liên tiếp\n\n`;
+  tg += `⏰ <i>Thời gian: ${escapeTelegramHTML(timeStr)} (Asia/Ho_Chi_Minh)</i>\n`;
+  tg += `🆔 <b>Run:</b> ${escapeTelegramHTML(reportValue(runId))}\n`;
+  tg += `👤 <b>Phật tử:</b> ${escapeTelegramHTML(playerName)} (@${escapeTelegramHTML(playerUser)})\n`;
+  tg += `🏅 <b>Cấp bậc:</b> ${escapeTelegramHTML(reportValue(merit?.me?.level))} (Lv.${escapeTelegramHTML(reportValue(merit?.me?.lv))})\n`;
+  tg += `✨ <b>Tổng công đức:</b> ${escapeTelegramHTML(reportValue(merit?.me?.total))} (+${escapeTelegramHTML(reportValue(merit?.me?.today))} hôm nay)\n`;
+  tg += `📅 <b>Chuỗi lên chùa:</b> ${escapeTelegramHTML(reportValue(merit?.me?.days))} ngày liên tiếp\n`;
+  tg += `📡 <b>Snapshot:</b> ${escapeTelegramHTML(snapshotStatus || 'không rõ')}${snapshotAt ? ` lúc ${escapeTelegramHTML(snapshotAt)} UTC` : ''}\n\n`;
 
   tg += `<b>📋 NHIỆM VỤ HÀNG NGÀY:</b>\n`;
   if (Array.isArray(merit?.me?.quests)) {
     for (const q of merit.me.quests) {
       const icon = q.claimed ? '✅' : (q.have >= q.need ? '🎁' : '⏳');
-      tg += `• ${icon} ${q.title} (+${q.reward}đ)\n`;
+      tg += `• ${icon} ${escapeTelegramHTML(reportValue(q.title))} (+${escapeTelegramHTML(reportValue(q.reward))}đ)\n`;
     }
   }
 
   tg += `\n<b>🎯 TIẾN ĐỘ THÀNH TỰU VĨNH VIỄN:</b>\n`;
   if (journal) {
-    tg += `• 🙏 Lạy Phật: <b>${journal.bows}/108</b> (${journal.bows >= 108 ? '✅ Trăm lạy' : 'đang cày'})\n`;
-    tg += `• 📿 Tràng hạt: <b>${journal.beads} hạt</b> (${journal.rounds} chuỗi tròn)\n`;
-    tg += `• 🪔 Dâng hương: <b>${journal.incense}/30</b> lần\n`;
-    tg += `• 🏮 Thả hoa đăng: <b>${journal.lanterns}/10</b> ngọn\n`;
-    tg += `• 🧘 Tĩnh tọa: <b>${journal.sitMin}/60</b> phút\n`;
-    tg += `• 🚶 Khám phá: <b>${journal.visited}/${journal.zones}</b> khu vực\n`;
+    tg += `• 🙏 Lạy Phật: <b>${escapeTelegramHTML(reportValue(journal.bows))}/108</b> (${journal.bows >= 108 ? '✅ Trăm lạy' : 'đang cày'})\n`;
+    tg += `• 📿 Tràng hạt: <b>${escapeTelegramHTML(reportValue(journal.beads))} hạt</b> (${escapeTelegramHTML(reportValue(journal.rounds))} chuỗi tròn)\n`;
+    tg += `• 🪔 Dâng hương: <b>${escapeTelegramHTML(reportValue(journal.incense))}/30</b> lần\n`;
+    tg += `• 🏮 Thả hoa đăng: <b>${escapeTelegramHTML(reportValue(journal.lanterns))}/10</b> ngọn\n`;
+    tg += `• 🧘 Tĩnh tọa: <b>${escapeTelegramHTML(reportValue(journal.sitMin))}/60</b> phút\n`;
+    tg += `• 🚶 Khám phá: <b>${escapeTelegramHTML(reportValue(journal.visited))}/${escapeTelegramHTML(reportValue(journal.zones))}</b> khu vực\n`;
   }
 
   if (newlyUnlocked.length > 0) {
     tg += `\n🎉 <b>DANH HIỆU MỚI MỞ KHÓA:</b>\n`;
     for (const t of newlyUnlocked) {
-      tg += `🏆 <b>${t.name}</b>: ${t.desc}\n`;
+      tg += `🏆 <b>${escapeTelegramHTML(reportValue(t.name))}</b>: ${escapeTelegramHTML(reportValue(t.desc))}\n`;
     }
   }
 
-  tg += `\n<i>Trạng thái: ${status === 'success' ? 'Hoàn mãn thanh tịnh 🙏' : 'Có lỗi gián đoạn ⚠️'} (${durationSec}s)</i>`;
+  tg += `\n<i>Trạng thái: ${escapeTelegramHTML(statusText)} (${escapeTelegramHTML(reportValue(durationSec))}s)</i>`;
+  if (error) tg += `\n⚠️ <b>Lỗi:</b> ${escapeTelegramHTML(error)}`;
 
   // 2. Soạn tin nhắn Discord (Markdown)
   const discordText = `**🪷 BÁO CÁO CÔNG ĐỨC - AN TỰ DUYÊN**\n` +
-    `> 👤 **${merit?.me?.name || 'thichkngan'}** | Lv.${merit?.me?.lv || 3} ${merit?.me?.level || ''} | Tổng: **${merit?.me?.total || 0}** công đức\n` +
-    `> 🎯 Lạy Phật: ${journal?.bows || 0}/108 | Tràng hạt: ${journal?.beads || 0} | Hương: ${journal?.incense || 0}/30 | Đèn: ${journal?.lanterns || 0}/10\n` +
-    `> ⏰ Hoàn thành lúc: ${timeStr} (UTC+7) - ${status === 'success' ? '✅ Thành công' : '❌ Lỗi'}`;
+    `> 🆔 Run: ${escapeDiscordMarkdown(reportValue(runId))}\n` +
+    `> 👤 ${escapeDiscordMarkdown(playerName)} (@${escapeDiscordMarkdown(playerUser)}) | Lv.${escapeDiscordMarkdown(reportValue(merit?.me?.lv))} ${escapeDiscordMarkdown(reportValue(merit?.me?.level))} | Tổng: ${escapeDiscordMarkdown(reportValue(merit?.me?.total))} công đức\n` +
+    `> 🎯 Lạy Phật: ${escapeDiscordMarkdown(reportValue(journal?.bows))}/108 | Tràng hạt: ${escapeDiscordMarkdown(reportValue(journal?.beads))} | Hương: ${escapeDiscordMarkdown(reportValue(journal?.incense))}/30 | Đèn: ${escapeDiscordMarkdown(reportValue(journal?.lanterns))}/10\n` +
+    `> 📡 Snapshot: ${escapeDiscordMarkdown(snapshotStatus || 'không rõ')}${snapshotAt ? ` lúc ${escapeDiscordMarkdown(snapshotAt)} UTC` : ''}\n` +
+    `> ⏰ ${escapeDiscordMarkdown(timeStr)} (Asia/Ho_Chi_Minh) - ${escapeDiscordMarkdown(statusText)}` +
+    (error ? `\n> ⚠️ Lỗi: ${escapeDiscordMarkdown(error)}` : '');
 
   await Promise.allSettled([
     sendTelegramNotification(tg),

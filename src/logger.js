@@ -12,8 +12,8 @@ const COLORS = {
 };
 
 function timestamp() {
-  const d = new Date();
-  return d.toTimeString().split(' ')[0];
+  // Dùng timestamp UTC ISO đầy đủ để đối chiếu console log với report của dashboard.
+  return new Date().toISOString();
 }
 
 let logHook = null;
@@ -21,36 +21,36 @@ export function setLogHook(fn) {
   logHook = fn;
 }
 
-function notifyHook(prefix, msg) {
+function notifyHook(level, prefix, msg) {
   if (logHook) {
-    try { logHook(`${prefix} ${msg}`); } catch {}
+    try { logHook(msg, level, prefix); } catch {}
   }
 }
 
 export const log = {
   info: (msg, ...args) => {
     console.log(`${COLORS.dim}[${timestamp()}]${COLORS.reset} ℹ️  ${msg}`, ...args);
-    notifyHook('ℹ️', msg);
+    notifyHook('info', 'ℹ️', msg);
   },
   success: (msg, ...args) => {
     console.log(`${COLORS.dim}[${timestamp()}]${COLORS.reset} ${COLORS.green}✅ ${msg}${COLORS.reset}`, ...args);
-    notifyHook('✅', msg);
+    notifyHook('success', '✅', msg);
   },
   warn: (msg, ...args) => {
     console.log(`${COLORS.dim}[${timestamp()}]${COLORS.reset} ${COLORS.yellow}⚠️  ${msg}${COLORS.reset}`, ...args);
-    notifyHook('⚠️', msg);
+    notifyHook('warn', '⚠️', msg);
   },
   error: (msg, ...args) => {
     console.error(`${COLORS.dim}[${timestamp()}]${COLORS.reset} ${COLORS.red}❌ ${msg}${COLORS.reset}`, ...args);
-    notifyHook('❌', msg);
+    notifyHook('error', '❌', msg);
   },
   temple: (icon, msg, ...args) => {
     console.log(`${COLORS.dim}[${timestamp()}]${COLORS.reset} ${COLORS.bright}${icon} ${msg}${COLORS.reset}`, ...args);
-    notifyHook(icon, msg);
+    notifyHook('info', icon, msg);
   },
   merit: (msg, ...args) => {
     console.log(`${COLORS.dim}[${timestamp()}]${COLORS.reset} ${COLORS.yellow}✨ [CÔNG ĐỨC]${COLORS.reset} ${msg}`, ...args);
-    notifyHook('✨', msg);
+    notifyHook('merit', '✨', msg);
   }
 };
 
