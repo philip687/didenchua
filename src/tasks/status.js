@@ -6,6 +6,8 @@ export async function runStatus() {
   try {
     await client.connect();
     client.printStatus();
+    await client.fetchJournal();
+    client.printJournal();
   } catch (err) {
     log.error('Lỗi khi kiểm tra trạng thái:', err.message);
   } finally {

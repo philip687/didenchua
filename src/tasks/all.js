@@ -65,51 +65,55 @@ export async function runAllQuests(options = {}) {
 
     // 4. Chắp tay chào một bạn đồng tu -> Nhiệm vụ chao
     await client.doGreet();
+    await client.humanDelay('tiến về phía Phật đài');
+
+    // 5. Cúi lạy Phật trang nghiêm -> Nhiệm vụ lạy / lạy cùng lúc với người khác
+    await client.doLay(1);
     await client.humanDelay('chuẩn bị đi làm công quả');
 
-    // 5. Quét lá sân chùa ngày (1 lần làm sạch sân) -> Nhiệm vụ việc chùa
+    // 6. Quét lá sân chùa ngày (1 lần làm sạch sân) -> Nhiệm vụ việc chùa
     await client.doQuetLa(1);
     await client.humanDelay('thong thả bước ra cầu hồ sen');
 
-    // 6. Phóng sinh cá hồ sen
+    // 7. Phóng sinh cá hồ sen
     log.info('-> Phóng sinh / Cho đàn cá ở hồ sen ăn...');
     client.send({ t: 'viec', k: 'ca' });
     await client.humanDelay('bước vào chánh điện châm dầu đèn');
 
-    // 7. Thắp đèn dầu chánh điện
+    // 8. Thắp đèn dầu chánh điện
     log.info('-> Thắp đèn dầu chánh điện...');
     client.send({ t: 'lamp' });
     await client.humanDelay('nghỉ chân bên thềm chùa');
 
-    // 8. Chăm sóc mèo chùa
+    // 9. Chăm sóc mèo chùa
     await client.doPet();
     await client.humanDelay('bước vào gian chánh điện');
 
-    // 9. Gõ mõ tụng kinh ngày
+    // 10. Gõ mõ tụng kinh ngày
     if (moCount > 0) {
       await client.doMo(moCount);
       await client.humanDelay('nghỉ tay sau khi gõ mõ');
     }
 
-    // 10. Lăn tràng hạt niệm Phật ngày
+    // 11. Lăn tràng hạt niệm Phật ngày
     if (beadsCount > 0) {
       await client.doBeads(beadsCount);
       await client.humanDelay('tĩnh tâm niệm Phật');
     }
 
-    // 11. Thỉnh đại hồng chung
+    // 12. Thỉnh đại hồng chung
     await client.doBell();
     await client.humanDelay('lắng nghe dư âm tiếng chuông');
 
-    // 12. Gieo quẻ xăm may mắn đầu ngày -> Nhiệm vụ xam
+    // 13. Gieo quẻ xăm may mắn đầu ngày -> Nhiệm vụ xam
     await client.doXam();
     await client.humanDelay('thong thả dạo bước');
 
-    // 13. Gửi một lời nguyện chung tới cả chùa -> Nhiệm vụ lời nguyện
+    // 14. Gửi một lời nguyện chung tới cả chùa -> Nhiệm vụ lời nguyện
     await client.doVow('Cầu cho muôn người bình an, thân tâm thường an lạc, vạn sự hanh thông');
     await client.humanDelay('thành tâm hướng về đại chúng');
 
-    // 14. CHỐT KHÓA NHẬN THƯỞNG TOÀN BỘ NHIỆM VỤ HÀNG NGÀY NGAY LẬP TỨC
+    // 15. CHỐT KHÓA NHẬN THƯỞNG TOÀN BỘ NHIỆM VỤ HÀNG NGÀY NGAY LẬP TỨC
     log.info('🔒 Gửi yêu cầu nhận thưởng tất cả nhiệm vụ hàng ngày Tầng 1...');
     const claimRes = await client.claimAllQuests();
     unverifiedCount += claimRes.unverified?.length || 0;
