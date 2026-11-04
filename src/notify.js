@@ -109,3 +109,4 @@ export async function notifyRunResult(result) {
     sendDiscordNotification(discordText)
   ]);
 }
+
