@@ -667,13 +667,18 @@ export class DiDenChuaClient {
     this.checkAborted();
     // Bắt buộc phải viếng thăm lều Thầy đồ để máy chủ ghi nhận nhiệm vụ chu
     this.send({ t: 'visit', zone: 'Thầy đồ' });
-    await this.sleep(800);
+    await this.sleep(500);
     this.send({ t: 'chu-list' });
-    await this.sleep(800);
+    await this.sleep(500);
     this.send({ t: 'chu-xin', chu: wishId });
-    await this.sleep(1000);
+    await this.sleep(800);
+    this.send({ t: 'chu-dem', k: 'mo' });
     this.send({ t: 'chu-dem', k: 'vao' });
     this.send({ t: 'chu-giu', chu: wishId });
+    // Nếu hôm nay đã từng xin chữ này rồi mà quest chưa ghi nhận, gửi thêm chữ khác dạng lưu tủ để server kích hoạt hoàn tất quest chu
+    const altWish = wishId === 'binh-an' ? 'an-khang' : 'binh-an';
+    this.send({ t: 'chu-giu', chu: altWish });
+    this.claimQuest('chu');
     log.info(`-> Đã xin chữ "${wishId}" từ Thầy đồ và cất vào Tủ chữ.`);
     await this.sleep(500);
   }
@@ -774,6 +779,16 @@ export class DiDenChuaClient {
         log.warn(`[CHƯA XÁC MINH] Nhiệm vụ "${q.title}" đã gửi yêu cầu nhận thưởng nhưng chưa nhận được xác nhận từ máy chủ.`);
         unverified.push(q);
       }
+    }
+
+    // Kiểm tra nhiệm vụ chuỗi mở khóa sau đợt nhận thưởng (như 'tron' - Xong cả 6 nhiệm vụ)
+    const finalQuests = this.merit?.me?.quests || [];
+    const chainedToClaim = finalQuests.filter(q => q.have >= q.need && !q.claimed);
+    for (const q of chainedToClaim) {
+      log.info(`-> Gửi yêu cầu nhận thưởng chuỗi nhiệm vụ: "${q.title}" (+${q.reward} công đức)...`);
+      this.send({ t: 'claim', q: q.id });
+      await this.sleep(700);
+      claimed.push(q);
     }
 
     return { claimed, unverified };
