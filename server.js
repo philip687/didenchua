@@ -1019,6 +1019,7 @@ function getTaskQuestBadge(task, quests = [], journal = {}) {
 function renderDashboardHTML() {
   const me = state.merit?.me || {};
   const j = state.journal || {};
+  const journal = j;
   const displayName = j.name || me.name || process.env.NAME || 'Phật Tử';
   const rawUser = (j.user && j.user !== 'null') ? j.user : ((me.user && me.user !== 'null') ? me.user : null);
   const userTag = rawUser ? `<span>(@${escapeHTML(rawUser)})</span>` : '';
