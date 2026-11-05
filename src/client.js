@@ -344,6 +344,9 @@ export class DiDenChuaClient {
   async doLay(count = 108) {
     this.checkAborted();
     log.temple('🙏', `Bắt đầu lạy Phật sám hối (${count} lạy trang nghiêm)…`);
+    // Đảm bảo đứng tại Chánh điện để máy chủ ghi nhận nhiệm vụ lạy (lay / lay27)
+    this.send({ t: 'visit', zone: 'Chánh điện' });
+    await this.sleep(300);
     // Máy chủ quy định: mỗi gói { t: 'emote', e: 'lay' } tự động cộng 3 lạy ($n.bows += 3).
     // Cooldown máy chủ chuẩn xác là 5.000ms. Để lạy 'count' lạy, cần Math.ceil(count / 3) lần gửi.
     const emotesNeeded = Math.ceil(count / 3);
@@ -567,6 +570,9 @@ export class DiDenChuaClient {
   async doMo(count = 30) {
     this.checkAborted();
     log.temple('🪵', `Bắt đầu gõ mõ tụng kinh (${count} tiếng - tốc độ tối ưu)...`);
+    // Đảm bảo đứng tại Chánh điện để máy chủ ghi nhận nhiệm vụ gõ mõ tụng kinh (tung)
+    this.send({ t: 'visit', zone: 'Chánh điện' });
+    await this.sleep(300);
     let sent = 0;
     while (sent < count) {
       this.checkAborted();
@@ -652,6 +658,24 @@ export class DiDenChuaClient {
       log.info(`-> Tùy hỷ hoa đăng: "${lantern.text}"`);
       await this.sleep(400);
     }
+  }
+
+  async doXinChu(wishId = 'binh-an') {
+    this.checkAborted();
+    log.temple('✍️', 'Đến lều Thầy đồ xin chữ đầu ngày…');
+    await this.humanDelay('bước đến lều Thầy đồ');
+    this.checkAborted();
+    // Bắt buộc phải viếng thăm lều Thầy đồ để máy chủ ghi nhận nhiệm vụ chu
+    this.send({ t: 'visit', zone: 'Thầy đồ' });
+    await this.sleep(800);
+    this.send({ t: 'chu-list' });
+    await this.sleep(800);
+    this.send({ t: 'chu-xin', chu: wishId });
+    await this.sleep(1000);
+    this.send({ t: 'chu-dem', k: 'vao' });
+    this.send({ t: 'chu-giu', chu: wishId });
+    log.info(`-> Đã xin chữ "${wishId}" từ Thầy đồ và cất vào Tủ chữ.`);
+    await this.sleep(500);
   }
 
   async doMeditate(seconds = 3600, onProgress = null) {

@@ -110,10 +110,40 @@ export const TASKS_CATALOG = [
     id: 'lay-daily',
     group: 'daily',
     questId: 'lay',
-    title: 'Lạy Phật Cùng Người Khác',
-    desc: 'Cúi lạy Phật trang nghiêm cùng các bạn đồng tu',
+    title: 'Lạy Phật Trang Nghiêm',
+    desc: 'Cúi lạy Phật sám hối đủ số lượng nhiệm vụ hôm nay (hoặc 1 lạy nếu không có quest)',
     icon: '🙇',
-    reward: '+15 điểm',
+    reward: '+15-30đ',
+    badge: 'Nhiệm vụ ngày'
+  },
+  {
+    id: 'tung',
+    group: 'daily',
+    questId: 'tung',
+    title: 'Gõ Mõ Tụng Kinh',
+    desc: 'Đến Chánh điện gõ mõ tụng kinh hoàn thành nhiệm vụ ngày (108 tiếng)',
+    icon: '🪵',
+    reward: '+30 điểm',
+    badge: 'Nhiệm vụ ngày'
+  },
+  {
+    id: 'tuoi',
+    group: 'daily',
+    questId: 'tuoi',
+    title: 'Tưới Hoa Vườn Chùa',
+    desc: 'Tưới nước luống hoa dâng Phật và tưới giúp đồng tu',
+    icon: '🪷',
+    reward: '+20 điểm',
+    badge: 'Nhiệm vụ ngày'
+  },
+  {
+    id: 'chu',
+    group: 'daily',
+    questId: 'chu',
+    title: 'Xin Chữ Thầy Đồ',
+    desc: 'Đến lều Thầy đồ xin chữ thư pháp "Bình An" đầu ngày',
+    icon: '✍️',
+    reward: '+25 điểm',
     badge: 'Nhiệm vụ ngày'
   },
   {
@@ -487,7 +517,20 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           await client.doIncense(runOptions.count || 1);
           break;
         case 'lay-daily':
-          await client.doLay(1);
+          const activeLay = (client.merit?.me?.quests || []).find(q => q.id === 'lay' || q.id.startsWith('lay'));
+          const needLay = activeLay && !activeLay.claimed ? Math.max(1, activeLay.need - (activeLay.have || 0)) : 1;
+          await client.doLay(needLay);
+          break;
+        case 'tung':
+          const activeTung = (client.merit?.me?.quests || []).find(q => q.id === 'tung');
+          const needTung = activeTung && !activeTung.claimed ? Math.max(108, activeTung.need - (activeTung.have || 0)) : 108;
+          await client.doMo(needTung);
+          break;
+        case 'tuoi':
+          await client.doGarden({ autoWaterOthers: true });
+          break;
+        case 'chu':
+          await client.doXinChu(runOptions.wish || 'binh-an');
           break;
         case 'lay':
           const bowsCount = runOptions.count || 18;
@@ -551,9 +594,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           await client.doQaIncense();
           break;
         case 'secrets':
-          log.info('-> Xin chữ thư pháp "Bình an" & ghi nhận khóa lễ tụng kinh...');
-          client.send({ t: 'chu-xin', chu: 'binh-an' });
-          client.send({ t: 'chu-dem', k: 'vao' });
+          await client.doXinChu('binh-an');
           client.send({ t: 'tk-done' });
           await client.sleep(1200);
           break;
@@ -569,7 +610,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
       }
 
       // Tự động nhận thưởng nếu nhiệm vụ này hoàn thành quest ngày
-      if (['bell', 'vow', 'incense', 'lay-daily', 'lay', 'greet', 'lantern-daily', 'chores-daily', 'xam', 'chores', 'quet', 'farm-bows-beads'].includes(taskId)) {
+      if (['bell', 'vow', 'incense', 'lay-daily', 'lay', 'greet', 'lantern-daily', 'chores-daily', 'xam', 'chores', 'quet', 'farm-bows-beads', 'tung', 'tuoi', 'chu', 'garden', 'tuyhy', 'secrets'].includes(taskId)) {
         await client.sleep(1000);
         await client.claimAllQuests();
       }
@@ -869,7 +910,16 @@ function getTaskQuestBadge(task, quests = [], journal = {}) {
     if (!Array.isArray(quests) || quests.length === 0) {
       return '<span class="badge" style="background:rgba(255,255,255,0.06); color:var(--text-dim);">Đang tải quest...</span>';
     }
-    const q = quests.find(item => item.id === task.questId);
+    let q = quests.find(item => item.id === task.questId);
+    if (!q && task.questId === 'lay') {
+      q = quests.find(item => item.id.startsWith('lay'));
+    }
+    if (!q && task.questId === 'viec') {
+      q = quests.find(item => item.id === 'quet' || item.id === 'viec');
+    }
+    if (!q && task.questId === 'ngoi') {
+      q = quests.find(item => item.id.startsWith('ngoi'));
+    }
     if (!q) {
       return '<span class="badge" style="background:rgba(255,255,255,0.06); color:var(--text-dim);">Hôm nay không có quest này</span>';
     }

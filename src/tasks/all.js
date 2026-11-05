@@ -54,12 +54,20 @@ export async function runAllQuests(options = {}) {
     // =========================================================================
     log.temple('⚡', '--- [TẦNG 1: CÁC NHIỆM VỤ HÀNG NGÀY TRƯỚC (DAILY ACTION TASKS)] ---');
 
+    // Chờ nhận snapshot nhiệm vụ ngày từ máy chủ nếu chưa kịp tải
+    if (!client.merit?.me?.quests) {
+      await client.sleep(600);
+    }
+    const todayQuests = client.merit?.me?.quests || [];
+
     // 1. Điểm danh ngày
     await client.doCheckin();
     await client.humanDelay('dạo bước trong sân chùa');
 
     // 2. Dâng hương ngày (1 nén) -> Nhiệm vụ huong
-    await client.doIncense(1);
+    const huongQuest = todayQuests.find(q => q.id === 'huong');
+    const huongNeeded = huongQuest && !huongQuest.claimed ? Math.max(1, huongQuest.need - (huongQuest.have || 0)) : 1;
+    await client.doIncense(huongNeeded);
     await client.humanDelay('chậm rãi đi ra khu vực thả hoa đăng');
 
     // 3. Thả hoa đăng ngày (1 ngọn) -> Nhiệm vụ den
@@ -70,12 +78,16 @@ export async function runAllQuests(options = {}) {
     await client.doGreet();
     await client.humanDelay('tiến về phía Phật đài');
 
-    // 5. Cúi lạy Phật trang nghiêm -> Nhiệm vụ lạy / lạy cùng lúc với người khác
-    await client.doLay(1);
+    // 5. Cúi lạy Phật trang nghiêm -> Nhiệm vụ lạy / lay27 / lạy cùng lúc với người khác
+    const layQuest = todayQuests.find(q => q.id === 'lay' || q.id.startsWith('lay'));
+    const layNeeded = layQuest && !layQuest.claimed ? Math.max(1, layQuest.need - (layQuest.have || 0)) : 1;
+    await client.doLay(layNeeded);
     await client.humanDelay('chuẩn bị đi làm công quả');
 
-    // 6. Quét lá sân chùa ngày (1 lần làm sạch sân) -> Nhiệm vụ việc chùa
-    await client.doQuetLa(1);
+    // 6. Quét lá sân chùa ngày -> Nhiệm vụ quet / viec
+    const quetQuest = todayQuests.find(q => q.id === 'quet' || q.id === 'viec');
+    const quetNeeded = quetQuest && !quetQuest.claimed ? Math.max(1, quetQuest.need - (quetQuest.have || 0)) : 1;
+    await client.doQuetLa(quetNeeded);
     await client.humanDelay('thong thả bước ra cầu hồ sen');
 
     // 7. Phóng sinh cá hồ sen
@@ -92,9 +104,11 @@ export async function runAllQuests(options = {}) {
     await client.doPet();
     await client.humanDelay('bước vào gian chánh điện');
 
-    // 10. Gõ mõ tụng kinh ngày
-    if (moCount > 0) {
-      await client.doMo(moCount);
+    // 10. Gõ mõ tụng kinh ngày -> Nhiệm vụ tung (108 tiếng) hoặc moCount
+    const tungQuest = todayQuests.find(q => q.id === 'tung');
+    const tungNeeded = tungQuest && !tungQuest.claimed ? Math.max(moCount, tungQuest.need - (tungQuest.have || 0)) : moCount;
+    if (tungNeeded > 0) {
+      await client.doMo(tungNeeded);
       await client.humanDelay('nghỉ tay sau khi gõ mõ');
     }
 
@@ -116,7 +130,28 @@ export async function runAllQuests(options = {}) {
     await client.doVow('Cầu cho muôn người bình an, thân tâm thường an lạc, vạn sự hanh thông');
     await client.humanDelay('thành tâm hướng về đại chúng');
 
-    // 15. CHỐT KHÓA NHẬN THƯỞNG TOÀN BỘ NHIỆM VỤ HÀNG NGÀY NGAY LẬP TỨC
+    // 15. Tùy hỷ lời nguyện / hoa đăng của bạn đồng tu -> Nhiệm vụ tuyhy
+    await client.doTuyHy(5);
+    await client.humanDelay('thong thả bước sang lều Thầy đồ');
+
+    // 16. Xin chữ Thầy đồ đầu ngày -> Nhiệm vụ chu (bắt buộc ghé lều Thầy đồ)
+    await client.doXinChu('binh-an');
+    await client.humanDelay('thong thả ra vườn chùa');
+
+    // 17. Chăm sóc vườn sen / tưới hoa chùa -> Nhiệm vụ tuoi
+    await client.doGarden({
+      autoWaterOthers: autoWaterOthers ?? client.config.autoWaterOthers ?? true
+    });
+
+    // 18. Nhiệm vụ ngồi tĩnh tâm 5 phút nếu có quest ngoi
+    const ngoiQuest = todayQuests.find(q => q.id === 'ngoi' || q.id.startsWith('ngoi'));
+    if (ngoiQuest && !ngoiQuest.claimed && (ngoiQuest.have || 0) < ngoiQuest.need) {
+      const waitMin = Math.max(5, ngoiQuest.need - (ngoiQuest.have || 0));
+      log.temple('🧘', `Phát hiện nhiệm vụ [${ngoiQuest.title}], tiến hành tọa thiền ${waitMin} phút tại Vườn thiền...`);
+      await client.doMeditate(waitMin * 60);
+    }
+
+    // 19. CHỐT KHÓA NHẬN THƯỞNG TOÀN BỘ NHIỆM VỤ HÀNG NGÀY NGAY LẬP TỨC
     log.info('🔒 Gửi yêu cầu nhận thưởng tất cả nhiệm vụ hàng ngày Tầng 1...');
     const claimRes = await client.claimAllQuests();
     unverifiedCount += claimRes.unverified?.length || 0;
@@ -238,9 +273,7 @@ export async function runAllQuests(options = {}) {
       await client.humanDelay('bước đến bàn ông đồ xin chữ');
 
       // 4. Xin chữ thư pháp đầu ngày & hoàn thành khóa tụng kinh sám hối
-      log.info('-> Xin chữ thư pháp "Bình an" & ghi nhận khóa lễ tụng kinh...');
-      client.send({ t: 'chu-xin', chu: 'binh-an' });
-      client.send({ t: 'chu-dem', k: 'vao' });
+      await client.doXinChu('binh-an');
       client.send({ t: 'tk-done' });
       await client.sleep(1200);
 
@@ -275,10 +308,17 @@ export async function runAllQuests(options = {}) {
       }
 
       log.success('HOÀN THÀNH TOÀN DIỆN 4 TẦNG: NHIỆM VỤ NGÀY -> CÀY VĨNH VIỄN -> ĂN THÊM ĐIỂM -> TREO MÁY!');
+      // Chốt khóa nhận thưởng toàn bộ nhiệm vụ cuối chu kỳ (bao gồm quest 'tron' - Xong cả 6 nhiệm vụ)
+      await client.sleep(1000);
+      const finalClaims = await client.claimAllQuests();
+      unverifiedCount += finalClaims.unverified?.length || 0;
       client.printStatus();
       client.printJournal();
     } else {
       log.info('⏩ Đã bỏ qua nhiệm vụ treo máy (Tầng 4) theo tùy chọn chạy nhanh.');
+      await client.sleep(1000);
+      const finalClaims = await client.claimAllQuests();
+      unverifiedCount += finalClaims.unverified?.length || 0;
       client.printJournal();
     }
 
