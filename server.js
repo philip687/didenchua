@@ -46,8 +46,7 @@ function verifyAuth(req) {
     return true;
   }
 
-  // 3. Kiểm tra token từ các HTTP headers an toàn (Authorization, X-API-Key, X-Cron-Secret)
-  // Tuyệt đối không nhận token trong URL query string để tránh rò rỉ log
+  // 3. Kiểm tra token từ các HTTP headers an toàn hoặc query param (dành cho GET webhook/cron)
   let providedToken = '';
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -56,6 +55,11 @@ function verifyAuth(req) {
     providedToken = String(req.headers['x-api-key']).trim();
   } else if (req.headers['x-cron-secret']) {
     providedToken = String(req.headers['x-cron-secret']).trim();
+  } else if (req.url) {
+    try {
+      const u = new URL(req.url, 'http://localhost');
+      providedToken = (u.searchParams.get('token') || u.searchParams.get('secret') || u.searchParams.get('key') || '').trim();
+    } catch {}
   }
 
   if (!providedToken) {
@@ -2194,8 +2198,8 @@ function renderDashboardHTML() {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
-  // 1. Health check tối thiểu (Priority 1: Chỉ trả thông tin cơ bản cho ping monitoring, không lộ dữ liệu tài khoản)
-  if (url.pathname === '/health') {
+  // 1. Health check & Ping Keep-Alive (hỗ trợ /health, alias /heath tránh lỗi chính tả, và /ping)
+  if (url.pathname === '/health' || url.pathname === '/heath' || url.pathname === '/ping') {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({
       status: 'ok',
@@ -2310,17 +2314,16 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 5. API Kích hoạt chạy nhiệm vụ (Priority 1: Bắt buộc POST, Xác thực, Validate tham số)
+  // 5. API Kích hoạt chạy nhiệm vụ (Hỗ trợ POST và GET cho Webhook/Cron từ xa)
   if (url.pathname === '/api/run' || url.pathname === '/run' || url.pathname === '/cron') {
-    // Chỉ chấp nhận POST
-    if (req.method !== 'POST') {
+    if (req.method !== 'POST' && req.method !== 'GET') {
       res.writeHead(405, {
         'Content-Type': 'application/json; charset=utf-8',
-        'Allow': 'POST'
+        'Allow': 'POST, GET'
       });
       res.end(JSON.stringify({
         ok: false,
-        error: 'Phương thức không được hỗ trợ. Bắt buộc dùng POST để tạo tác vụ.'
+        error: 'Phương thức không được hỗ trợ. Dùng POST hoặc GET để tạo tác vụ.'
       }));
       return;
     }
@@ -2362,8 +2365,9 @@ const server = http.createServer(async (req, res) => {
     }
     runOptions.task = task;
 
-    if (bodyData.count !== undefined && bodyData.count !== null) {
-      const c = parseInt(bodyData.count, 10);
+    const rawCount = bodyData.count ?? url.searchParams.get('count');
+    if (rawCount !== undefined && rawCount !== null) {
+      const c = parseInt(rawCount, 10);
       if (Number.isInteger(c) && c > 0 && c <= 20000) {
         runOptions.count = c;
       }
