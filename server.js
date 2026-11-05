@@ -70,51 +70,115 @@ function verifyAuth(req) {
   }
 }
 
-// Danh mục toàn bộ các nhiệm vụ & công đức chùa hỗ trợ chạy riêng lẻ hoặc theo chu trình
+// Danh mục toàn bộ các nhiệm vụ & công đức chùa chia theo 3 nhóm rõ ràng:
+// 1. group: 'daily' (Nhiệm vụ hàng ngày tương ứng trực tiếp me.quests)
+// 2. group: 'milestone' (Mốc tu tập & thành tựu vĩnh viễn theo dõi qua sổ thành tựu journal)
+// 3. group: 'extra' (Ăn thêm điểm công đức, chăm sóc vườn sen & thiền tĩnh tâm)
 export const TASKS_CATALOG = [
+  // --- TẦNG 1: NHIỆM VỤ HÀNG NGÀY (DAILY QUESTS) ---
   {
     id: 'bell',
     group: 'daily',
+    questId: 'chuong',
     title: 'Thỉnh Chuông Bát Nhã',
     desc: 'Đến gác chuông thỉnh một tiếng đại hồng chung ngân vang',
     icon: '🔔',
     reward: '+10 điểm',
-    badge: 'Nhiệm vụ ngày',
-    questKeyword: 'chuông'
+    badge: 'Nhiệm vụ ngày'
   },
   {
     id: 'vow',
     group: 'daily',
+    questId: 'nguyen',
     title: 'Gửi Lời Nguyện Chung',
-    desc: 'Gửi lời nguyện cầu bình an, an lạc tới toàn thể chùa',
+    desc: 'Gửi một lời nguyện cầu bình an, an lạc tới cả chùa',
     icon: '🙏',
     reward: '+10 điểm',
-    badge: 'Nhiệm vụ ngày',
-    questKeyword: 'nguyện'
+    badge: 'Nhiệm vụ ngày'
   },
   {
     id: 'incense',
     group: 'daily',
+    questId: 'huong',
     title: 'Dâng Hương Chánh Điện',
     desc: 'Thắp nén tâm hương thành kính tại lư hương chánh điện',
     icon: '🪔',
     reward: '+10 điểm',
-    badge: 'Nhiệm vụ ngày',
-    questKeyword: 'hương'
+    badge: 'Nhiệm vụ ngày'
   },
   {
-    id: 'lay',
+    id: 'lay-daily',
     group: 'daily',
-    title: 'Lạy Phật Sám Hối',
-    desc: 'Trang nghiêm cúi lạy Phật sám hối (chọn số lượng: 1, 18, 36, 108 lạy...)',
+    questId: 'lay',
+    title: 'Lạy Phật Cùng Người Khác',
+    desc: 'Cúi lạy Phật trang nghiêm cùng các bạn đồng tu',
     icon: '🙇',
     reward: '+15 điểm',
-    badge: 'Mốc lạy Phật',
-    questKeyword: 'lạy',
+    badge: 'Nhiệm vụ ngày'
+  },
+  {
+    id: 'greet',
+    group: 'daily',
+    questId: 'chao',
+    title: 'Chắp Tay Chào Đồng Tu',
+    desc: 'Chắp tay trang nghiêm chào một bạn đồng tu đang có mặt tại chùa',
+    icon: '🤝',
+    reward: '+10 điểm',
+    badge: 'Nhiệm vụ ngày'
+  },
+  {
+    id: 'lantern-daily',
+    group: 'daily',
+    questId: 'den',
+    title: 'Thả Hoa Đăng Sen',
+    desc: 'Thả một ngọn hoa đăng sen cầu nguyện trôi trên hồ chùa',
+    icon: '🏮',
+    reward: '+10 điểm',
+    badge: 'Nhiệm vụ ngày'
+  },
+  {
+    id: 'chores-daily',
+    group: 'daily',
+    questId: 'viec',
+    title: 'Làm Việc Chùa & Quét Sân',
+    desc: 'Quét lá sân chùa, cho cá ăn, thắp đèn dầu, vuốt ve mèo chùa',
+    icon: '🧹',
+    reward: '+10 điểm',
+    badge: 'Nhiệm vụ ngày'
+  },
+  {
+    id: 'xam',
+    group: 'daily',
+    questId: 'xam',
+    title: 'Gieo Quẻ Xăm May Mắn',
+    desc: 'Lắc ống xăm may mắn đầu ngày cầu bình an cát tường',
+    icon: '📜',
+    reward: '+10 điểm',
+    badge: 'Đầu ngày'
+  },
+  {
+    id: 'claim',
+    group: 'daily',
+    questId: 'claim',
+    title: 'Thu Nhận Tất Cả Phần Thưởng',
+    desc: 'Kiểm tra và gửi yêu cầu thu nhận tất cả phần thưởng nhiệm vụ hoàn thành',
+    icon: '🎁',
+    reward: 'Tất cả quà',
+    badge: 'Thu hoạch'
+  },
+
+  // --- TẦNG 2: MỐC TU TẬP & THÀNH TỰU VĨNH VIỄN (MILESTONES) ---
+  {
+    id: 'lay',
+    group: 'milestone',
+    title: 'Lạy Phật Sám Hối',
+    desc: 'Trang nghiêm cúi lạy Phật sám hối (chọn số lượng: 18, 36, 108, 300, 1000 lạy)',
+    icon: '🙇',
+    reward: 'Mốc lạy',
+    badge: 'Thành tựu',
     hasCount: true,
     defaultCount: 18,
     countOptions: [
-      { value: 1, label: '1 lạy (Quest ngày)' },
       { value: 18, label: '18 lạy (Khởi tâm)' },
       { value: 36, label: '36 lạy (Tinh tấn)' },
       { value: 108, label: '108 lạy (Trăm lạy 🏆)' },
@@ -123,68 +187,13 @@ export const TASKS_CATALOG = [
     ]
   },
   {
-    id: 'greet',
-    group: 'daily',
-    title: 'Chắp Tay Chào Đồng Tu',
-    desc: 'Chắp tay trang nghiêm chào một bạn đồng tu đang có mặt tại chùa',
-    icon: '🤝',
-    reward: '+10 điểm',
-    badge: 'Nhiệm vụ ngày',
-    questKeyword: 'chào'
-  },
-  {
-    id: 'quet',
-    group: 'daily',
-    title: 'Quét Lá Sân Chùa',
-    desc: 'Công quả quét dọn lá rụng giữ gìn khuôn viên thanh tịnh',
-    icon: '🧹',
-    reward: 'Công quả',
-    badge: 'Nhiệm vụ ngày',
-    questKeyword: 'quét',
-    hasCount: true,
-    defaultCount: 1,
-    countOptions: [
-      { value: 1, label: '1 lần (Quest ngày)' },
-      { value: 5, label: '5 lần (Cày sân)' },
-      { value: 10, label: '10 lần' }
-    ]
-  },
-  {
-    id: 'chores',
-    group: 'daily',
-    title: 'Làm Việc Chùa (Cá, Đèn, Mèo)',
-    desc: 'Cho đàn cá hồ sen ăn, thắp đèn dầu chánh điện, xoa đầu mèo chùa',
-    icon: '🐟',
-    reward: 'Công quả',
-    badge: 'Nhiệm vụ ngày',
-    questKeyword: 'việc'
-  },
-  {
-    id: 'mo',
-    group: 'daily',
-    title: 'Gõ Mõ Tụng Kinh',
-    desc: 'Gõ mõ theo nhịp thong thả tự nhiên',
-    icon: '🪵',
-    reward: 'Tụng kinh',
-    badge: 'Tu tập',
-    questKeyword: 'mõ',
-    hasCount: true,
-    defaultCount: 15,
-    countOptions: [
-      { value: 15, label: '15 tiếng' },
-      { value: 30, label: '30 tiếng' },
-      { value: 60, label: '60 tiếng' }
-    ]
-  },
-  {
     id: 'beads',
-    group: 'daily',
+    group: 'milestone',
     title: 'Lăn Tràng Hạt Niệm Phật',
-    desc: 'Lăn tràng hạt niệm Phật (chọn số hạt: 20, 54, 108 hạt/chuỗi tròn...)',
+    desc: 'Lăn tràng hạt niệm Phật (chọn số hạt: 20, 54, 108, 216, 540, 1080 hạt)',
     icon: '📿',
     reward: 'Niệm Phật',
     badge: 'Chuỗi hạt',
-    questKeyword: 'hạt',
     hasCount: true,
     defaultCount: 108,
     countOptions: [
@@ -197,27 +206,8 @@ export const TASKS_CATALOG = [
     ]
   },
   {
-    id: 'xam',
-    group: 'daily',
-    title: 'Gieo Quẻ Xăm May Mắn',
-    desc: 'Lắc ống xăm may mắn đầu ngày cầu bình an cát tường',
-    icon: '📜',
-    reward: 'Quẻ xăm',
-    badge: 'Đầu ngày',
-    questKeyword: 'xăm'
-  },
-  {
-    id: 'claim',
-    group: 'daily',
-    title: 'Thu Nhận Tất Cả Phần Thưởng',
-    desc: 'Kiểm tra và gửi yêu cầu thu nhận tất cả phần thưởng nhiệm vụ hoàn thành',
-    icon: '🎁',
-    reward: 'Nhận quà',
-    badge: 'Thu hoạch'
-  },
-  {
     id: 'farm-bows-beads',
-    group: 'extra',
+    group: 'milestone',
     title: 'Cày Tự Động: Chuỗi Hạt & Lạy Phật',
     desc: 'Chạy tự động kết hợp cả Lạy Phật và Lăn Tràng Hạt (set số lượng tùy ý)',
     icon: '📿',
@@ -225,6 +215,49 @@ export const TASKS_CATALOG = [
     badge: 'Cày tự động',
     isCombo: true
   },
+  {
+    id: 'mo',
+    group: 'milestone',
+    title: 'Gõ Mõ Tụng Kinh',
+    desc: 'Gõ mõ theo nhịp thong thả tự nhiên',
+    icon: '🪵',
+    reward: 'Tụng kinh',
+    badge: 'Tu tập',
+    hasCount: true,
+    defaultCount: 15,
+    countOptions: [
+      { value: 15, label: '15 tiếng' },
+      { value: 30, label: '30 tiếng' },
+      { value: 60, label: '60 tiếng' }
+    ]
+  },
+  {
+    id: 'quet',
+    group: 'milestone',
+    title: 'Quét Lá Sân Chùa (Cày Sân)',
+    desc: 'Công quả quét dọn lá rụng nhiều lượt giữ gìn khuôn viên thanh tịnh',
+    icon: '🧹',
+    reward: 'Công quả',
+    badge: 'Công quả',
+    hasCount: true,
+    defaultCount: 5,
+    countOptions: [
+      { value: 1, label: '1 lần' },
+      { value: 5, label: '5 lần' },
+      { value: 10, label: '10 lần' }
+    ]
+  },
+  {
+    id: 'visit',
+    group: 'milestone',
+    title: 'Khám Phá Toàn Bộ Chùa (10 Khu)',
+    desc: 'Đi dạo thăm khắp 10 khu vực trong chùa (cày danh hiệu "Thăm khắp chùa")',
+    icon: '🚶',
+    reward: 'Thành tựu',
+    badge: 'Khám phá'
+  },
+
+  // --- TẦNG 3 & 4: ĂN THÊM ĐIỂM, VƯỜN SEN & TĨNH TÂM (EXTRA & MEDITATION) ---
   {
     id: 'garden',
     group: 'extra',
@@ -262,15 +295,6 @@ export const TASKS_CATALOG = [
     badge: 'Bí ẩn chùa'
   },
   {
-    id: 'visit',
-    group: 'extra',
-    title: 'Khám Phá Toàn Bộ Chùa (10 Khu)',
-    desc: 'Đi dạo thăm khắp 10 khu vực trong chùa (cày danh hiệu "Thăm khắp chùa")',
-    icon: '🚶',
-    reward: 'Thành tựu',
-    badge: 'Khám phá'
-  },
-  {
     id: 'meditate',
     group: 'extra',
     title: 'Ngồi Thiền Tĩnh Tâm',
@@ -288,6 +312,7 @@ const state = {
   merit: null,
   journal: null,
   isRunning: false,
+  isStopping: false,
   runningTask: null,
   runningTaskName: null,
   activeClient: null,
@@ -373,10 +398,11 @@ async function refreshAccountData() {
   }
 }
 
-// Hàm thực thi chu trình tự động hoặc nhiệm vụ riêng lẻ (Định danh Run ID & Ghi nhận chuẩn)
+// Hàm thực thi chu trình tự động hoặc nhiệm vụ riêng lẻ (Định danh Run ID & Xác minh Snapshot trung thực)
 async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
-  if (state.isRunning) {
-    return { ok: false, message: 'Đang có một tiến trình nhiệm vụ đang chạy dở, vui lòng đợi.' };
+  // Ngăn chặn race condition: từ chối nếu đang chạy hoặc đang trong quá trình dừng
+  if (state.isRunning || state.isStopping) {
+    return { ok: false, message: 'Đang có một tiến trình nhiệm vụ đang chạy hoặc đang trong quá trình dừng an toàn, vui lòng đợi.' };
   }
 
   const taskId = runOptions.task || 'all';
@@ -385,6 +411,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
 
   const runId = 'run-' + Date.now().toString(36) + '-' + crypto.randomBytes(3).toString('hex');
   state.isRunning = true;
+  state.isStopping = false;
   state.runningTask = taskId;
   state.runningTaskName = taskTitle;
   state.currentRunId = runId;
@@ -410,6 +437,20 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
       fetch(keepAliveUrl).catch(() => {});
     }, 180000);
     if (keepAliveTimer.unref) keepAliveTimer.unref();
+
+    // 1. Chụp baseline snapshot trước khi chạy để đối soát trung thực
+    if (!state.merit?.me || !state.journal) {
+      await refreshAccountData();
+    }
+    const preMeritTotal = Number(state.merit?.me?.total ?? 0);
+    const preBows = Number(state.journal?.bows ?? 0);
+    const preBeads = Number(state.journal?.beads ?? 0);
+    const preIncense = Number(state.journal?.incense ?? 0);
+    const preLanterns = Number(state.journal?.lanterns ?? 0);
+    const preSitMin = Number(state.journal?.sitMin ?? 0);
+    const preVisited = Number(state.journal?.visited ?? 0);
+    const preQuests = Array.isArray(state.merit?.me?.quests) ? JSON.parse(JSON.stringify(state.merit.me.quests)) : [];
+    const preClaimedCount = preQuests.filter(q => q.claimed).length;
 
     let prevTitles = new Set();
     let initJ = null;
@@ -443,6 +484,9 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
         case 'incense':
           await client.doIncense(runOptions.count || 1);
           break;
+        case 'lay-daily':
+          await client.doLay(1);
+          break;
         case 'lay':
           const bowsCount = runOptions.count || 18;
           await client.doLay(bowsCount);
@@ -450,8 +494,17 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
         case 'greet':
           await client.doGreet();
           break;
+        case 'lantern-daily':
+          await client.doLantern(runOptions.text || 'Cầu cho muôn người bình an, vạn sự hanh thông', 'vang', 1);
+          break;
+        case 'chores-daily':
+          await client.doQuetLa(1);
+          client.send({ t: 'viec', k: 'ca' });
+          client.send({ t: 'lamp' });
+          await client.doPet();
+          break;
         case 'quet':
-          await client.doQuetLa(runOptions.count || 1);
+          await client.doQuetLa(runOptions.count || 5);
           break;
         case 'chores':
           await client.doChores();
@@ -514,28 +567,123 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
       }
 
       // Tự động nhận thưởng nếu nhiệm vụ này hoàn thành quest ngày
-      if (['bell', 'vow', 'incense', 'lay', 'greet', 'xam', 'chores', 'quet', 'farm-bows-beads'].includes(taskId)) {
+      if (['bell', 'vow', 'incense', 'lay-daily', 'lay', 'greet', 'lantern-daily', 'chores-daily', 'xam', 'chores', 'quet', 'farm-bows-beads'].includes(taskId)) {
         await client.sleep(1000);
         await client.claimAllQuests();
       }
 
       client.close();
-      routineResult = { verificationStatus: 'verified', unverifiedCount: 0 };
     }
 
-    // Lấy lại dữ liệu mới nhất sau khi chạy xong
+    // 2. Lấy lại dữ liệu mới nhất từ máy chủ chùa sau khi thực hiện
     const snapshotAvailable = await refreshAccountData();
 
+    // 3. Đối soát trung thực (Snapshot Verification)
+    let verificationStatus = 'unverified';
+    let verificationDetail = '';
+
+    if (!snapshotAvailable) {
+      verificationStatus = 'unverified';
+      verificationDetail = 'Không thể đồng bộ snapshot mới từ máy chủ chùa sau khi thực hiện tác vụ.';
+    } else {
+      const postMeritTotal = Number(state.merit?.me?.total ?? 0);
+      const postBows = Number(state.journal?.bows ?? 0);
+      const postBeads = Number(state.journal?.beads ?? 0);
+      const postIncense = Number(state.journal?.incense ?? 0);
+      const postLanterns = Number(state.journal?.lanterns ?? 0);
+      const postSitMin = Number(state.journal?.sitMin ?? 0);
+      const postVisited = Number(state.journal?.visited ?? 0);
+      const postQuests = Array.isArray(state.merit?.me?.quests) ? state.merit.me.quests : [];
+      const postClaimedCount = postQuests.filter(q => q.claimed).length;
+
+      if (taskId === 'all') {
+        if (postClaimedCount > preClaimedCount || postMeritTotal > preMeritTotal || postBows > preBows || postBeads > preBeads) {
+          const allTodayClaimed = postQuests.length > 0 && postQuests.every(q => q.claimed);
+          verificationStatus = allTodayClaimed ? 'verified' : 'partial';
+          verificationDetail = allTodayClaimed
+            ? 'Toàn bộ nhiệm vụ ngày đã được máy chủ chùa xác nhận nhận thưởng hoàn tất.'
+            : `Đã xác nhận ghi nhận một phần (+${postMeritTotal - preMeritTotal} công đức).`;
+        } else {
+          verificationStatus = 'unverified';
+          verificationDetail = 'Chưa ghi nhận biến động công đức/nhiệm vụ trong snapshot sau chu trình.';
+        }
+      } else if (taskId === 'lay' || taskId === 'lay-daily') {
+        if (postBows > preBows || postMeritTotal > preMeritTotal || postClaimedCount > preClaimedCount) {
+          verificationStatus = 'verified';
+          verificationDetail = `Máy chủ đã ghi nhận số lạy: ${preBows} -> ${postBows} lạy.`;
+        } else {
+          verificationDetail = 'Số lạy chưa thay đổi trong snapshot máy chủ.';
+        }
+      } else if (taskId === 'beads') {
+        if (postBeads > preBeads || postMeritTotal > preMeritTotal) {
+          verificationStatus = 'verified';
+          verificationDetail = `Máy chủ đã ghi nhận số hạt: ${preBeads} -> ${postBeads} hạt.`;
+        } else {
+          verificationDetail = 'Số hạt niệm chưa thay đổi trong snapshot máy chủ.';
+        }
+      } else if (taskId === 'farm-bows-beads') {
+        if (postBows > preBows || postBeads > preBeads || postMeritTotal > preMeritTotal) {
+          verificationStatus = 'verified';
+          verificationDetail = `Máy chủ xác nhận: ${postBows} lạy (+${postBows - preBows}), ${postBeads} hạt (+${postBeads - preBeads}).`;
+        } else {
+          verificationDetail = 'Chỉ số lạy và hạt chưa biến động trong snapshot.';
+        }
+      } else if (taskId === 'incense') {
+        if (postIncense > preIncense || postMeritTotal > preMeritTotal || postClaimedCount > preClaimedCount) {
+          verificationStatus = 'verified';
+          verificationDetail = `Máy chủ đã ghi nhận nén hương: ${preIncense} -> ${postIncense}.`;
+        } else {
+          verificationDetail = 'Chỉ số dâng hương chưa biến động trong snapshot.';
+        }
+      } else if (taskId === 'lantern-daily') {
+        if (postLanterns > preLanterns || postMeritTotal > preMeritTotal || postClaimedCount > preClaimedCount) {
+          verificationStatus = 'verified';
+          verificationDetail = `Máy chủ đã ghi nhận hoa đăng: ${preLanterns} -> ${postLanterns}.`;
+        } else {
+          verificationDetail = 'Chỉ số hoa đăng chưa biến động trong snapshot.';
+        }
+      } else if (taskId === 'visit') {
+        if (postVisited > preVisited || postMeritTotal > preMeritTotal) {
+          verificationStatus = 'verified';
+          verificationDetail = `Máy chủ đã ghi nhận số khu khám phá: ${preVisited} -> ${postVisited}.`;
+        } else {
+          verificationDetail = 'Chỉ số khám phá khu vực chưa biến động trong snapshot.';
+        }
+      } else if (taskId === 'meditate') {
+        if (postSitMin > preSitMin || postMeritTotal > preMeritTotal) {
+          verificationStatus = 'verified';
+          verificationDetail = `Máy chủ đã ghi nhận thời gian thiền: ${preSitMin} -> ${postSitMin} phút.`;
+        } else {
+          verificationDetail = 'Thời gian thiền chưa biến động trong snapshot.';
+        }
+      } else if (taskItem?.questId) {
+        const preQ = preQuests.find(q => q.id === taskItem.questId);
+        const postQ = postQuests.find(q => q.id === taskItem.questId);
+        if ((postQ?.claimed && !preQ?.claimed) || (postQ && preQ && postQ.have > preQ.have) || postMeritTotal > preMeritTotal || postClaimedCount > preClaimedCount) {
+          verificationStatus = 'verified';
+          verificationDetail = `Máy chủ đã ghi nhận hoàn thành nhiệm vụ [${taskItem.title}].`;
+        } else {
+          verificationDetail = `Chưa thấy thay đổi tiến độ nhiệm vụ [${taskItem.title}] trong snapshot.`;
+        }
+      } else {
+        if (postMeritTotal > preMeritTotal || postClaimedCount > preClaimedCount) {
+          verificationStatus = 'verified';
+          verificationDetail = `Máy chủ xác nhận tăng công đức (+${postMeritTotal - preMeritTotal} điểm).`;
+        } else {
+          verificationDetail = 'Chưa ghi nhận biến động điểm công đức sau tác vụ.';
+        }
+      }
+    }
+
     const durationSec = Math.round((Date.now() - startTime) / 1000);
-    // Chỉ so danh hiệu khi có snapshot trước và sau
     const titlesComparisonAvailable = Array.isArray(initJ?.titles) && snapshotAvailable && Array.isArray(state.journal?.titles);
     const newlyUnlocked = titlesComparisonAvailable
       ? state.journal.titles.filter(t => t.got && !prevTitles.has(t.name))
       : [];
 
-    runStatus = routineResult?.verificationStatus === 'verified'
+    runStatus = verificationStatus === 'verified'
       ? 'success'
-      : (Number(routineResult?.unverifiedCount) > 0 ? 'partial' : 'unverified');
+      : (verificationStatus === 'partial' ? 'partial' : 'unverified');
     const finishedAt = new Date().toISOString();
 
     if (runStatus === 'success' && taskId === 'all') {
@@ -551,6 +699,8 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
       task: taskId,
       taskTitle,
       status: runStatus,
+      verificationStatus,
+      verificationDetail,
       startTime: startedAt,
       finishedAt,
       timestamp: finishedAt,
@@ -569,7 +719,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
     state.runHistory.unshift(result);
     if (state.runHistory.length > 15) state.runHistory.pop();
 
-    addWebLog(`✅ [${runId}] Đã hoàn tất [${taskTitle}] (${runStatus}) sau ${durationSec}s.`, runStatus === 'success' ? 'success' : 'warn', runStatus === 'success' ? '✅' : '⚠️');
+    addWebLog(`✅ [${runId}] Đã hoàn tất [${taskTitle}] (${runStatus}: ${verificationDetail}) sau ${durationSec}s.`, runStatus === 'success' ? 'success' : 'warn', runStatus === 'success' ? '✅' : '⚠️');
 
     // Gửi thông báo Telegram/Discord nếu cấu hình (không làm đứt chu trình nếu notify lỗi)
     try {
@@ -579,6 +729,8 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
         task: taskId,
         taskTitle,
         status: runStatus,
+        verificationStatus,
+        verificationDetail,
         finishedAt,
         snapshotAt: result.snapshotAt,
         snapshotStatus: result.snapshotStatus,
@@ -595,7 +747,6 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
   } catch (err) {
     const isStopped = (err.message && err.message.includes('dừng')) || state.activeClient?.aborted;
     const durationSec = Math.round((Date.now() - startTime) / 1000);
-    // Cắt và che thông tin xác thực phổ biến trước khi ghi lỗi vào dashboard/notification.
     safeErrorMessage = isStopped
       ? 'Tác vụ đã được dừng bởi người dùng'
       : String(err.message || 'Lỗi không xác định')
@@ -619,6 +770,8 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
       task: taskId,
       taskTitle,
       status: runStatus,
+      verificationStatus: 'failed',
+      verificationDetail: safeErrorMessage,
       error: safeErrorMessage,
       errorStep,
       startTime: startedAt,
@@ -654,7 +807,9 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
     return { ok: false, error: safeErrorMessage, stopped: isStopped };
   } finally {
     if (keepAliveTimer) clearInterval(keepAliveTimer);
+    // Khóa chỉ được giải phóng trong finally để tuyệt đối chống race condition!
     state.isRunning = false;
+    state.isStopping = false;
     state.runningTask = null;
     state.runningTaskName = null;
     state.activeClient = null;
@@ -667,7 +822,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
 // Lập lịch tự động chạy sau 00:05 sáng mỗi ngày giờ VN (UTC+7)
 function startDailyScheduler() {
   async function checkSchedule() {
-    if (isSchedulerRunning || state.isRunning) return;
+    if (isSchedulerRunning || state.isRunning || state.isStopping) return;
 
     const now = new Date(Date.now() + 7 * 3600 * 1000);
     const todayStr = now.toISOString().slice(0, 10);
@@ -705,23 +860,57 @@ function startDailyScheduler() {
   log.info('⏰ Đã kích hoạt lịch trình tự động canh khung giờ 00:05 - 01:59 sáng mỗi ngày (giờ Việt Nam).');
 }
 
-// Helper lấy nhãn trạng thái nhiệm vụ hàng ngày
-function getTaskQuestBadge(task, quests = []) {
-  if (!Array.isArray(quests) || quests.length === 0 || !task.questKeyword) return '';
-  const kw = task.questKeyword.toLowerCase();
-  const q = quests.find(item => {
-    const title = (item.title || '').toLowerCase();
-    const id = (item.id || '').toLowerCase();
-    return title.includes(kw) || id === kw || id === task.id;
-  });
-  if (!q) return '';
-  if (q.claimed) {
-    return '<span class="badge badge-done">✅ Đã nhận</span>';
+// Helper lấy nhãn trạng thái nhiệm vụ hàng ngày & tiến độ mốc thành tựu vĩnh viễn
+function getTaskQuestBadge(task, quests = [], journal = {}) {
+  if (task.group === 'daily') {
+    if (task.id === 'claim') return '';
+    if (!Array.isArray(quests) || quests.length === 0) {
+      return '<span class="badge" style="background:rgba(255,255,255,0.06); color:var(--text-dim);">Đang tải quest...</span>';
+    }
+    const q = quests.find(item => item.id === task.questId);
+    if (!q) {
+      return '<span class="badge" style="background:rgba(255,255,255,0.06); color:var(--text-dim);">Hôm nay không có quest này</span>';
+    }
+    if (q.claimed) {
+      return '<span class="badge badge-done">✅ Đã nhận</span>';
+    }
+    if (q.have >= q.need) {
+      return '<span class="badge badge-ready">🎁 Chờ nhận</span>';
+    }
+    return `<span class="badge badge-wait">⏳ ${escapeHTML(q.have)}/${escapeHTML(q.need)}</span>`;
   }
-  if (q.have >= q.need) {
-    return '<span class="badge badge-ready">🎁 Chờ nhận</span>';
+
+  if (task.group === 'milestone') {
+    if (task.id === 'lay') {
+      const bows = journal?.bows;
+      return bows !== undefined && bows !== null
+        ? `<span class="badge" style="background:rgba(233,194,122,0.15); color:var(--gold);">${escapeHTML(bows)}/108 lạy ${bows >= 108 ? '🏆' : ''}</span>`
+        : '';
+    }
+    if (task.id === 'beads') {
+      const beads = journal?.beads;
+      const rounds = journal?.rounds;
+      return beads !== undefined && beads !== null
+        ? `<span class="badge" style="background:rgba(233,194,122,0.15); color:var(--gold);">${escapeHTML(beads)} hạt (${escapeHTML(rounds || 0)} chuỗi)</span>`
+        : '';
+    }
+    if (task.id === 'visit') {
+      const visited = journal?.visited;
+      const zones = journal?.zones || 10;
+      return visited !== undefined && visited !== null
+        ? `<span class="badge" style="background:rgba(233,194,122,0.15); color:var(--gold);">${escapeHTML(visited)}/${escapeHTML(zones)} khu</span>`
+        : '';
+    }
   }
-  return `<span class="badge badge-wait">⏳ ${escapeHTML(q.have)}/${escapeHTML(q.need)}</span>`;
+
+  if (task.id === 'meditate') {
+    const sitMin = journal?.sitMin;
+    return sitMin !== undefined && sitMin !== null
+      ? `<span class="badge" style="background:rgba(233,194,122,0.15); color:var(--gold);">${escapeHTML(sitMin)}/60 phút</span>`
+      : '';
+  }
+
+  return '';
 }
 
 // Tạo mã HTML Dashboard an toàn chống XSS (Priority 2 & SYSTEM_LOG_REPORT)
@@ -762,17 +951,19 @@ function renderDashboardHTML() {
 
   const historyHTML = state.runHistory.map(h => {
     const isSuccess = h.status === 'success';
-    const isPartial = h.status === 'partial' || h.status === 'unverified';
+    const isPartial = h.status === 'partial';
+    const isUnverified = h.status === 'unverified';
     const isStopped = h.status === 'stopped';
-    const statusClass = isSuccess ? 'success' : (isPartial ? 'partial' : (isStopped ? 'stopped' : 'failed'));
+    const statusClass = isSuccess ? 'success' : (isPartial || isUnverified ? 'partial' : (isStopped ? 'stopped' : 'failed'));
     const statusLabel = isSuccess
       ? '✅ Đã xác nhận'
-      : (isPartial ? '⚠️ Hoàn tất một phần' : (isStopped ? '🛑 Đã dừng theo yêu cầu' : '❌ Thất bại'));
+      : (isPartial ? '⚠️ Hoàn tất một phần' : (isUnverified ? '⏳ Chưa xác nhận biến động' : (isStopped ? '🛑 Đã dừng theo yêu cầu' : '❌ Thất bại')));
     const taskBadge = h.taskTitle ? ` [${escapeHTML(h.taskTitle)}]` : '';
+    const detailMsg = h.verificationDetail ? ` · <span style="color:var(--text-dim);">${escapeHTML(h.verificationDetail)}</span>` : '';
     return `
       <div class="history-item ${statusClass}">
         <div>
-          <b>${statusLabel}</b>${taskBadge} · <span>${escapeHTML(h.source)}</span>
+          <b>${statusLabel}</b>${taskBadge} · <span>${escapeHTML(h.source)}</span>${detailMsg}
           <small class="time">Bắt đầu ${escapeHTML(h.startTime || 'chưa rõ')} · Kết thúc ${escapeHTML(h.timestamp || h.finishedAt || 'chưa rõ')} UTC · ${escapeHTML(h.durationSec)}s · ID: ${escapeHTML(h.id)}</small>
         </div>
         <div>${h.status === 'failed' || isStopped ? `<span class="err">${escapeHTML(h.error || 'Đã dừng')}</span>` : `Snapshot: ${escapeHTML(h.snapshotStatus || 'không rõ')} · Hôm nay: ${reportValue(h.todayMerit)}đ · Tổng: ${reportValue(h.totalMerit)}đ`}</div>
@@ -782,14 +973,16 @@ function renderDashboardHTML() {
 
   const logsHTML = state.currentLogs.map(l => `<div><span style="color:var(--text-dim); margin-right:6px;">${escapeHTML(l.timeDisplay)}</span><span style="margin-right:4px;">${escapeHTML(l.icon || 'ℹ️')}</span>${escapeHTML(l.message)}</div>`).join('') || '<div>Hệ thống sẵn sàng. Đang chờ tác vụ…</div>';
   const isRunning = state.isRunning;
+  const isStopping = state.isStopping;
   const currentRunningTaskName = state.runningTaskName || (state.runningTask === 'all' ? 'Toàn bộ chu trình tự động (4 Tầng)' : (state.runningTask ? `Nhiệm vụ [${state.runningTask}]` : 'Nhiệm vụ tự động'));
   const elapsedSec = isRunning && state.runStartTime ? Math.round((Date.now() - state.runStartTime) / 1000) : 0;
 
   const renderTaskRow = (t) => {
-    const questBadge = getTaskQuestBadge(t, me.quests);
+    const questBadge = getTaskQuestBadge(t, me.quests, j);
     const isThisRunning = isRunning && state.runningTask === t.id;
-    const isAnyRunning = isRunning;
-    const stopActive = isThisRunning || (isAnyRunning && state.runningTask === 'all');
+    const isAnyRunning = isRunning || isStopping;
+    const isThisStopping = isStopping && isThisRunning;
+    const stopActive = isRunning && !isStopping && (isThisRunning || state.runningTask === 'all');
 
     let inputControl = '';
     if (t.isCombo) {
@@ -854,7 +1047,7 @@ function renderDashboardHTML() {
         <div class="task-actions">
           ${inputControl}
           <button class="btn-task btn-run" onclick="runTask('${escapeHTML(t.id)}')" ${isAnyRunning ? 'disabled' : ''}>
-            ${isThisRunning ? '⏳ Đang chạy…' : '⚡ Chạy'}
+            ${isThisStopping ? '🛑 Đang dừng…' : (isThisRunning ? '⏳ Đang chạy…' : '⚡ Chạy')}
           </button>
           <button class="btn-task btn-stop" onclick="stopTask()" ${stopActive ? '' : 'disabled'}>
             🛑 Dừng
@@ -865,21 +1058,27 @@ function renderDashboardHTML() {
   };
 
   const dailyTasksHTML = TASKS_CATALOG.filter(t => t.group === 'daily').map(renderTaskRow).join('');
+  const milestoneTasksHTML = TASKS_CATALOG.filter(t => t.group === 'milestone').map(renderTaskRow).join('');
   const extraTasksHTML = TASKS_CATALOG.filter(t => t.group === 'extra').map(renderTaskRow).join('');
 
   // Khối thông báo trạng thái & Log trực tiếp khi đang làm nhiệm vụ
+  const bannerBorderColor = isStopping ? '#e06c75' : 'var(--gold)';
+  const bannerTitle = isStopping
+    ? `🛑 ĐANG DỪNG AN TOÀN: ${escapeHTML(currentRunningTaskName)} (Đang ngắt kết nối an toàn...)`
+    : `🟡 ĐANG CHẠY: ${escapeHTML(currentRunningTaskName)}`;
+
   const runningBannerHTML = isRunning ? `
-    <div class="card live-task-card" style="border: 2px solid var(--gold); background: #1a140f; box-shadow: 0 0 25px rgba(233,194,122,0.25); margin-bottom: 20px;">
+    <div class="card live-task-card" style="border: 2px solid ${bannerBorderColor}; background: #1a140f; box-shadow: 0 0 25px rgba(233,194,122,0.25); margin-bottom: 20px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
-        <h2 id="runningTaskTitle" style="color:var(--gold); font-size:16px; margin:0; border:none; padding:0; display:flex; align-items:center; gap:8px;">
-          <span class="pulse-dot"></span> 🟡 ĐANG CHẠY: ${escapeHTML(currentRunningTaskName)}
+        <h2 id="runningTaskTitle" style="color:${isStopping ? '#e06c75' : 'var(--gold)'}; font-size:16px; margin:0; border:none; padding:0; display:flex; align-items:center; gap:8px;">
+          <span class="pulse-dot" style="${isStopping ? 'background:#e06c75;' : ''}"></span> ${bannerTitle}
         </h2>
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
           <span id="elapsedTimer" style="font-size:13px; color:#ffd98d; font-family:monospace; background:rgba(0,0,0,0.4); padding:5px 10px; border-radius:6px; border:1px solid var(--card-border);">
             ⏱️ Đã chạy: ${escapeHTML(elapsedSec)}s
           </span>
-          <button class="btn" onclick="stopTask()" style="background:#e06c75; color:#fff; padding:6px 14px; font-size:12px; border-radius:8px; border:none; cursor:pointer; font-weight:600; display:flex; align-items:center; gap:6px;">
-            🛑 Dừng Tác Vụ Ngay
+          <button class="btn" id="stopMainBtn" onclick="stopTask()" style="background:#e06c75; color:#fff; padding:6px 14px; font-size:12px; border-radius:8px; border:none; cursor:pointer; font-weight:600; display:flex; align-items:center; gap:6px;" ${isStopping ? 'disabled' : ''}>
+            ${isStopping ? '⏳ Đang Dừng An Toàn…' : '🛑 Dừng Tác Vụ Ngay'}
           </button>
         </div>
       </div>
@@ -928,9 +1127,9 @@ function renderDashboardHTML() {
     header { display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
     .who h1 { font-size: 20px; color: var(--gold); display: flex; align-items: center; gap: 8px; }
     .who p { font-size: 13px; color: var(--text-dim); }
-    .actions { display: flex; gap: 10px; align-items: center; }
+    .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     button.btn { background: var(--gold); color: #1c150e; border: none; padding: 10px 18px; border-radius: 10px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; transition: 0.2s; }
-    button.btn:hover { background: #ffd98d; transform: translateY(-1px); }
+    button.btn:hover:not(:disabled) { background: #ffd98d; transform: translateY(-1px); }
     button.btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .pulse-dot {
       display: inline-block;
@@ -1081,17 +1280,20 @@ function renderDashboardHTML() {
         <p>Cấp bậc: <b>${reportValue(me.level)} (Lv.${reportValue(me.lv)})</b> · Chuỗi lên chùa: <b>${reportValue(me.days)} ngày liên tục</b></p>
       </div>
       <div class="actions">
-        <select id="meditateSelect" style="background:#2b221a; color:var(--gold); border:1px solid var(--card-border); padding:9px 12px; border-radius:10px; font-size:13px; outline:none; cursor:pointer;" ${isRunning ? 'disabled' : ''}>
+        <select id="meditateSelect" style="background:#2b221a; color:var(--gold); border:1px solid var(--card-border); padding:9px 12px; border-radius:10px; font-size:13px; outline:none; cursor:pointer;" ${isRunning || isStopping ? 'disabled' : ''}>
           <option value="3600" selected>🧘 Thiền 60 phút (Cày Top 1)</option>
           <option value="1800">🧘 Thiền 30 phút (Cày Top)</option>
           <option value="300">🧘 Thiền 5 phút (Chuẩn)</option>
         </select>
-        <button id="runBtn" class="btn" onclick="triggerRun()" ${isRunning ? 'disabled' : ''}>
-          ${isRunning ? '⏳ Đang thực thi…' : '⚡ Chạy Toàn Bộ Chu Trình'}
+        <button id="runBtn" class="btn" onclick="triggerRun()" ${isRunning || isStopping ? 'disabled' : ''}>
+          ${isStopping ? '🛑 Đang dừng an toàn…' : (isRunning ? '⏳ Đang thực thi…' : '⚡ Chạy Toàn Bộ Chu Trình')}
+        </button>
+        <button id="refreshBtn" class="btn" onclick="manualRefresh()" style="background:#2b221a; color:var(--gold); border:1px solid var(--card-border);" ${isRunning || isStopping ? 'disabled' : ''}>
+          🔄 Làm Mới Dữ Liệu
         </button>
         ${isRunning ? `
-          <button id="stopMainBtn" class="btn" onclick="stopTask()" style="background:#e06c75; color:#fff;">
-            🛑 Dừng Tác Vụ
+          <button id="stopHeaderBtn" class="btn" onclick="stopTask()" style="background:#e06c75; color:#fff;" ${isStopping ? 'disabled' : ''}>
+            ${isStopping ? '⏳ Đang Dừng…' : '🛑 Dừng Tác Vụ'}
           </button>
         ` : ''}
       </div>
@@ -1103,23 +1305,29 @@ function renderDashboardHTML() {
     <!-- BẢNG ĐIỀU KHIỂN TỪNG NHIỆM VỤ & DANH SÁCH TOÀN BỘ -->
     <div class="card" style="margin-bottom: 20px;">
       <h2>
-        <span>🎯 Danh Sách Toàn Bộ Nhiệm Vụ & Bảng Điều Khiển Từng Phần</span>
+        <span>🎯 Bảng Điều Khiển Nhiệm Vụ & Tác Vụ Riêng Lẻ</span>
         <small style="font-size:12px; color:var(--text-dim); font-weight:normal;">Chạy ngẫu hứng bất kỳ lúc nào · Kèm nút Dừng & Live Log trực tiếp</small>
       </h2>
       <p style="font-size:12px; color:var(--text-dim); margin-bottom:14px; line-height:1.6;">
-        Sau khi chu trình tự động lúc 00:05 hoàn tất, bạn có thể bấm <b>[⚡ Chạy]</b> riêng lẻ bất kỳ nhiệm vụ nào bên dưới bất cứ khi nào vào chùa. Quá trình chạy sẽ stream nhật ký trực tiếp vào hộp log phía trên. Bấm <b>[🛑 Dừng]</b> để hủy tác vụ ngay lập tức.
+        Sau khi chu trình tự động lúc 00:05 hoàn tất, bạn có thể bấm <b>[⚡ Chạy]</b> riêng lẻ bất kỳ nhiệm vụ nào bên dưới bất cứ khi nào vào chùa. Quá trình chạy sẽ stream nhật ký trực tiếp vào hộp log phía trên. Bấm <b>[🛑 Dừng]</b> để ngắt tác vụ an toàn.
       </p>
 
-      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
+      <div style="display:flex; flex-direction:column; gap: 16px;">
         <div>
           <div style="font-size:13px; font-weight:600; color:var(--gold); margin-bottom:10px; display:flex; align-items:center; gap:6px;">
-            <span>📋</span> NHIỆM VỤ HÀNG NGÀY & CÔNG QUẢ (TẦNG 1)
+            <span>📋</span> TẦNG 1: NHIỆM VỤ HÀNG NGÀY (QUEST HÔM NAY)
           </div>
           ${dailyTasksHTML}
         </div>
         <div>
           <div style="font-size:13px; font-weight:600; color:var(--gold); margin-bottom:10px; display:flex; align-items:center; gap:6px;">
-            <span>✨</span> ĂN THÊM ĐIỂM, THÀNH TỰU & TĨNH TÂM (TẦNG 2, 3, 4)
+            <span>🎯</span> TẦNG 2: MỐC TU TẬP & THÀNH TỰU VĨNH VIỄN
+          </div>
+          ${milestoneTasksHTML}
+        </div>
+        <div>
+          <div style="font-size:13px; font-weight:600; color:var(--gold); margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+            <span>✨</span> TẦNG 3 & 4: ĂN THÊM ĐIỂM, VƯỜN SEN & TĨNH TÂM
           </div>
           ${extraTasksHTML}
         </div>
@@ -1294,7 +1502,7 @@ function renderDashboardHTML() {
       const csrfMeta = document.querySelector('meta[name="csrf-token"]');
       const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
 
-      const stopBtns = document.querySelectorAll('.btn-stop, #stopMainBtn');
+      const stopBtns = document.querySelectorAll('.btn-stop, #stopMainBtn, #stopHeaderBtn');
       stopBtns.forEach(b => { b.disabled = true; b.textContent = '⏳ Đang dừng…'; });
 
       try {
@@ -1307,7 +1515,8 @@ function renderDashboardHTML() {
         });
         const data = await res.json();
         if (res.ok && data.ok) {
-          setTimeout(() => location.reload(), 1000);
+          // Trang sẽ tự reload khi poll thấy trạng thái dừng
+          setTimeout(() => location.reload(), 1200);
         } else {
           alert(data.error || data.message || 'Lỗi khi gửi yêu cầu dừng');
           stopBtns.forEach(b => { b.disabled = false; b.textContent = '🛑 Dừng'; });
@@ -1315,6 +1524,37 @@ function renderDashboardHTML() {
       } catch (err) {
         alert('Lỗi kết nối: ' + err.message);
         stopBtns.forEach(b => { b.disabled = false; b.textContent = '🛑 Dừng'; });
+      }
+    }
+
+    async function manualRefresh() {
+      const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+      const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
+      const refBtn = document.getElementById('refreshBtn');
+      if (refBtn) {
+        refBtn.disabled = true;
+        refBtn.textContent = '🔄 Đang đồng bộ…';
+      }
+      try {
+        const headers = { 'Content-Type': 'application/json' };
+        if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+        const res = await fetch('/api/refresh', { method: 'POST', headers });
+        const data = await res.json();
+        if (res.ok && data.ok) {
+          location.reload();
+        } else {
+          alert(data.error || data.message || 'Lỗi khi làm mới dữ liệu');
+          if (refBtn) {
+            refBtn.disabled = false;
+            refBtn.textContent = '🔄 Làm Mới Dữ Liệu';
+          }
+        }
+      } catch (err) {
+        alert('Lỗi kết nối: ' + err.message);
+        if (refBtn) {
+          refBtn.disabled = false;
+          refBtn.textContent = '🔄 Làm Mới Dữ Liệu';
+        }
       }
     }
 
@@ -1345,6 +1585,16 @@ function renderDashboardHTML() {
             return;
           }
 
+          if (data.isStopping) {
+            const taskNameEl = document.getElementById('runningTaskTitle');
+            if (taskNameEl) {
+              taskNameEl.innerHTML = '<span class="pulse-dot" style="background:#e06c75;"></span> 🛑 ĐANG DỪNG AN TOÀN: ' + (data.runningTaskName || '') + ' (Đang ngắt kết nối an toàn...)';
+              taskNameEl.style.color = '#e06c75';
+            }
+            const stopBtns = document.querySelectorAll('.btn-stop, #stopMainBtn, #stopHeaderBtn');
+            stopBtns.forEach(b => { b.disabled = true; b.textContent = '⏳ Đang dừng…'; });
+          }
+
           // Cập nhật số giây an toàn
           const timerEl = document.getElementById('elapsedTimer');
           if (timerEl && data.runningSeconds !== undefined) {
@@ -1353,7 +1603,7 @@ function renderDashboardHTML() {
 
           // Cập nhật tên tác vụ
           const taskNameEl = document.getElementById('runningTaskTitle');
-          if (taskNameEl && data.runningTaskName) {
+          if (taskNameEl && data.runningTaskName && !data.isStopping) {
             taskNameEl.textContent = '🟡 ĐANG CHẠY: ' + data.runningTaskName;
           }
 
@@ -1386,7 +1636,11 @@ function renderDashboardHTML() {
     } else {
       setTimeout(async () => {
         try {
-          const res = await fetch('/api/status');
+          const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+          const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
+          const headers = {};
+          if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+          const res = await fetch('/api/status', { headers });
           if (!res.ok) return;
           const data = await res.json();
           if (data.isRunning) location.reload();
@@ -1409,7 +1663,8 @@ const server = http.createServer(async (req, res) => {
       status: 'ok',
       timestamp: new Date().toISOString(),
       uptimeSeconds: Math.round(process.uptime()),
-      running: state.isRunning
+      running: state.isRunning,
+      stopping: state.isStopping
     }, null, 2));
     return;
   }
@@ -1422,9 +1677,13 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({
       isRunning: state.isRunning,
+      isStopping: state.isStopping,
       runningTask: state.runningTask,
       runningTaskName: state.runningTaskName,
       runningSeconds: state.isRunning && state.runStartTime ? Math.round((Date.now() - state.runStartTime) / 1000) : 0,
@@ -1439,7 +1698,39 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 3. API Dừng tác vụ đang chạy (Priority 1: Bắt buộc POST, Xác thực CSRF hoặc Auth Token)
+  // 3. API Làm mới dữ liệu từ chùa thủ công
+  if (url.pathname === '/api/refresh') {
+    if (req.method !== 'POST') {
+      res.writeHead(405, { 'Content-Type': 'application/json; charset=utf-8', 'Allow': 'POST' });
+      res.end(JSON.stringify({ ok: false, error: 'Phương thức không được hỗ trợ. Bắt buộc dùng POST.' }));
+      return;
+    }
+
+    if (!verifyAuth(req)) {
+      res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ ok: false, error: 'Yêu cầu không được phép (thiếu hoặc sai token xác thực).' }));
+      return;
+    }
+
+    if (state.isRunning || state.isStopping) {
+      res.writeHead(409, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ ok: false, message: 'Đang có tác vụ đang chạy, không thể đồng bộ lại dữ liệu chùa.' }));
+      return;
+    }
+
+    const ok = await refreshAccountData();
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({
+      ok,
+      message: ok ? 'Đã làm mới dữ liệu từ máy chủ chùa thành công.' : 'Làm mới dữ liệu thất bại.',
+      lastUpdated: state.lastUpdated,
+      merit: state.merit,
+      journal: state.journal
+    }));
+    return;
+  }
+
+  // 4. API Dừng tác vụ đang chạy (Priority 1: Bắt buộc POST, Xác thực CSRF hoặc Auth Token)
   if (url.pathname === '/api/stop') {
     if (req.method !== 'POST') {
       res.writeHead(405, { 'Content-Type': 'application/json; charset=utf-8', 'Allow': 'POST' });
@@ -1459,7 +1750,14 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    addWebLog('🛑 Đang tiến hành dừng tác vụ theo yêu cầu từ người dùng...', 'warn', '🛑');
+    if (state.isStopping) {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ ok: true, stopped: true, message: 'Đang trong quá trình dừng an toàn, vui lòng đợi.' }));
+      return;
+    }
+
+    state.isStopping = true;
+    addWebLog('🛑 Đang tiến hành dừng tác vụ an toàn theo yêu cầu từ người dùng...', 'warn', '🛑');
     if (state.activeClient) {
       try {
         state.activeClient.abort('Người dùng đã bấm dừng tác vụ trên Dashboard.');
@@ -1468,21 +1766,13 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    setTimeout(() => {
-      if (state.isRunning) {
-        state.isRunning = false;
-        state.runningTask = null;
-        state.runningTaskName = null;
-        state.activeClient = null;
-      }
-    }, 1200);
-
+    // executeRoutine sẽ bắt lệnh hủy và giải phóng cả isRunning và isStopping trong finally
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ ok: true, stopped: true, message: 'Đã gửi lệnh dừng tác vụ thành công.' }));
+    res.end(JSON.stringify({ ok: true, stopped: true, message: 'Đã gửi lệnh dừng tác vụ. Đang ngắt kết nối an toàn...' }));
     return;
   }
 
-  // 4. API Kích hoạt chạy nhiệm vụ (Priority 1: Bắt buộc POST, Xác thực, Validate tham số)
+  // 5. API Kích hoạt chạy nhiệm vụ (Priority 1: Bắt buộc POST, Xác thực, Validate tham số)
   if (url.pathname === '/api/run' || url.pathname === '/run' || url.pathname === '/cron') {
     // Chỉ chấp nhận POST
     if (req.method !== 'POST') {
@@ -1570,18 +1860,28 @@ const server = http.createServer(async (req, res) => {
       runOptions.meditateSeconds = parsedMed;
     }
 
-    // Nếu đang chạy dở, trả về HTTP 409 Conflict
-    if (state.isRunning) {
+    // Nếu đang chạy dở hoặc đang dừng an toàn, trả về HTTP 409 Conflict
+    if (state.isRunning || state.isStopping) {
       res.writeHead(409, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ ok: false, running: true, message: 'Chu trình nhiệm vụ hiện đang được thực hiện.' }));
+      res.end(JSON.stringify({
+        ok: false,
+        running: true,
+        isStopping: state.isStopping,
+        message: state.isStopping
+          ? 'Tiến trình trước đang ngắt kết nối an toàn, vui lòng đợi vài giây trước khi chạy nhiệm vụ mới.'
+          : 'Chu trình nhiệm vụ hiện đang được thực hiện, vui lòng đợi hoàn tất.'
+      }));
       return;
     }
+
+    const taskItem = TASKS_CATALOG.find(t => t.id === task);
+    const taskTitle = taskItem ? taskItem.title : (task === 'all' ? 'Toàn bộ chu trình tự động (4 Tầng)' : task);
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({
       ok: true,
-      running: false,
-      message: `Đã kích hoạt nhiệm vụ [${task}] thành công!`,
+      running: true,
+      message: `Đã nhận yêu cầu chạy nhiệm vụ [${taskTitle}], tiến trình đang thực thi ngầm và truyền nhật ký trực tiếp.`,
       options: runOptions
     }));
 
@@ -1590,7 +1890,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 4. Trang Dashboard chính (GET)
+  // 6. Trang Dashboard chính (GET)
   if (url.pathname === '/' || url.pathname === '/dashboard') {
     if (req.method !== 'GET') {
       res.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8', 'Allow': 'GET' });
