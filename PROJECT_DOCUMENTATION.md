@@ -477,6 +477,9 @@ File máy chủ [`server.js`](file:///Users/tyson/Library/CloudStorage/GoogleDri
 - **Trên Backend API (`/api/run`, `/run`, `/api/stop`)**:
   - Máy chủ kiểm tra mật khẩu qua header `X-Action-Password: 11012006`, body `{ password: "11012006" }` hoặc query `?password=11012006`.
   - Mọi yêu cầu thiếu mật khẩu hoặc sai mật khẩu sẽ bị từ chối với mã lỗi `403 Forbidden` ngay lập tức, không chạm đến máy chủ chùa.
+- **Chế Độ Xem Tĩnh Hoàn Toàn (Zero-Game-Connection on Report View)**:
+  - Khi người dùng truy cập hoặc tải lại trang Report/Dashboard (`GET /`), máy chủ chỉ đọc dữ liệu từ bộ nhớ đệm (`.cached_state.json`), **tuyệt đối KHÔNG tự động kết nối vào game**.
+  - Kết nối vào máy chủ chùa chỉ diễn ra duy nhất khi một tác vụ được kích hoạt có chủ ý (kèm mật khẩu `11012006`), bảo vệ 100% phiên chơi game trực tiếp của người dùng.
 
 ### 🌐 Danh Mục Endpoint API
 - `GET /`: Giao diện Dashboard HTML responsive, hỗ trợ hoàn hảo trên cả máy tính và điện thoại.

@@ -517,6 +517,41 @@ const state = {
   currentLogs: []
 };
 
+// File lưu trữ bộ nhớ đệm trạng thái (Persistence Cache) để khi mở report không phải kết nối game
+const CACHE_STATE_FILE = path.join(process.cwd(), '.cached_state.json');
+
+function loadCachedState() {
+  try {
+    if (fs.existsSync(CACHE_STATE_FILE)) {
+      const data = JSON.parse(fs.readFileSync(CACHE_STATE_FILE, 'utf-8'));
+      if (data.merit) state.merit = data.merit;
+      if (data.journal) state.journal = data.journal;
+      if (data.lastUpdated) state.lastUpdated = data.lastUpdated;
+      if (Array.isArray(data.runHistory) && data.runHistory.length > 0) {
+        state.runHistory = data.runHistory;
+      }
+    }
+  } catch (err) {
+    log.warn('Không thể nạp file cache trạng thái:', err.message);
+  }
+}
+
+function saveCachedState() {
+  try {
+    fs.writeFileSync(CACHE_STATE_FILE, JSON.stringify({
+      lastUpdated: state.lastUpdated,
+      merit: state.merit,
+      journal: state.journal,
+      runHistory: state.runHistory.slice(0, 15)
+    }, null, 2), 'utf-8');
+  } catch (err) {
+    log.warn('Không thể lưu file cache trạng thái:', err.message);
+  }
+}
+
+// Nạp cache trạng thái ngay khi khởi tạo server (tránh gọi refreshAccountData gây tranh session)
+loadCachedState();
+
 // Ghi log vào bộ nhớ đệm theo cấu trúc sự kiện chuẩn (SYSTEM_LOG_REPORT)
 function addWebLog(msg, level = 'info', icon = 'ℹ️') {
   const now = new Date();
@@ -576,6 +611,7 @@ async function refreshAccountData() {
     state.merit = client.merit;
     state.journal = j;
     state.lastUpdated = new Date().toISOString();
+    saveCachedState();
 
     // Nếu snapshot cho thấy các nhiệm vụ hôm nay đã hoàn thành, ghi nhận ngày hôm nay đã chạy
     const quests = client.merit.me.quests || [];
@@ -2955,6 +2991,12 @@ function renderDashboardHTML() {
     }
 
     async function manualRefresh() {
+      if (!confirm('⚠️ LƯU Ý KẾT NỐI MÁY CHỦ:\nLàm mới dữ liệu từ chùa sẽ kết nối máy chủ chùa trong vài giây. Nếu bạn đang chơi game, phiên game có thể bị ngắt.\n\nBạn có chắc chắn muốn làm mới dữ liệu từ chùa lúc này không?')) {
+        return;
+      }
+      const pwd = ensureActionPassword();
+      if (!pwd) return;
+
       const csrfMeta = document.querySelector('meta[name="csrf-token"]');
       const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
       const refBtn = document.getElementById('refreshBtn');
@@ -2963,13 +3005,18 @@ function renderDashboardHTML() {
         refBtn.textContent = '🔄 Đang đồng bộ…';
       }
       try {
-        const headers = { 'Content-Type': 'application/json' };
+        const headers = { 'Content-Type': 'application/json', 'X-Action-Password': pwd };
         if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
-        const res = await fetch('/api/refresh', { method: 'POST', headers });
+        const res = await fetch('/api/refresh', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ password: pwd })
+        });
         const data = await res.json();
         if (res.ok && data.ok) {
           location.reload();
         } else {
+          if (res.status === 403) clearActionPassword();
           alert(data.error || data.message || 'Lỗi khi làm mới dữ liệu');
           if (refBtn) {
             refBtn.disabled = false;
@@ -3231,6 +3278,22 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    let refreshBody = {};
+    if (req.headers['content-type']?.includes('application/json')) {
+      try {
+        const buffers = [];
+        for await (const chunk of req) buffers.push(chunk);
+        const rawBody = Buffer.concat(buffers).toString('utf-8');
+        if (rawBody.trim()) refreshBody = JSON.parse(rawBody);
+      } catch {}
+    }
+
+    if (!verifyActionPassword(req, refreshBody)) {
+      res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ ok: false, error: 'Mật khẩu kích hoạt không chính xác! Vui lòng nhập mật khẩu 11012006 để làm mới dữ liệu từ chùa.' }));
+      return;
+    }
+
     if (state.isRunning || state.isStopping) {
       res.writeHead(409, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ ok: false, message: 'Đang có tác vụ đang chạy, không thể đồng bộ lại dữ liệu chùa.' }));
@@ -3464,17 +3527,14 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 6. Trang Dashboard chính (GET)
+  // 6. Trang Dashboard chính (GET) - Tuyệt đối KHÔNG tự kết nối game khi mở xem report
   if (url.pathname === '/' || url.pathname === '/dashboard') {
     if (req.method !== 'GET') {
       res.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8', 'Allow': 'GET' });
       res.end('Method Not Allowed');
       return;
     }
-    const lastUpdateMs = state.lastUpdated ? new Date(state.lastUpdated).getTime() : 0;
-    if (!state.isRunning && (Date.now() - lastUpdateMs > 30000 || !state.journal)) {
-      await refreshAccountData().catch(() => {});
-    }
+    // Trả về giao diện từ dữ liệu bộ nhớ đệm (Cache/In-memory buffer), không gọi WebSocket vào game
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(renderDashboardHTML());
     return;
@@ -3489,8 +3549,8 @@ server.listen(PORT, HOST, async () => {
   log.temple('🚀', `Server Dashboard đang lắng nghe tại: http://${HOST}:${PORT}`);
   log.info(`Sẵn sàng phục vụ Render Cloud Web Service trên cổng ${PORT}`);
 
-  // Nạp dữ liệu ban đầu
-  await refreshAccountData();
+  // Nạp dữ liệu từ file cache bộ nhớ (không kết nối game, chống tranh session khi khởi động)
+  loadCachedState();
   // Khởi động lịch trình 00:05 sáng
   startDailyScheduler();
 });
