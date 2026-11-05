@@ -616,8 +616,10 @@ export class DiDenChuaClient {
     const roundsTarget = (count / 108).toFixed(1);
     log.temple('📿', `Bắt đầu lần tràng hạt niệm Phật (${count} hạt ~ ${roundsTarget} chuỗi)...`);
     this.send({ t: 'emote', e: 'chuoi' });
-    // Máy chủ didenchua giới hạn tối đa 30 hạt/gói tin, gửi 27 hạt/đợt (1/4 chuỗi 108 hạt)
-    const batchSize = 27;
+    // Máy chủ didenchua giới hạn tốc độ nhận hạt: tối đa ~9 hạt/giây.
+    // Dùng 18 hạt/gói (đúng 1/6 chuỗi 108 hạt) cách nhau 2.050ms (chuẩn game gốc), đảm bảo máy chủ ghi nhận 100% không bị rơi rụng
+    const batchSize = 18;
+    const intervalMs = 2050;
     let sent = 0;
     let lastEmoteTime = Date.now();
     while (sent < count) {
@@ -627,19 +629,20 @@ export class DiDenChuaClient {
       sent += batch;
       const curRounds = (sent / 108).toFixed(1);
       log.info(`...Nam Mô A Di Đà Phật [${sent}/${count} hạt] (~${curRounds} chuỗi)`);
-      if (Date.now() - lastEmoteTime >= 3000) {
+      if (Date.now() - lastEmoteTime >= 4000) {
         this.send({ t: 'emote', e: 'chuoi' });
         lastEmoteTime = Date.now();
       }
       if (sent < count) {
-        await this.sleep(800);
+        await this.sleep(intervalMs);
       }
     }
-    await this.sleep(600);
+    await this.sleep(1000);
     await this.fetchJournal();
     if (this.journal) {
       const totalRounds = this.journal.rounds || Math.floor((this.journal.beads || 0) / 108);
-      log.success(`Máy chủ đã ghi nhận: ${this.journal.beads} hạt (${totalRounds}/100 chuỗi ${totalRounds >= 100 ? '🏆 Đạt danh hiệu Trăm chuỗi hạt' : `còn ${100 - totalRounds} chuỗi`}).`);
+      const isTramChuoi = this.journal.titles?.some(t => t.id === 'tram-chuoi' && t.got);
+      log.success(`Máy chủ đã ghi nhận: ${this.journal.beads} hạt (${totalRounds}/100 chuỗi ${isTramChuoi || totalRounds >= 100 ? '🏆 Đạt danh hiệu Trăm chuỗi hạt!' : `còn ${100 - totalRounds} chuỗi`}).`);
     }
   }
 

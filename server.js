@@ -1126,6 +1126,7 @@ function renderDashboardHTML() {
               style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:4px 4px; border-radius:6px; font-size:11px; cursor:pointer;"
               ${isAnyRunning ? 'disabled' : ''}>
               <option value="" disabled selected>Gợi ý ▼</option>
+              ${(journal?.beads || 0) < 10800 ? `<option value="${10800 - (journal?.beads || 0)}">Cày đủ 100 chuỗi (còn ${10800 - (journal?.beads || 0)} hạt 🏆)</option>` : ''}
               <option value="54">54 hạt (Nửa chuỗi)</option>
               <option value="108">108 hạt (1 chuỗi 🏆)</option>
               <option value="216">216 hạt (2 chuỗi)</option>
@@ -1147,9 +1148,10 @@ function renderDashboardHTML() {
             title="Nhập số lượng tùy ý"
             ${isAnyRunning ? 'disabled' : ''}>
           <select onchange="if(this.value){ document.getElementById('count_${escapeHTML(t.id)}').value = this.value; }"
-            style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 6px; border-radius:6px; font-size:12px; cursor:pointer; max-width:125px;"
+            style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 6px; border-radius:6px; font-size:12px; cursor:pointer; max-width:145px;"
             ${isAnyRunning ? 'disabled' : ''}>
             <option value="" disabled selected>Gợi ý ▼</option>
+            ${t.id === 'beads' && (journal?.beads || 0) < 10800 ? `<option value="${10800 - (journal?.beads || 0)}">Cày đủ 100 chuỗi (còn ${Math.ceil((10800 - (journal?.beads || 0)) / 108)} chuỗi = ${10800 - (journal?.beads || 0)} hạt 🏆)</option>` : ''}
             ${(t.countOptions || []).map(opt => `<option value="${opt.value}">${escapeHTML(opt.label)}</option>`).join('')}
           </select>
         </div>
