@@ -164,6 +164,7 @@ Hệ thống đã được thiết kế sẵn một **Web Dashboard giao diện 
 ### 🌟 Tính năng khi chạy trên Render:
 - 📱 **Web Dashboard trực quan**: Mở `https://<ten-app>.onrender.com` trên điện thoại xem ngay tổng công đức, cấp bậc, 4 nhiệm vụ ngày, bảng danh hiệu và tiến độ thành tựu.
 - ⚡ **Nút bấm "Chạy Ngay" trên web**: Bấm 1 nút trên điện thoại để bot lập tức làm nhiệm vụ.
+- 🔐 **Mật khẩu bảo vệ kích hoạt tác vụ (`11012006`)**: Bắt buộc nhập mật khẩu `11012006` mới kích hoạt được tác vụ, tránh bấm nhầm cướp session khi bạn đang tự tay chơi game trong chùa.
 - ⏰ **Tự động canh 00:05 sáng (giờ VN)**: Tự động chạy chu trình 3 giai đoạn mỗi ngày.
 - 📲 **Báo cáo tự động qua Telegram / Discord**: Tự động gửi tin nhắn tổng kết công đức và chúc mừng danh hiệu mới về điện thoại của bạn.
 - 🔌 **API & Webhook Cron**: Hỗ trợ endpoint `/cron` hoặc `/run` để kết hợp với UptimeRobot hoặc Cron-job.org.

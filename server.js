@@ -38,6 +38,35 @@ function escapeHTML(str) {
     .replace(/'/g, '&#39;');
 }
 
+// Mật khẩu bảo vệ kích hoạt nhiệm vụ hoặc tác vụ tu tập
+const ACTION_PASSWORD = (process.env.ACTION_PASSWORD || '11012006').trim();
+
+function verifyActionPassword(req, bodyData = {}) {
+  let clientPwd = (req.headers['x-action-password'] || '').trim();
+
+  if (!clientPwd && bodyData && typeof bodyData === 'object') {
+    clientPwd = String(bodyData.password || bodyData.pass || bodyData.pwd || '').trim();
+  }
+
+  if (!clientPwd && req.url) {
+    try {
+      const u = new URL(req.url, 'http://localhost');
+      clientPwd = String(u.searchParams.get('password') || u.searchParams.get('pwd') || u.searchParams.get('pass') || '').trim();
+    } catch {}
+  }
+
+  if (!clientPwd) return false;
+
+  try {
+    const a = Buffer.from(clientPwd);
+    const b = Buffer.from(ACTION_PASSWORD);
+    if (a.length !== b.length) return false;
+    return crypto.timingSafeEqual(a, b);
+  } catch {
+    return clientPwd === ACTION_PASSWORD;
+  }
+}
+
 // Kiểm tra xác thực token an toàn (Timing-safe comparison)
 function verifyAuth(req) {
   // 1. Kiểm tra CSRF header (dành cho browser client truy cập từ cùng origin)
@@ -2214,6 +2243,9 @@ function renderDashboardHTML() {
         <p>Cấp bậc: <b>${reportValue(me.level || j.level)} (Lv.${reportValue(me.lv ?? j.lv)})</b> · Chuỗi lên chùa: <b>${reportValue(me.days ?? j.days)} ngày liên tục</b></p>
       </div>
       <div class="actions">
+        <button id="authHeaderBtn" class="btn" onclick="toggleAuthPrompt()" title="Nhập mật khẩu 11012006 để mở khóa hoặc khóa lại" style="background:#201710; color:var(--gold); border:1px dashed var(--gold); display:flex; align-items:center; gap:6px;">
+          <span id="headerLockIcon">🔒</span> <span id="headerLockText">Mật Khẩu Tác Vụ</span>
+        </button>
         <select id="meditateSelect" style="background:#2b221a; color:var(--gold); border:1px solid var(--card-border); padding:9px 12px; border-radius:10px; font-size:13px; outline:none; cursor:pointer;" ${isRunning || isStopping ? 'disabled' : ''}>
           <option value="3600" selected>🧘 Thiền 60 phút (Cày Top 1)</option>
           <option value="1800">🧘 Thiền 30 phút (Cày Top)</option>
@@ -2500,6 +2532,27 @@ function renderDashboardHTML() {
           Sau khi chu trình tự động lúc 00:05 hoàn tất, bạn có thể bấm <b>[⚡ Chạy]</b> riêng lẻ bất kỳ nhiệm vụ nào bên dưới bất cứ khi nào vào chùa. Quá trình chạy sẽ stream nhật ký trực tiếp vào hộp log phía trên. Bấm <b>[🛑 Dừng]</b> để ngắt tác vụ an toàn.
         </p>
 
+        <!-- BẢO VỆ MẬT KHẨU KÍCH HOẠT NHIỆM VỤ / TÁC VỤ (11012006) -->
+        <div class="auth-box" id="authSecurityBox" style="background:rgba(233,194,122,0.06); border:1px dashed var(--gold); border-radius:12px; padding:14px 18px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <span id="authLockIcon" style="font-size:24px;">🔒</span>
+            <div>
+              <div id="authStatusTitle" style="color:var(--gold); font-size:13px; font-weight:700;">
+                TÁC VỤ ĐANG KHÓA AN TOÀN
+              </div>
+              <div id="authStatusDesc" style="color:var(--text-dim); font-size:11px; margin-top:2px;">
+                Phải nhập mật khẩu <b>11012006</b> mới kích hoạt được các nhiệm vụ hoặc tác vụ tu tập
+              </div>
+            </div>
+          </div>
+          <div id="authInputGroup" style="display:flex; align-items:center; gap:8px;">
+            <input type="password" id="actionPasswordInput" placeholder="Nhập 11012006..." style="background:#140e08; color:#fff; border:1px solid var(--card-border); border-radius:8px; padding:7px 12px; font-size:12px; width:150px; outline:none;" onkeydown="if(event.key==='Enter') submitPassword()">
+            <button type="button" class="btn" id="btnUnlockAuth" onclick="submitPassword()" style="padding:7px 14px; font-size:12px;">
+              🔓 Mở Khóa Tác Vụ
+            </button>
+          </div>
+        </div>
+
         <div style="display:flex; flex-direction:column; gap: 12px;">
           <!-- TẦNG 1 -->
           <div class="tier-box" id="tier_1">
@@ -2703,11 +2756,116 @@ function renderDashboardHTML() {
   </div>
 
   <script>
+    function getActionPassword() {
+      return sessionStorage.getItem('action_pwd') || '';
+    }
+
+    function setActionPassword(pwd) {
+      sessionStorage.setItem('action_pwd', pwd);
+      updateAuthUI();
+    }
+
+    function clearActionPassword() {
+      sessionStorage.removeItem('action_pwd');
+      updateAuthUI();
+    }
+
+    function ensureActionPassword() {
+      let pwd = getActionPassword();
+      if (pwd === '11012006') return pwd;
+
+      const entered = prompt('🔐 BẢO VỆ TU TẬP: Vui lòng nhập mật khẩu (11012006) để kích hoạt nhiệm vụ hoặc tác vụ:');
+      if (!entered) return null;
+      if (entered.trim() === '11012006') {
+        setActionPassword('11012006');
+        return '11012006';
+      } else {
+        alert('❌ Mật khẩu không chính xác! Bạn phải nhập đúng mật khẩu 11012006 mới có thể kích hoạt nhiệm vụ.');
+        return null;
+      }
+    }
+
+    function toggleAuthPrompt() {
+      if (getActionPassword() === '11012006') {
+        if (confirm('Tác vụ hiện đang MỞ KHÓA. Bạn có muốn KHÓA LẠI để bảo vệ không?')) {
+          clearActionPassword();
+        }
+      } else {
+        ensureActionPassword();
+      }
+    }
+
+    function submitPassword() {
+      const inp = document.getElementById('actionPasswordInput');
+      const val = (inp ? inp.value : '').trim();
+      if (val === '11012006') {
+        setActionPassword('11012006');
+        alert('✅ Mở khóa tác vụ thành công! Bây giờ bạn có thể kích hoạt các nhiệm vụ.');
+      } else {
+        alert('❌ Mật khẩu không chính xác! Yêu cầu mật khẩu "11012006".');
+        if (inp) inp.focus();
+      }
+    }
+
+    function updateAuthUI() {
+      const isUnlocked = getActionPassword() === '11012006';
+      const lockIcon = document.getElementById('authLockIcon');
+      const statusTitle = document.getElementById('authStatusTitle');
+      const statusDesc = document.getElementById('authStatusDesc');
+      const inputGroup = document.getElementById('authInputGroup');
+      const headerBtn = document.getElementById('authHeaderBtn');
+      const headerIcon = document.getElementById('headerLockIcon');
+      const headerText = document.getElementById('headerLockText');
+
+      if (isUnlocked) {
+        if (lockIcon) lockIcon.textContent = '🔓';
+        if (statusTitle) {
+          statusTitle.textContent = 'TÁC VỤ ĐÃ MỞ KHÓA (11012006)';
+          statusTitle.style.color = '#7ec77b';
+        }
+        if (statusDesc) {
+          statusDesc.textContent = 'Đã mở khóa thành công quyền kích hoạt các nhiệm vụ và tác vụ tu tập.';
+        }
+        if (inputGroup) {
+          inputGroup.innerHTML = '<span style="color:#7ec77b; font-size:12px; font-weight:600; display:flex; align-items:center; gap:4px;">✅ Đã xác thực</span>' +
+            '<button type="button" class="btn" onclick="clearActionPassword()" style="background:#2b221a; border:1px solid var(--card-border); color:var(--text-dim); padding:6px 12px; font-size:12px;">🔒 Khóa Lại</button>';
+        }
+        if (headerIcon) headerIcon.textContent = '🔓';
+        if (headerText) headerText.textContent = 'Đã Mở Khóa';
+        if (headerBtn) {
+          headerBtn.style.borderColor = '#7ec77b';
+          headerBtn.style.color = '#7ec77b';
+        }
+      } else {
+        if (lockIcon) lockIcon.textContent = '🔒';
+        if (statusTitle) {
+          statusTitle.textContent = 'TÁC VỤ ĐANG KHÓA AN TOÀN';
+          statusTitle.style.color = 'var(--gold)';
+        }
+        if (statusDesc) {
+          statusDesc.textContent = 'Phải nhập mật khẩu 11012006 mới kích hoạt được các nhiệm vụ hoặc tác vụ.';
+        }
+        if (inputGroup) {
+          inputGroup.innerHTML = '<input type="password" id="actionPasswordInput" placeholder="Nhập 11012006..." style="background:#140e08; color:#fff; border:1px solid var(--card-border); border-radius:8px; padding:7px 12px; font-size:12px; width:150px; outline:none;" onkeydown="if(event.key===\'Enter\') submitPassword()">' +
+            '<button type="button" class="btn" id="btnUnlockAuth" onclick="submitPassword()" style="padding:7px 14px; font-size:12px;">🔓 Mở Khóa Tác Vụ</button>';
+        }
+        if (headerIcon) headerIcon.textContent = '🔒';
+        if (headerText) headerText.textContent = 'Mật Khẩu Tác Vụ';
+        if (headerBtn) {
+          headerBtn.style.borderColor = 'var(--gold)';
+          headerBtn.style.color = 'var(--gold)';
+        }
+      }
+    }
+
     async function runTask(taskId, customOptions = {}) {
+      const pwd = ensureActionPassword();
+      if (!pwd) return;
+
       const csrfMeta = document.querySelector('meta[name="csrf-token"]');
       const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
 
-      const payload = { task: taskId, ...customOptions };
+      const payload = { task: taskId, password: pwd, ...customOptions };
       if (taskId === 'meditate' || taskId === 'ngoi-daily') {
         const medInp = document.getElementById('duration_min_' + taskId);
         if (medInp && medInp.value) {
@@ -2739,7 +2897,7 @@ function renderDashboardHTML() {
       allRunBtns.forEach(b => { b.disabled = true; });
 
       try {
-        const headers = { 'Content-Type': 'application/json' };
+        const headers = { 'Content-Type': 'application/json', 'X-Action-Password': pwd };
         if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
 
         const res = await fetch('/api/run', {
@@ -2751,6 +2909,7 @@ function renderDashboardHTML() {
         if (res.ok && data.ok) {
           location.reload();
         } else {
+          if (res.status === 403) clearActionPassword();
           alert(data.error || data.message || 'Lỗi khi kích hoạt nhiệm vụ');
           allRunBtns.forEach(b => { b.disabled = false; });
         }
@@ -2762,6 +2921,9 @@ function renderDashboardHTML() {
 
     async function stopTask() {
       if (!confirm('Bạn có chắc chắn muốn dừng tác vụ đang thực thi không?')) return;
+      const pwd = ensureActionPassword();
+      if (!pwd) return;
+
       const csrfMeta = document.querySelector('meta[name="csrf-token"]');
       const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
 
@@ -2769,18 +2931,20 @@ function renderDashboardHTML() {
       stopBtns.forEach(b => { b.disabled = true; b.textContent = '⏳ Đang dừng…'; });
 
       try {
-        const headers = { 'Content-Type': 'application/json' };
+        const headers = { 'Content-Type': 'application/json', 'X-Action-Password': pwd };
         if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
 
         const res = await fetch('/api/stop', {
           method: 'POST',
-          headers
+          headers,
+          body: JSON.stringify({ password: pwd })
         });
         const data = await res.json();
         if (res.ok && data.ok) {
           // Trang sẽ tự reload khi poll thấy trạng thái dừng
           setTimeout(() => location.reload(), 1200);
         } else {
+          if (res.status === 403) clearActionPassword();
           alert(data.error || data.message || 'Lỗi khi gửi yêu cầu dừng');
           stopBtns.forEach(b => { b.disabled = false; b.textContent = '🛑 Dừng'; });
         }
@@ -3001,6 +3165,7 @@ function renderDashboardHTML() {
 
     restoreCollapseStates();
     restoreProfileTab();
+    updateAuthUI();
   </script>
 </body>
 </html>`;
@@ -3098,6 +3263,25 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    let stopBody = {};
+    if (req.headers['content-type']?.includes('application/json')) {
+      try {
+        const buffers = [];
+        for await (const chunk of req) buffers.push(chunk);
+        const rawBody = Buffer.concat(buffers).toString('utf-8');
+        if (rawBody.trim()) stopBody = JSON.parse(rawBody);
+      } catch {}
+    }
+
+    if (!verifyActionPassword(req, stopBody)) {
+      res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({
+        ok: false,
+        error: 'Mật khẩu kích hoạt không chính xác! Vui lòng nhập mật khẩu 11012006 để dừng tác vụ.'
+      }));
+      return;
+    }
+
     if (!state.isRunning) {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ ok: true, stopped: false, message: 'Hiện không có tác vụ nào đang chạy.' }));
@@ -3165,6 +3349,16 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ ok: false, error: 'Dữ liệu body JSON không hợp lệ.' }));
         return;
       }
+    }
+
+    // Bắt buộc nhập đúng mật khẩu 11012006 mới active được nhiệm vụ hoặc tác vụ
+    if (!verifyActionPassword(req, bodyData)) {
+      res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({
+        ok: false,
+        error: 'Mật khẩu kích hoạt không chính xác! Vui lòng nhập mật khẩu 11012006 để active nhiệm vụ hoặc tác vụ.'
+      }));
+      return;
     }
 
     const runOptions = {};

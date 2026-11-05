@@ -467,6 +467,17 @@ File máy chủ [`server.js`](file:///Users/tyson/Library/CloudStorage/GoogleDri
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
+### 🔐 Cơ Chế Mật Khẩu Bảo Vệ Kích Hoạt Tác Vụ (`11012006`)
+Để tuyệt đối tránh việc vô tình kích hoạt tác vụ ngầm làm gián đoạn phiên người dùng đang chơi trực tiếp trên game (lỗi tranh session *"Chùa đang mở ở nơi khác"*), hệ thống đã thiết lập lớp khóa bảo mật:
+- **Mật khẩu kích hoạt bắt buộc**: `11012006`
+- **Trên giao diện Web Report / Dashboard**:
+  - Tại bảng tác vụ và thanh tiêu đề, giao diện hiển thị trạng thái `🔒 TÁC VỤ ĐANG KHÓA AN TOÀN`.
+  - Khi bấm bất kỳ nút chạy tác vụ nào (`⚡ Chạy`, `⚡ Chạy Toàn Bộ Chu Trình`, `📢 Khoe`, `Áp dụng trang phục`, `Đổi danh hiệu`, `Dịch chuyển`, `🛑 Dừng`), hệ thống yêu cầu nhập mật khẩu xác nhận `11012006`.
+  - Sau khi mở khóa thành công, quyền kích hoạt được lưu tạm trong phiên (`sessionStorage`) và hiển thị `🔓 ĐÃ MỞ KHÓA TÁC VỤ`. Người dùng có thể chủ động bấm `🔒 Khóa Lại` bất kỳ lúc nào.
+- **Trên Backend API (`/api/run`, `/run`, `/api/stop`)**:
+  - Máy chủ kiểm tra mật khẩu qua header `X-Action-Password: 11012006`, body `{ password: "11012006" }` hoặc query `?password=11012006`.
+  - Mọi yêu cầu thiếu mật khẩu hoặc sai mật khẩu sẽ bị từ chối với mã lỗi `403 Forbidden` ngay lập tức, không chạm đến máy chủ chùa.
+
 ### 🌐 Danh Mục Endpoint API
 - `GET /`: Giao diện Dashboard HTML responsive, hỗ trợ hoàn hảo trên cả máy tính và điện thoại.
 - `GET /health`: Endpoint báo cáo trạng thái máy chủ, phục vụ Keep-Alive ping chống ngủ đông:
@@ -635,3 +646,4 @@ Hệ thống hỗ trợ hơn 35 câu lệnh dòng lệnh cực kỳ tiện lợi
 > *"Một lòng hướng Phật, tâm an vạn sự an.*  
 > *Mỗi nén hương dâng lên là một niệm lành gieo xuống cõi nhân gian."*  
 > Chúc quý bạn đồng tu thân tâm thường an lạc, bồ đề tâm kiên cố, công đức ngày càng tăng trưởng! Nam Mô A Di Đà Phật.
+
