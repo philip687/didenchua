@@ -1328,6 +1328,256 @@ function renderDashboardHTML() {
       gap: 6px;
       flex-shrink: 0;
     }
+
+    /* Giao diện đóng mở (Collapse & Expand) cho Mobile & Desktop */
+    .card-header-toggle {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      padding: 2px 0;
+      transition: opacity 0.15s;
+    }
+    .card-header-toggle:hover {
+      opacity: 0.9;
+    }
+    .card-header-toggle:active {
+      opacity: 0.75;
+    }
+    .card-header-toggle h2 {
+      margin-bottom: 0 !important;
+      padding-bottom: 0 !important;
+      border-bottom: none !important;
+      flex: 1;
+    }
+    .chevron-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: rgba(233, 194, 122, 0.12);
+      color: var(--gold);
+      font-size: 11px;
+      transition: transform 0.25s ease, background 0.15s;
+      flex-shrink: 0;
+      margin-left: 8px;
+    }
+    .card-header-toggle:hover .chevron-icon, .tier-header:hover .chevron-icon {
+      background: rgba(233, 194, 122, 0.25);
+    }
+    .collapsed .chevron-icon {
+      transform: rotate(-90deg);
+    }
+    .collapsible-content {
+      margin-top: 14px;
+      border-top: 1px solid var(--card-border);
+      padding-top: 14px;
+      transition: all 0.2s ease;
+    }
+    .collapsed .collapsible-content {
+      display: none !important;
+    }
+    .card.collapsed {
+      padding-bottom: 14px;
+    }
+
+    /* Các khối Tầng nhiệm vụ Accordion */
+    .tier-box {
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      background: rgba(0,0,0,0.18);
+      margin-bottom: 10px;
+      overflow: hidden;
+      transition: border-color 0.15s;
+    }
+    .tier-box:hover {
+      border-color: rgba(233, 194, 122, 0.3);
+    }
+    .tier-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 11px 14px;
+      background: rgba(0,0,0,0.25);
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--gold);
+      transition: background 0.15s;
+    }
+    .tier-header:hover {
+      background: rgba(233, 194, 122, 0.08);
+    }
+    .tier-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tier-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .tier-body {
+      padding: 12px;
+    }
+    .collapsed .tier-body {
+      display: none !important;
+    }
+
+    /* Thanh công cụ đóng/mở nhanh (Quick Toolbar) */
+    .quick-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 10px 16px;
+      margin-bottom: 18px;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .toolbar-title {
+      font-size: 13px;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .toolbar-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .btn-tool {
+      background: rgba(233, 194, 122, 0.12);
+      color: var(--gold);
+      border: 1px solid rgba(233, 194, 122, 0.3);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-tool:hover {
+      background: var(--gold);
+      color: #1c150e;
+    }
+
+    /* Tối ưu hiển thị cho Mobile / Tablet nhỏ */
+    @media (max-width: 640px) {
+      body {
+        padding: 10px 8px;
+      }
+      .container {
+        width: 100%;
+      }
+      header {
+        padding: 14px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+      }
+      .who h1 {
+        font-size: 17px;
+        flex-wrap: wrap;
+      }
+      .who h1 span {
+        font-size: 13px;
+      }
+      .actions {
+        flex-direction: column;
+        width: 100%;
+        gap: 8px;
+      }
+      .actions select, .actions button.btn {
+        width: 100%;
+        justify-content: center;
+        font-size: 14px;
+        padding: 11px 14px;
+      }
+      .quick-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        padding: 10px 12px;
+        margin-bottom: 12px;
+      }
+      .toolbar-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .btn-tool {
+        text-align: center;
+        padding: 8px 10px;
+      }
+      .grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      .card {
+        padding: 14px 12px;
+        margin-bottom: 12px !important;
+      }
+      .card h2 {
+        font-size: 14px;
+        margin-bottom: 8px;
+        padding-bottom: 8px;
+      }
+      .stat-row {
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .stat-box {
+        padding: 10px 8px;
+      }
+      .stat-box b {
+        font-size: 17px;
+      }
+      .stat-box span {
+        font-size: 11px;
+      }
+      .task-row {
+        padding: 10px;
+        gap: 8px;
+      }
+      .task-info {
+        min-width: 100%;
+      }
+      .task-actions {
+        width: 100%;
+        justify-content: space-between;
+        margin-top: 6px;
+        border-top: 1px dashed rgba(255,255,255,0.08);
+        padding-top: 8px;
+      }
+      .task-actions select, .task-actions input {
+        font-size: 13px;
+      }
+      .btn-task {
+        padding: 8px 14px;
+        font-size: 13px;
+        flex: 1;
+        justify-content: center;
+      }
+      .tier-header {
+        padding: 10px 12px;
+        font-size: 12px;
+      }
+      .tier-body {
+        padding: 8px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -1357,132 +1607,198 @@ function renderDashboardHTML() {
       </div>
     </header>
 
+    <!-- THANH ĐIỀU HƯỚNG NHANH CHO ĐIỆN THOẠI & MÁY TÍNH -->
+    <div class="quick-toolbar">
+      <div class="toolbar-title">
+        <span>📱</span> <b>Chế độ xem gọn:</b> Chạm tiêu đề mục để đóng/mở
+      </div>
+      <div class="toolbar-actions">
+        <button type="button" class="btn-tool" onclick="expandAllSections()">📂 Mở rộng tất cả</button>
+        <button type="button" class="btn-tool" onclick="collapseAllSections()">📁 Thu gọn tất cả</button>
+      </div>
+    </div>
+
     <!-- TRẠNG THÁI & KHỐI LIVE TASK LOGS KHI ĐANG CHẠY -->
     ${runningBannerHTML}
 
     <!-- BẢNG ĐIỀU KHIỂN TỪNG NHIỆM VỤ & DANH SÁCH TOÀN BỘ -->
-    <div class="card" style="margin-bottom: 20px;">
-      <h2>
-        <span>🎯 Bảng Điều Khiển Nhiệm Vụ & Tác Vụ Riêng Lẻ</span>
-        <small style="font-size:12px; color:var(--text-dim); font-weight:normal;">Chạy ngẫu hứng bất kỳ lúc nào · Kèm nút Dừng & Live Log trực tiếp</small>
-      </h2>
-      <p style="font-size:12px; color:var(--text-dim); margin-bottom:14px; line-height:1.6;">
-        Sau khi chu trình tự động lúc 00:05 hoàn tất, bạn có thể bấm <b>[⚡ Chạy]</b> riêng lẻ bất kỳ nhiệm vụ nào bên dưới bất cứ khi nào vào chùa. Quá trình chạy sẽ stream nhật ký trực tiếp vào hộp log phía trên. Bấm <b>[🛑 Dừng]</b> để ngắt tác vụ an toàn.
-      </p>
+    <div class="card" id="card_tasks" style="margin-bottom: 20px;">
+      <div class="card-header-toggle" onclick="toggleSection('card_tasks')">
+        <h2>
+          <span>🎯 Bảng Điều Khiển Nhiệm Vụ & Tác Vụ Riêng Lẻ</span>
+          <small style="font-size:12px; color:var(--text-dim); font-weight:normal;">Chạy ngẫu hứng · Kèm nút Dừng & Live Log</small>
+        </h2>
+        <span class="chevron-icon">▼</span>
+      </div>
+      <div class="collapsible-content">
+        <p style="font-size:12px; color:var(--text-dim); margin-bottom:14px; line-height:1.6;">
+          Sau khi chu trình tự động lúc 00:05 hoàn tất, bạn có thể bấm <b>[⚡ Chạy]</b> riêng lẻ bất kỳ nhiệm vụ nào bên dưới bất cứ khi nào vào chùa. Quá trình chạy sẽ stream nhật ký trực tiếp vào hộp log phía trên. Bấm <b>[🛑 Dừng]</b> để ngắt tác vụ an toàn.
+        </p>
 
-      <div style="display:flex; flex-direction:column; gap: 16px;">
-        <div>
-          <div style="font-size:13px; font-weight:600; color:var(--gold); margin-bottom:10px; display:flex; align-items:center; gap:6px;">
-            <span>📋</span> TẦNG 1: NHIỆM VỤ HÀNG NGÀY (QUEST HÔM NAY)
+        <div style="display:flex; flex-direction:column; gap: 12px;">
+          <div class="tier-box" id="tier_1">
+            <div class="tier-header" onclick="toggleSection('tier_1')">
+              <div class="tier-title"><span>📋</span> TẦNG 1: NHIỆM VỤ HÀNG NGÀY (QUEST HÔM NAY)</div>
+              <div class="tier-meta">
+                <span class="chevron-icon">▼</span>
+              </div>
+            </div>
+            <div class="tier-body">
+              ${dailyTasksHTML}
+            </div>
           </div>
-          ${dailyTasksHTML}
-        </div>
-        <div>
-          <div style="font-size:13px; font-weight:600; color:var(--gold); margin-bottom:10px; display:flex; align-items:center; gap:6px;">
-            <span>🎯</span> TẦNG 2: MỐC TU TẬP & THÀNH TỰU VĨNH VIỄN
+
+          <div class="tier-box" id="tier_2">
+            <div class="tier-header" onclick="toggleSection('tier_2')">
+              <div class="tier-title"><span>🎯</span> TẦNG 2: MỐC TU TẬP & THÀNH TỰU VĨNH VIỄN</div>
+              <div class="tier-meta">
+                <span class="chevron-icon">▼</span>
+              </div>
+            </div>
+            <div class="tier-body">
+              ${milestoneTasksHTML}
+            </div>
           </div>
-          ${milestoneTasksHTML}
-        </div>
-        <div>
-          <div style="font-size:13px; font-weight:600; color:var(--gold); margin-bottom:10px; display:flex; align-items:center; gap:6px;">
-            <span>✨</span> TẦNG 3 & 4: ĂN THÊM ĐIỂM, VƯỜN SEN & TĨNH TÂM
+
+          <div class="tier-box" id="tier_3">
+            <div class="tier-header" onclick="toggleSection('tier_3')">
+              <div class="tier-title"><span>✨</span> TẦNG 3 & 4: ĂN THÊM ĐIỂM, VƯỜN SEN & TĨNH TÂM</div>
+              <div class="tier-meta">
+                <span class="chevron-icon">▼</span>
+              </div>
+            </div>
+            <div class="tier-body">
+              ${extraTasksHTML}
+            </div>
           </div>
-          ${extraTasksHTML}
         </div>
       </div>
     </div>
 
     <div class="grid">
       <!-- CÔNG ĐỨC & CẤP BẬC -->
-      <div class="card">
-        <h2>✨ Công Đức & Tích Lũy <small style="font-size:11px; color:var(--text-dim); font-weight:normal;">Cập nhật UTC: ${escapeHTML(state.lastUpdated || 'Chưa có dữ liệu')}</small></h2>
-        <div class="stat-row">
-          <div class="stat-box">
-            <b>${reportValue(me.total ?? j.merit)}</b>
-            <span>Tổng công đức</span>
-          </div>
-          <div class="stat-box">
-            <b>${reportValue(me.today)}</b>
-            <span>Hôm nay</span>
-          </div>
+      <div class="card" id="card_merit">
+        <div class="card-header-toggle" onclick="toggleSection('card_merit')">
+          <h2>
+            <span>✨ Công Đức & Tích Lũy</span>
+            <small style="font-size:11px; color:var(--text-dim); font-weight:normal;">Cập nhật UTC: ${escapeHTML(state.lastUpdated || 'Chưa có dữ liệu')}</small>
+          </h2>
+          <span class="chevron-icon">▼</span>
         </div>
-        <div class="stat-row">
-          <div class="stat-box">
-            <b>${reportValue(nextLevelPoints)}</b>
-            <span>Cần đến cấp sau</span>
+        <div class="collapsible-content">
+          <div class="stat-row">
+            <div class="stat-box">
+              <b>${reportValue(me.total ?? j.merit)}</b>
+              <span>Tổng công đức</span>
+            </div>
+            <div class="stat-box">
+              <b>${reportValue(me.today)}</b>
+              <span>Hôm nay</span>
+            </div>
           </div>
-          <div class="stat-box">
-            <b>${reportValue(j.streak ?? me.days)} ngày</b>
-            <span>Kỷ lục liên tiếp</span>
+          <div class="stat-row">
+            <div class="stat-box">
+              <b>${reportValue(nextLevelPoints)}</b>
+              <span>Cần đến cấp sau</span>
+            </div>
+            <div class="stat-box">
+              <b>${reportValue(j.streak ?? me.days)} ngày</b>
+              <span>Kỷ lục liên tiếp</span>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- NHIỆM VỤ HÀNG NGÀY -->
-      <div class="card">
-        <h2>📋 Nhiệm Vụ Hôm Nay</h2>
-        ${questsHTML}
+      <div class="card" id="card_quests">
+        <div class="card-header-toggle" onclick="toggleSection('card_quests')">
+          <h2>📋 Nhiệm Vụ Hôm Nay</h2>
+          <span class="chevron-icon">▼</span>
+        </div>
+        <div class="collapsible-content">
+          ${questsHTML}
+        </div>
       </div>
     </div>
 
     <div class="grid">
       <!-- TIẾN ĐỘ THÀNH TỰU -->
-      <div class="card">
-        <h2>🎯 Tiến Độ Thành Tựu Vĩnh Viễn</h2>
-        <div class="stat-row">
-          <div class="stat-box">
-            <b>${reportValue(j.bows)} / 108</b>
-            <span>Lạy Phật (Trăm lạy: ${j.bows === null || j.bows === undefined ? 'chưa xác định' : j.bows >= 108 ? '✅' : 'đang cày'})</span>
-          </div>
-          <div class="stat-box">
-            <b>${reportValue(j.beads)} hạt</b>
-            <span>Tràng hạt (${reportValue(j.rounds)} chuỗi tròn)</span>
-          </div>
+      <div class="card" id="card_milestones">
+        <div class="card-header-toggle" onclick="toggleSection('card_milestones')">
+          <h2>🎯 Tiến Độ Thành Tựu Vĩnh Viễn</h2>
+          <span class="chevron-icon">▼</span>
         </div>
-        <div class="stat-row">
-          <div class="stat-box">
-            <b>${reportValue(j.incense)} / 30</b>
-            <span>Dâng hương (Hương trầm)</span>
+        <div class="collapsible-content">
+          <div class="stat-row">
+            <div class="stat-box">
+              <b>${reportValue(j.bows)} / 108</b>
+              <span>Lạy Phật (Trăm lạy: ${j.bows === null || j.bows === undefined ? 'chưa xác định' : j.bows >= 108 ? '✅' : 'đang cày'})</span>
+            </div>
+            <div class="stat-box">
+              <b>${reportValue(j.beads)} hạt</b>
+              <span>Tràng hạt (${reportValue(j.rounds)} chuỗi tròn)</span>
+            </div>
           </div>
-          <div class="stat-box">
-            <b>${reportValue(j.lanterns)} / 10</b>
-            <span>Hoa đăng (Người thả đèn)</span>
+          <div class="stat-row">
+            <div class="stat-box">
+              <b>${reportValue(j.incense)} / 30</b>
+              <span>Dâng hương (Hương trầm)</span>
+            </div>
+            <div class="stat-box">
+              <b>${reportValue(j.lanterns)} / 10</b>
+              <span>Hoa đăng (Người thả đèn)</span>
+            </div>
           </div>
-        </div>
-        <div class="stat-row">
-          <div class="stat-box">
-            <b>${reportValue(j.sitMin)} / 60 phút</b>
-            <span>Ngồi tĩnh tâm (Tĩnh tọa)</span>
-          </div>
-          <div class="stat-box">
-            <b>${reportValue(j.visited)} / ${reportValue(j.zones)} khu</b>
-            <span>Khám phá toàn chùa</span>
+          <div class="stat-row">
+            <div class="stat-box">
+              <b>${reportValue(j.sitMin)} / 60 phút</b>
+              <span>Ngồi tĩnh tâm (Tĩnh tọa)</span>
+            </div>
+            <div class="stat-box">
+              <b>${reportValue(j.visited)} / ${reportValue(j.zones)} khu</b>
+              <span>Khám phá toàn chùa</span>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- BẢNG DANH HIỆU -->
-      <div class="card">
-        <h2>🏅 Danh Hiệu & Thành Tựu</h2>
-        <div class="title-grid">
-          ${titlesHTML}
+      <div class="card" id="card_titles">
+        <div class="card-header-toggle" onclick="toggleSection('card_titles')">
+          <h2>🏅 Danh Hiệu & Thành Tựu</h2>
+          <span class="chevron-icon">▼</span>
+        </div>
+        <div class="collapsible-content">
+          <div class="title-grid">
+            ${titlesHTML}
+          </div>
         </div>
       </div>
     </div>
 
     <!-- NHẬT KÝ & LIVE LOGS -->
     <div class="grid">
-      <div class="card">
-        <h2>📜 Lịch Sử Chạy Gần Nhất</h2>
-        <div style="max-height: 180px; overflow-y: auto;">
-          ${historyHTML}
+      <div class="card" id="card_history">
+        <div class="card-header-toggle" onclick="toggleSection('card_history')">
+          <h2>📜 Lịch Sử Chạy Gần Nhất</h2>
+          <span class="chevron-icon">▼</span>
+        </div>
+        <div class="collapsible-content">
+          <div style="max-height: 220px; overflow-y: auto;">
+            ${historyHTML}
+          </div>
         </div>
       </div>
 
-      <div class="card">
-        <h2>💻 Nhật Ký Hệ Thống</h2>
-        <div class="logs-box" id="bottomLogsBox">
-          ${logsHTML}
+      <div class="card" id="card_logs">
+        <div class="card-header-toggle" onclick="toggleSection('card_logs')">
+          <h2>💻 Nhật Ký Hệ Thống</h2>
+          <span class="chevron-icon">▼</span>
+        </div>
+        <div class="collapsible-content">
+          <div class="logs-box" id="bottomLogsBox">
+            ${logsHTML}
+          </div>
         </div>
       </div>
     </div>
@@ -1705,6 +2021,52 @@ function renderDashboardHTML() {
         } catch {}
       }, 15000);
     }
+
+    // ==========================================
+    // LOGIC ĐÓNG / MỞ (COLLAPSE & EXPAND) GIAO DIỆN
+    // ==========================================
+    function toggleSection(sectionId) {
+      const el = document.getElementById(sectionId);
+      if (!el) return;
+      const isCollapsed = el.classList.toggle('collapsed');
+      try {
+        localStorage.setItem('ddc_col_' + sectionId, isCollapsed ? '1' : '0');
+      } catch (e) {}
+    }
+
+    function expandAllSections() {
+      document.querySelectorAll('.card, .tier-box').forEach(el => {
+        el.classList.remove('collapsed');
+        try {
+          if (el.id) localStorage.setItem('ddc_col_' + el.id, '0');
+        } catch (e) {}
+      });
+    }
+
+    function collapseAllSections() {
+      document.querySelectorAll('.card, .tier-box').forEach(el => {
+        el.classList.add('collapsed');
+        try {
+          if (el.id) localStorage.setItem('ddc_col_' + el.id, '1');
+        } catch (e) {}
+      });
+    }
+
+    function restoreCollapseStates() {
+      document.querySelectorAll('.card, .tier-box').forEach(el => {
+        if (!el.id) return;
+        try {
+          const saved = localStorage.getItem('ddc_col_' + el.id);
+          if (saved === '1') {
+            el.classList.add('collapsed');
+          } else if (saved === '0') {
+            el.classList.remove('collapsed');
+          }
+        } catch (e) {}
+      });
+    }
+
+    restoreCollapseStates();
   </script>
 </body>
 </html>`;
