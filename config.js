@@ -5,6 +5,25 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CONFIG_PATH = path.join(__dirname, 'config.json');
+const ENV_PATH = path.join(__dirname, '.env');
+
+// Tự động nạp biến môi trường từ .env nếu có (không cần thư viện dotenv bên ngoài)
+if (fs.existsSync(ENV_PATH)) {
+  try {
+    const envLines = fs.readFileSync(ENV_PATH, 'utf-8').split('\n');
+    for (const line of envLines) {
+      const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)?\s*$/);
+      if (match) {
+        const key = match[1];
+        let val = (match[2] || '').trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.slice(1, -1);
+        }
+        if (!process.env[key]) process.env[key] = val;
+      }
+    }
+  } catch {}
+}
 
 const DEFAULT_CONFIG = {
   cid: crypto.randomUUID(),

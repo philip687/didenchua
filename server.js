@@ -77,6 +77,17 @@ function verifyAuth(req) {
 export const TASKS_CATALOG = [
   // --- TẦNG 1: NHIỆM VỤ HÀNG NGÀY (DAILY QUESTS) ---
   {
+    id: 'ngoi-daily',
+    group: 'daily',
+    questId: 'ngoi',
+    title: 'Ngồi Tĩnh 5 Phút',
+    desc: 'Ngồi thiền tĩnh tâm tại Vườn thiền hoàn thành nhiệm vụ ngày (5 phút)',
+    icon: '🧘',
+    reward: '+20 điểm',
+    badge: 'Nhiệm vụ ngày',
+    hasDuration: true
+  },
+  {
     id: 'bell',
     group: 'daily',
     questId: 'chuong',
@@ -532,6 +543,11 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
       log.temple('⚡', `[${runId}] Bắt đầu thực thi nhiệm vụ riêng lẻ: [${taskTitle}]...`);
 
       switch (taskId) {
+        case 'ngoi-daily':
+          const activeNgoi = (client.merit?.me?.quests || []).find(q => q.id === 'ngoi' || q.id.startsWith('ngoi'));
+          const needNgoiSecs = activeNgoi && !activeNgoi.claimed ? Math.max(300, (activeNgoi.need - (activeNgoi.have || 0)) * 60) : 300;
+          await client.doMeditate(runOptions.meditateSeconds || needNgoiSecs);
+          break;
         case 'bell':
           await client.doBell();
           break;
@@ -635,7 +651,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
       }
 
       // Tự động nhận thưởng nếu nhiệm vụ này hoàn thành quest ngày
-      if (['bell', 'vow', 'incense', 'lay-daily', 'lay', 'greet', 'lantern-daily', 'chores-daily', 'xam', 'chores', 'quet', 'farm-bows-beads', 'tung', 'tuoi', 'chu', 'garden', 'tuyhy', 'secrets'].includes(taskId)) {
+      if (['bell', 'vow', 'incense', 'lay-daily', 'lay', 'greet', 'lantern-daily', 'chores-daily', 'xam', 'chores', 'quet', 'farm-bows-beads', 'tung', 'tuoi', 'chu', 'garden', 'tuyhy', 'secrets', 'meditate', 'ngoi-daily'].includes(taskId)) {
         await client.sleep(1000);
         await client.claimAllQuests();
       }
@@ -717,8 +733,8 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
         } else {
           verificationDetail = 'Chỉ số khám phá khu vực chưa biến động trong snapshot.';
         }
-      } else if (taskId === 'meditate') {
-        if (postSitMin > preSitMin || postMeritTotal > preMeritTotal) {
+      } else if (taskId === 'meditate' || taskId === 'ngoi-daily') {
+        if (postSitMin > preSitMin || postMeritTotal > preMeritTotal || postClaimedCount > preClaimedCount) {
           verificationStatus = 'verified';
           verificationDetail = `Máy chủ đã ghi nhận thời gian thiền: ${preSitMin} -> ${postSitMin} phút.`;
         } else {
@@ -1883,8 +1899,8 @@ function renderDashboardHTML() {
       const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
 
       const payload = { task: taskId, ...customOptions };
-      if (taskId === 'meditate') {
-        const medInp = document.getElementById('duration_min_meditate');
+      if (taskId === 'meditate' || taskId === 'ngoi-daily') {
+        const medInp = document.getElementById('duration_min_' + taskId);
         if (medInp && medInp.value) {
           const mins = parseInt(medInp.value, 10) || 5;
           payload.meditate = mins * 60;

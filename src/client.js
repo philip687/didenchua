@@ -152,6 +152,9 @@ export class DiDenChuaClient {
 
       case 'merit':
         this.merit = msg;
+        if (msg.gain) {
+          log.merit(`✨ +${msg.gain.n} công đức (${msg.gain.why})`);
+        }
         if (this.merit?.me) {
           if (!this.merit.me.name) this.merit.me.name = this.journal?.name || this.savedName || this.config.name || 'Phật Tử';
           if (!this.merit.me.user) this.merit.me.user = this.journal?.user || this.accountUser || null;
@@ -735,8 +738,13 @@ export class DiDenChuaClient {
     await this.sleep(800);
 
     log.info(`Đã hoàn thành ${mins} phút tĩnh tâm thiền định. Gửi yêu cầu nhận thưởng...`);
-    this.send({ t: 'claim', q: 'ngoi' });
-    await this.sleep(1200);
+    const activeNgoi = (this.merit?.me?.quests || []).find(q => q.id === 'ngoi' || q.id.startsWith('ngoi'));
+    this.send({ t: 'claim', q: activeNgoi ? activeNgoi.id : 'ngoi' });
+    await this.sleep(800);
+    await this.fetchJournal();
+    if (this.journal) {
+      log.success(`Máy chủ đã ghi nhận: ${this.journal.sitMin} phút ngồi tĩnh tâm (${this.journal.sitMin >= 60 ? '🏆 Đạt mốc Tĩnh tọa' : `còn ${60 - this.journal.sitMin} phút`}).`);
+    }
   }
 
   claimQuest(questId) {
