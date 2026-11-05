@@ -193,7 +193,7 @@ async function main() {
 
     case 'watch':
     case 'live':
-      await runWatch(args[0] || 'all');
+      await runWatch(args[0] || 'all', args[1] ? { seconds: Number(args[1]) } : {});
       return; // giữ trình duyệt mở
 
     case 'browser':

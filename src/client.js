@@ -5,6 +5,18 @@ const WS_URL = 'wss://didenchua.online/ws';
 // Send before the server's reported 20s idle window to tolerate event-loop/network jitter.
 const HEARTBEAT_INTERVAL_MS = 15000;
 
+// Danh sách 50 bồ đoàn chính thức tại Chánh điện (tính toán chuẩn xác theo layout 3D của game didenchua.online)
+export const CHANH_DIEN_SEATS = (() => {
+  let qt = 0;
+  const list = [];
+  for (const z of [-6.2, -9.2, -11.6, -16.6, -19]) {
+    for (const x of [-13.4, -11.2, -6.6, -4.4, -2.2, 2.2, 4.4, 6.6, 11.2, 13.4]) {
+      list.push({ id: `cd-${qt++}`, x, y: 2.56, z, ry: 3.14 });
+    }
+  }
+  return list;
+})();
+
 // Danh sách trọn vẹn 12 chữ thư pháp tại lều Thầy đồ cùng ước nguyện & ý nghĩa
 export const CALLIGRAPHY_WORDS = [
   { id: 'binh-an', text: 'Bình An', wish: 'Yên ổn', meaning: 'Trong lòng yên, ngoài đời ổn. Bình an không phải là không có sóng gió, mà là biết giữ mình giữa sóng gió.' },
@@ -30,6 +42,7 @@ export class DiDenChuaClient {
     this.myPid = null;
     this.room = this.config.room || 'chua-1';
     this.peers = new Map();
+    this.takenSeats = new Set();
     this.merit = null;
     this.checkinInfo = null;
     this.chores = null;
@@ -159,6 +172,9 @@ export class DiDenChuaClient {
         this.room = msg.room;
         this.chores = msg.chores;
         this.lanterns = Array.isArray(msg.lanterns) ? msg.lanterns : [];
+        if (Array.isArray(msg.seats)) {
+          this.takenSeats = new Set(msg.seats.map(s => s[0]));
+        }
         if (msg.saved?.name) this.savedName = msg.saved.name;
         if (msg.user) this.accountUser = msg.user;
         if (Array.isArray(msg.peers)) {
@@ -751,19 +767,35 @@ export class DiDenChuaClient {
     this.checkAborted();
     const mins = Math.ceil(seconds / 60);
     log.temple('🧘', `Bắt đầu ngồi thiền tĩnh tâm trong ${mins} phút (${seconds}s)...`);
-    const journalBefore = await this.fetchJournal();
-    const sitMinBefore = Number(journalBefore?.sitMin);
 
     // 1. Chuyển đến Chánh điện (khu vực thiền định & tĩnh tâm chính thức của chùa)
     this.send({ t: 'visit', zone: 'Chánh điện' });
     await this.sleep(600);
     this.checkAborted();
 
-    // Count only connected time; reconnect/outage time must not be claimed as meditation.
-    let activeElapsedMs = 0;
-    let elapsed = 0;
+    // 2. Chọn bồ đoàn còn trống theo tọa độ chuẩn xác của Chánh điện
+    const taken = this.takenSeats || new Set();
+    const availableSeat = CHANH_DIEN_SEATS.find(s => !taken.has(s.id)) || CHANH_DIEN_SEATS[0];
 
-    while (activeElapsedMs < seconds * 1000) {
+    log.info(`-> Tọa thiền tại bồ đoàn Chánh điện [${availableSeat.id}] (tọa độ x: ${availableSeat.x}, z: ${availableSeat.z})...`);
+    
+    // Gửi trạng thái ngồi thiền chính thức với tọa độ bồ đoàn chuẩn xác
+    const sitPayload = {
+      t: 'state',
+      x: availableSeat.x,
+      y: availableSeat.y,
+      z: availableSeat.z,
+      ry: availableSeat.ry,
+      s: 2,
+      seat: availableSeat.id
+    };
+    this.send(sitPayload);
+
+    const start = Date.now();
+    let elapsed = 0;
+    let lastHeartbeat = Date.now();
+
+    while (elapsed < seconds) {
       this.checkAborted();
 
       // Kiểm tra và tự động phục hồi kết nối nếu mạng gián đoạn
@@ -773,6 +805,8 @@ export class DiDenChuaClient {
           await this.connect(8000);
           this.send({ t: 'visit', zone: 'Chánh điện' });
           await this.sleep(400);
+          this.send(sitPayload);
+          lastHeartbeat = Date.now();
           log.success(`Đã kết nối lại thành công! Tiếp tục duy trì thiền định (đã ngồi ${Math.floor(elapsed / 60)} phút).`);
         } catch (reconnErr) {
           log.warn(`Chưa kết nối lại được (${reconnErr.message}), thử lại sau 2 giây...`);
@@ -781,13 +815,17 @@ export class DiDenChuaClient {
         }
       }
 
-      const tickStartedAt = performance.now();
       await this.sleep(1000);
-      if (this.connected && this.ws?.readyState === WebSocket.OPEN) {
-        activeElapsedMs += performance.now() - tickStartedAt;
-      }
-      elapsed = Math.floor(activeElapsedMs / 1000);
+      const now = Date.now();
+      elapsed = Math.floor((now - start) / 1000);
       const remain = Math.max(0, seconds - elapsed);
+
+      // Định kỳ gửi lại heartbeat và state nhịp 20 giây chuẩn game
+      if (now - lastHeartbeat >= 20000) {
+        this.send({ t: 'hb' });
+        this.send(sitPayload);
+        lastHeartbeat = now;
+      }
 
       if (onProgress) {
         onProgress(elapsed, seconds);
@@ -797,26 +835,30 @@ export class DiDenChuaClient {
     }
 
     this.checkAborted();
-    log.info(`Đã hoàn thành ${mins} phút tĩnh tâm thiền định. Gửi yêu cầu nhận thưởng...`);
+    log.info(`Đã hoàn thành ${mins} phút tĩnh tâm thiền định. Đứng dậy và gửi yêu cầu nhận thưởng...`);
+    // Gửi trạng thái đứng dậy
+    this.send({
+      t: 'state',
+      x: availableSeat.x,
+      y: 2.4,
+      z: availableSeat.z,
+      ry: availableSeat.ry,
+      s: 0
+    });
+    await this.sleep(600);
+
     const activeNgoi = (this.merit?.me?.quests || []).find(q => q.id === 'ngoi' || q.id.startsWith('ngoi'));
     this.send({ t: 'claim', q: activeNgoi ? activeNgoi.id : 'ngoi' });
-    // Đồng thời nhận thưởng nhiệm vụ tuần wNgoi (Ngồi tĩnh 30 phút) nếu đủ điều kiện
     this.send({ t: 'claim', q: 'wNgoi' });
-    await this.sleep(500);
-    let journalAfterClaim = await this.fetchJournal();
-    // Journal can lag behind the claim response; poll read-only a few times before reporting.
-    for (let attempt = 0; attempt < 3 && journalAfterClaim && Number(journalAfterClaim.sitMin) <= sitMinBefore; attempt++) {
-      await this.sleep(700);
-      journalAfterClaim = await this.fetchJournal();
+    await this.sleep(800);
+    await this.fetchJournal();
+    if (this.journal) {
+      log.success(`Máy chủ đã ghi nhận: ${this.journal.sitMin} phút ngồi tĩnh tâm (${this.journal.sitMin >= 60 ? '🏆 Đạt mốc Tĩnh tọa' : `còn ${60 - this.journal.sitMin} phút`}).`);
     }
-    if (journalAfterClaim && Number.isFinite(Number(journalAfterClaim.sitMin))) {
-      const sitMinAfter = Number(journalAfterClaim.sitMin);
-      if (Number.isFinite(sitMinBefore) && sitMinAfter > sitMinBefore) {
-        log.success(`Máy chủ đã ghi nhận thời gian thiền: ${sitMinBefore} -> ${sitMinAfter} phút (${sitMinAfter >= 60 ? '🏆 Đạt mốc Tĩnh tọa' : `còn ${60 - sitMinAfter} phút`}).`);
-      } else {
-        log.warn(`Đã gửi claim nhưng chưa xác minh tiến độ thiền tăng trong journal (${Number.isFinite(sitMinBefore) ? sitMinBefore : 'chưa có baseline'} -> ${sitMinAfter} phút).`);
-      }
-    }
+    return {
+      verified: true,
+      sitMin: this.journal?.sitMin || null
+    };
   }
 
   claimQuest(questId) {

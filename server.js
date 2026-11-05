@@ -4,6 +4,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { runAllQuests } from './src/tasks/all.js';
 import { DiDenChuaClient, CALLIGRAPHY_WORDS } from './src/client.js';
+import { runMeditateWithClient } from './src/tasks/meditate.js';
 import { log, setLogHook } from './src/logger.js';
 import { notifyRunResult } from './src/notify.js';
 
@@ -554,7 +555,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
         case 'ngoi-daily':
           const activeNgoi = (client.merit?.me?.quests || []).find(q => q.id === 'ngoi' || q.id.startsWith('ngoi'));
           const needNgoiSecs = activeNgoi && !activeNgoi.claimed ? Math.max(300, (activeNgoi.need - (activeNgoi.have || 0)) * 60) : 300;
-          await client.doMeditate(runOptions.meditateSeconds || needNgoiSecs);
+          await runMeditateWithClient(client, runOptions.meditateSeconds || needNgoiSecs);
           break;
         case 'bell':
           await client.doBell();
@@ -652,7 +653,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           break;
         case 'meditate':
           const secs = runOptions.meditateSeconds || 300;
-          await client.doMeditate(secs);
+          await runMeditateWithClient(client, secs);
           break;
         default:
           throw new Error(`Nhiệm vụ không xác định: ${taskId}`);

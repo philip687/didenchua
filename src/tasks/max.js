@@ -1,5 +1,6 @@
 import { DiDenChuaClient } from '../client.js';
 import { log } from '../logger.js';
+import { runMeditateWithClient } from './meditate.js';
 
 /**
  * HOÀN THÀNH MAXIMUM TOÀN BỘ NHIỆM VỤ, TÍNH NĂNG ẨN & CÀY DANH HIỆU:
@@ -132,11 +133,9 @@ export async function runMaximumQuests() {
     // =========================================================================
     console.log('----------------------------------------------------------------------');
     log.temple('🧘', '--- [PHẦN 3: NGỒI THIỀN TĨNH TÂM 60 PHÚT (NHIỆM VỤ TREO CUỐI CÙNG)] ---');
-    await client.doMeditate(3600);
+    await runMeditateWithClient(client, 3600);
 
-    // Chốt quest thiền
-    client.claimQuest('ngoi');
-    await client.sleep(1500);
+    // runMeditateWithClient claims only server-confirmed eligible meditation quests.
 
     // =========================================================================
     // TỔNG KẾT & XUẤT SỔ DANH HIỆU MỚI

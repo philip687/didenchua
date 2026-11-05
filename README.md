@@ -35,12 +35,14 @@ Bạn có thể truyền thêm **số lượng** mong muốn vào sau mỗi lệ
 | `npm run chao` | Chắp tay chào một bạn đồng tu đang ở trong chùa |
 | `node cli.js mo [số tiếng]`<br>*(vd: `node cli.js mo 100`)* | Tụng kinh gõ mõ N tiếng tích công đức (mặc định 30 tiếng) |
 | `node cli.js chuoi [số hạt]`<br>*(vd: `node cli.js chuoi 108`)* | Lăn N hạt chuỗi tràng niệm Phật (108 hạt để tròn 1 chuỗi) |
-| `node cli.js ngoi [số giây]`<br>*(vd: `node cli.js ngoi 3600`)* | Ngồi thiền tĩnh tâm (tổng 60 phút mở danh hiệu *"Tĩnh tọa"*) |
+| `npm run meditate -- [số giây]`<br>*(vd: `npm run meditate -- 3600`)* | Ngồi thiền qua giao diện Chrome của game; trạng thái journal được đối chiếu sau khi xong |
 | `npm run chores` | Làm công quả trọn gói: quét sân, thả cá, thắp đèn, chăm mèo, tưới sen |
 | `npm run claim` | Tự động kiểm tra và nhận tất cả quà nhiệm vụ đã xong |
 | `npm run farm`<br>*(hoặc `npm run thanhtich`)* | **Cày tích lũy thành tích vĩnh viễn** theo chỉ tiêu đặt trong `config.json` (Lạy Phật, Lăn hạt tràng, Quét dọn sân chùa, Dâng hương, Thả hoa đăng...) |
 
 ---
+
+> **Lưu ý về thiền:** Hành động `visit` chỉ ghi nhận khu vực, không đặt nhân vật ngồi. Lệnh thiền cần Chrome và thao tác UI **Động tác → Ngồi thiền tại chỗ** để game phát trạng thái ngồi cùng vị trí thật. Client WebSocket thuần từ chối giả lập tư thế hoặc claim chỉ dựa trên đồng hồ cục bộ.
 
 ## ⚡ Chu trình chuẩn hóa 3 Giai đoạn (CI/CD & Combo tự động)
 

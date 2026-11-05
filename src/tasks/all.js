@@ -1,4 +1,5 @@
 import { DiDenChuaClient } from '../client.js';
+import { runMeditateWithClient } from './meditate.js';
 import { log } from '../logger.js';
 
 /**
@@ -148,7 +149,11 @@ export async function runAllQuests(options = {}) {
     if (ngoiQuest && !ngoiQuest.claimed && (ngoiQuest.have || 0) < ngoiQuest.need) {
       const waitMin = Math.max(5, ngoiQuest.need - (ngoiQuest.have || 0));
       log.temple('🧘', `Phát hiện nhiệm vụ [${ngoiQuest.title}], tiến hành tọa thiền ${waitMin} phút tại Vườn thiền...`);
-      await client.doMeditate(waitMin * 60);
+      const meditationResult = await runMeditateWithClient(client, waitMin * 60);
+      if (!meditationResult?.verified) {
+        unverifiedCount++;
+        log.warn('Quest ngồi tĩnh chưa được journal xác nhận; không tính nhiệm vụ này là hoàn tất.');
+      }
     }
 
     // 19. CHỐT KHÓA NHẬN THƯỞNG TOÀN BỘ NHIỆM VỤ HÀNG NGÀY NGAY LẬP TỨC
@@ -296,18 +301,30 @@ export async function runAllQuests(options = {}) {
       log.info(`Tiến hành ngồi thiền tĩnh tâm ${medMins} phút (${medSec}s) để tích lũy công đức và hồi hướng...`);
 
       // Ngồi thiền với thời gian tùy biến (nhiệm vụ treo cuối cùng)
-      await client.doMeditate(medSec);
+      // Close the direct socket before Chrome connects with this CID; the official game UI
+      // must own the session while sitting so it can emit state with the real avatar position.
+      const meditationResult = await runMeditateWithClient(client, medSec);
+      if (!meditationResult?.verified) {
+        unverifiedCount++;
+        log.warn('Không xác minh được trạng thái ngồi thiền từ journal; không tính tầng treo là hoàn tất. Dùng lệnh ngồi thiền qua giao diện Chrome để game phát trạng thái ngồi hợp lệ.');
+      }
 
       // Kiểm tra phản hồi xác nhận từ máy chủ cho nhiệm vụ ngồi thiền
       const ngoiQuest = client.merit?.me?.quests?.find(q => q.id === 'ngoi');
-      if (ngoiQuest?.claimed) {
+      if (meditationResult?.verified && ngoiQuest?.claimed) {
         log.success('[ĐÃ XÁC NHẬN] Máy chủ đã ghi nhận hoàn thành nhiệm vụ tĩnh tâm thiền định.');
-      } else {
-        log.info('[ĐÃ GỬI YÊU CẦU] Đã hoàn thành thời gian thiền định và gửi yêu cầu nhận thưởng (chờ máy chủ đồng bộ).');
+      } else if (meditationResult?.verified) {
+        log.warn('Journal ghi nhận thời gian nhưng snapshot merit chưa xác nhận claim nhiệm vụ thiền.');
         unverifiedCount++;
+      } else {
+        log.warn('Không báo hoàn tất/claim nhiệm vụ thiền vì journal chưa xác nhận thời gian ngồi.');
       }
 
-      log.success('HOÀN THÀNH TOÀN DIỆN 4 TẦNG: NHIỆM VỤ NGÀY -> CÀY VĨNH VIỄN -> ĂN THÊM ĐIỂM -> TREO MÁY!');
+      if (meditationResult?.verified) {
+        log.success('HOÀN THÀNH TOÀN DIỆN 4 TẦNG: NHIỆM VỤ NGÀY -> CÀY VĨNH VIỄN -> ĂN THÊM ĐIỂM -> TREO MÁY!');
+      } else {
+        log.warn('Chu trình đã chạy nhưng tầng treo máy chưa được máy chủ xác nhận.');
+      }
       // Chốt khóa nhận thưởng toàn bộ nhiệm vụ cuối chu kỳ (bao gồm quest 'tron' - Xong cả 6 nhiệm vụ)
       await client.sleep(1000);
       const finalClaims = await client.claimAllQuests();
