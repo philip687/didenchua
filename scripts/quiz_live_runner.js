@@ -84,7 +84,7 @@ async function askGeminiAPI(qText, opts) {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 3500);
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
     const prompt = `Bạn là một học giả Phật học uyên bác. Hãy chọn đáp án đúng cho câu hỏi trắc nghiệm Phật giáo sau:\nCâu hỏi: ${qText}\nCác lựa chọn:\n${opts.map((o, i) => `${i}. ${o}`).join('\n')}\nChỉ trả về JSON dạng: {"right": 0, "why": "giải thích ngắn gọn"}`;
 
     const res = await fetch(endpoint, {
