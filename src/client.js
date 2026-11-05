@@ -821,9 +821,13 @@ export class DiDenChuaClient {
   }
 
   async claimAllQuests() {
-    if (!this.merit?.me?.quests) return { claimed: [], unverified: [] };
-    const quests = this.merit.me.quests;
-    const toClaim = quests.filter(q => q.have >= q.need && !q.claimed);
+    if (!this.merit?.me) return { claimed: [], unverified: [] };
+    const allGroups = [
+      ...(this.merit.me.quests || []),
+      ...(this.merit.me.weekly || []),
+      ...(this.merit.me.newbie || [])
+    ];
+    const toClaim = allGroups.filter(q => q.have >= q.need && !q.claimed);
 
     if (toClaim.length === 0) {
       log.info('Không có nhiệm vụ nào đang chờ nhận thưởng.');
@@ -846,9 +850,13 @@ export class DiDenChuaClient {
       waitCount++;
     }
 
-    const updatedQuests = this.merit?.me?.quests || [];
+    const updatedGroups = [
+      ...(this.merit?.me?.quests || []),
+      ...(this.merit?.me?.weekly || []),
+      ...(this.merit?.me?.newbie || [])
+    ];
     for (const q of toClaim) {
-      const current = updatedQuests.find(item => item.id === q.id);
+      const current = updatedGroups.find(item => item.id === q.id);
       if (current && current.claimed) {
         log.merit(`[ĐÃ XÁC NHẬN] Máy chủ đã ghi nhận thưởng nhiệm vụ: "${q.title}" (+${q.reward} công đức)`);
         claimed.push(q);
@@ -858,9 +866,13 @@ export class DiDenChuaClient {
       }
     }
 
-    // Kiểm tra nhiệm vụ chuỗi mở khóa sau đợt nhận thưởng (như 'tron' - Xong cả 6 nhiệm vụ)
-    const finalQuests = this.merit?.me?.quests || [];
-    const chainedToClaim = finalQuests.filter(q => q.have >= q.need && !q.claimed);
+    // Kiểm tra nhiệm vụ chuỗi mở khóa sau đợt nhận thưởng (như 'tron', 'wTron', 'nm')
+    const finalGroups = [
+      ...(this.merit?.me?.quests || []),
+      ...(this.merit?.me?.weekly || []),
+      ...(this.merit?.me?.newbie || [])
+    ];
+    const chainedToClaim = finalGroups.filter(q => q.have >= q.need && !q.claimed);
     for (const q of chainedToClaim) {
       log.info(`-> Gửi yêu cầu nhận thưởng chuỗi nhiệm vụ: "${q.title}" (+${q.reward} công đức)...`);
       this.send({ t: 'claim', q: q.id });
