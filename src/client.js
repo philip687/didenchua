@@ -794,6 +794,7 @@ export class DiDenChuaClient {
     const start = Date.now();
     let elapsed = 0;
     let lastHeartbeat = Date.now();
+    let lastStatePing = Date.now();
 
     while (elapsed < seconds) {
       this.checkAborted();
@@ -807,6 +808,7 @@ export class DiDenChuaClient {
           await this.sleep(400);
           this.send(sitPayload);
           lastHeartbeat = Date.now();
+          lastStatePing = Date.now();
           log.success(`Đã kết nối lại thành công! Tiếp tục duy trì thiền định (đã ngồi ${Math.floor(elapsed / 60)} phút).`);
         } catch (reconnErr) {
           log.warn(`Chưa kết nối lại được (${reconnErr.message}), thử lại sau 2 giây...`);
@@ -820,10 +822,15 @@ export class DiDenChuaClient {
       elapsed = Math.floor((now - start) / 1000);
       const remain = Math.max(0, seconds - elapsed);
 
-      // Định kỳ gửi lại heartbeat và state nhịp 20 giây chuẩn game
-      if (now - lastHeartbeat >= 20000) {
-        this.send({ t: 'hb' });
+      // Gửi tọa độ ngồi mỗi 2 giây chuẩn xác như game client trình duyệt (main.js)
+      if (now - lastStatePing >= 2000) {
         this.send(sitPayload);
+        lastStatePing = now;
+      }
+
+      // Gửi heartbeat định kỳ 16 giây để giữ kết nối an toàn tuyệt đối
+      if (now - lastHeartbeat >= 16000) {
+        this.send({ t: 'hb' });
         lastHeartbeat = now;
       }
 
