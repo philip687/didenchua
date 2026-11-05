@@ -19,11 +19,27 @@ export class DiDenChuaClient {
     this.journal = null;
     this.garden = null;
     this.heartbeatTimer = null;
+    this.aborted = false;
+    this.abortResolvers = new Set();
   }
 
   async connect(timeoutMs = 10000) {
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
+      if (this.aborted) {
+        return reject(new Error('Tác vụ đã bị dừng bởi người dùng.'));
+      }
+
+      let timer = null;
+      const onAbort = () => {
+        if (timer) clearTimeout(timer);
+        this.abortResolvers.delete(onAbort);
+        this.close();
+        reject(new Error('Tác vụ đã bị dừng bởi người dùng.'));
+      };
+      this.abortResolvers.add(onAbort);
+
+      timer = setTimeout(() => {
+        this.abortResolvers.delete(onAbort);
         if (!this.connected) {
           this.close();
           reject(new Error(`Quá thời gian kết nối đến chùa (${timeoutMs}ms)`));
@@ -33,6 +49,7 @@ export class DiDenChuaClient {
       try {
         this.ws = new WebSocket(WS_URL);
       } catch (err) {
+        this.abortResolvers.delete(onAbort);
         clearTimeout(timer);
         return reject(err);
       }
@@ -82,6 +99,7 @@ export class DiDenChuaClient {
           this.connected = true;
         }
         if (msg.t === 'merit' && this.connected) {
+          this.abortResolvers.delete(onAbort);
           clearTimeout(timer);
           resolve(this);
         }
@@ -158,13 +176,45 @@ export class DiDenChuaClient {
   }
 
   send(data) {
+    if (this.aborted) return;
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(data));
     }
   }
 
   async sleep(ms) {
-    return new Promise(res => setTimeout(res, ms));
+    if (this.aborted) {
+      throw new Error('Tác vụ đã bị dừng bởi người dùng.');
+    }
+    return new Promise((resolve, reject) => {
+      let timer = null;
+      const onAbort = () => {
+        if (timer) clearTimeout(timer);
+        this.abortResolvers.delete(onAbort);
+        reject(new Error('Tác vụ đã bị dừng bởi người dùng.'));
+      };
+      this.abortResolvers.add(onAbort);
+
+      timer = setTimeout(() => {
+        this.abortResolvers.delete(onAbort);
+        if (this.aborted) {
+          reject(new Error('Tác vụ đã bị dừng bởi người dùng.'));
+        } else {
+          resolve();
+        }
+      }, ms);
+    });
+  }
+
+  abort(reason = 'Người dùng đã dừng tác vụ') {
+    this.aborted = true;
+    for (const cancelFn of Array.from(this.abortResolvers)) {
+      try {
+        cancelFn();
+      } catch {}
+    }
+    this.abortResolvers.clear();
+    this.close();
   }
 
   async humanDelay(reason = 'khoan thai chuyển bước') {

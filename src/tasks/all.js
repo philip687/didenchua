@@ -37,6 +37,9 @@ export async function runAllQuests(options = {}) {
   const autoWaterOthers = options.autoWaterOthers ?? null;
 
   const client = new DiDenChuaClient();
+  if (typeof options.onClient === 'function') {
+    options.onClient(client);
+  }
   // Trả về số claim chưa được xác nhận để report phân biệt run hoàn tất với kết quả đã verify.
   let unverifiedCount = 0;
 
