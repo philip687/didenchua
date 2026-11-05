@@ -44,6 +44,8 @@
     "khoe": "node cli.js khoe",
     "map": "node cli.js map",
     "bando": "node cli.js map",
+    "am": "node cli.js am",
+    "amrieng": "node cli.js am",
     "lay": "node cli.js lay",
     "tham": "node cli.js tham",
     "ci": "node cli.js ci",

@@ -21,6 +21,7 @@ import { runStatus } from './src/tasks/status.js';
 import { runTitle } from './src/tasks/title.js';
 import { runLook } from './src/tasks/look.js';
 import { runKhoe } from './src/tasks/khoe.js';
+import { runAm } from './src/tasks/am.js';
 import { printTempleMap, teleportToPlace } from './src/map.js';
 import { DiDenChuaClient } from './src/client.js';
 import { runAllQuests } from './src/tasks/all.js';
@@ -151,6 +152,12 @@ async function main() {
       }
       break;
     }
+
+    case 'am':
+    case 'amrieng':
+    case 'am-rieng':
+      await runAm(args[0], args[1], args[2]);
+      break;
 
     case 'secrets':
     case 'hidden':

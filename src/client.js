@@ -103,6 +103,32 @@ export const PETS_CATALOG = {
   hac: { name: 'Hạc trắng', lv: 6, days: 90, desc: 'Thanh cao, chân dài, cổ vươn như đang múa' }
 };
 
+// Danh sách 7 vị trí bài trí trong Am riêng tu tập
+export const AM_SLOTS = [
+  { id: 'altar', name: 'Giữa bàn thờ', kind: 'tuong' },
+  { id: 'altarL', name: 'Bàn thờ, bên trái', kind: 'ban' },
+  { id: 'altarR', name: 'Bàn thờ, bên phải', kind: 'ban' },
+  { id: 'wallL', name: 'Tường trái', kind: 'tranh' },
+  { id: 'wallR', name: 'Tường phải', kind: 'tranh' },
+  { id: 'cornerL', name: 'Góc trái', kind: 'goc' },
+  { id: 'cornerR', name: 'Góc phải', kind: 'goc' }
+];
+
+// Danh sách vật phẩm bài trí Am riêng
+export const AM_ITEMS = [
+  { id: 'phat', name: 'Tượng Phật nhỏ', kind: 'tuong', free: true },
+  { id: 'dilac', name: 'Tượng Di Lặc nhỏ', kind: 'tuong', free: true },
+  { id: 'luhuong', name: 'Lư hương', kind: 'ban', free: true },
+  { id: 'binhsen', name: 'Bình sen', kind: 'ban', free: true },
+  { id: 'dendau', name: 'Đèn dầu', kind: 'ban', free: true },
+  { id: 'tranhsen', name: 'Tranh sen', kind: 'tranh', free: true },
+  { id: 'tranhan', name: 'Tranh chữ "An"', kind: 'tranh', free: true },
+  { id: 'chaulan', name: 'Chậu lan', kind: 'goc', free: true },
+  { id: 'denlong', name: 'Đèn lồng', kind: 'goc', free: true },
+  { id: 'binhtruc', name: 'Bình trúc', kind: 'goc', free: false },
+  { id: 'densen', name: 'Đèn hoa sen', kind: 'ban', free: false }
+];
+
 export class DiDenChuaClient {
   constructor(customConfig = {}) {
     this.config = { ...loadConfig(), ...customConfig };
@@ -895,6 +921,51 @@ export class DiDenChuaClient {
     log.info(`-> Đã gieo quẻ xăm số [${randomXam}] cầu bình an cát tường.`);
     this.claimQuest('xam');
     await this.sleep(500);
+  }
+
+  async doEnterAm() {
+    this.checkAborted();
+    log.temple('🛖', 'Bước vào Am riêng tu tập (không gian thanh tịnh riêng tư)...');
+    await this.humanDelay('khoan thai bước qua cổng Am riêng');
+    this.checkAborted();
+
+    this.send({ t: 'visit', zone: 'Am riêng' });
+    this.send({ t: 'am' });
+    await this.sleep(400);
+    this.send({ t: 'am-in' });
+    this.inAm = true;
+    await this.sleep(500);
+
+    // Tự động nhận thưởng nhiệm vụ tuần vào am riêng nếu có
+    this.claimQuest('wAm');
+    log.success('-> Đã an tọa trong Am riêng tu tập (Am của bạn · chỉ mình bạn ở đây).');
+  }
+
+  async doAmIncense() {
+    this.checkAborted();
+    log.temple('🕯️', 'Dâng ba nén hương trầm trên bàn thờ trong Am riêng...');
+    await this.humanDelay('thành tâm châm hương trước ban thờ');
+    this.checkAborted();
+    this.send({ t: 'am-incense' });
+    await this.sleep(600);
+    log.success('-> Đã dâng ba nén hương trong Am riêng!');
+  }
+
+  async doAmSet(slot, item) {
+    this.checkAborted();
+    log.temple('🎨', `Bày trí Am riêng: Đặt món [${item || 'để trống'}] vào vị trí [${slot}]...`);
+    this.send({ t: 'am-set', slot, item: item || '' });
+    await this.sleep(400);
+    log.success(`-> Đã lưu bài trí Am riêng cho vị trí [${slot}]!`);
+  }
+
+  async doLeaveAm() {
+    this.checkAborted();
+    log.temple('🚪', 'Rời khỏi Am riêng, trở lại sân chùa...');
+    this.send({ t: 'am-out' });
+    this.inAm = false;
+    await this.sleep(400);
+    log.success('-> Đã trở lại khuôn viên chùa.');
   }
 
   async doVow(text = 'Cầu cho muôn người bình an, thân tâm thường an lạc, vạn sự hanh thông') {
