@@ -1158,9 +1158,10 @@ function renderDashboardHTML() {
         </div>
       `;
     } else if (t.hasDuration) {
+      const defaultDurationMin = t.id === 'meditate' ? 60 : 5;
       inputControl = `
         <div style="display:flex; align-items:center; gap:5px; margin-right:4px;">
-          <input type="number" id="duration_min_${escapeHTML(t.id)}" value="5" min="1" max="120"
+          <input type="number" id="duration_min_${escapeHTML(t.id)}" value="${defaultDurationMin}" min="1" max="120"
             style="width:50px; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 6px; border-radius:6px; font-size:12px; text-align:center; font-weight:600;"
             placeholder="Phút"
             title="Nhập số phút ngồi thiền"
@@ -1174,6 +1175,7 @@ function renderDashboardHTML() {
             <option value="15">15 phút</option>
             <option value="30">30 phút</option>
             <option value="60">60 phút</option>
+            <option value="120">120 phút</option>
           </select>
         </div>
       `;

@@ -63,6 +63,13 @@ export class DiDenChuaClient {
         }
       }, timeoutMs);
 
+      if (this.ws) {
+        try {
+          this.ws.onopen = this.ws.onmessage = this.ws.onerror = this.ws.onclose = null;
+          this.ws.close();
+        } catch {}
+      }
+
       try {
         this.ws = new WebSocket(WS_URL);
       } catch (err) {
@@ -750,6 +757,25 @@ export class DiDenChuaClient {
 
     while (elapsed < seconds) {
       this.checkAborted();
+
+      // Kiểm tra và tự động phục hồi kết nối nếu máy chủ ngắt kết nối WebSocket giữa chừng
+      if (!this.connected || this.ws?.readyState !== WebSocket.OPEN) {
+        log.warn(`Phát hiện mất kết nối với chùa tại giây ${elapsed}. Đang tự động kết nối lại...`);
+        try {
+          await this.connect(8000);
+          this.send({ t: 'visit', zone: 'Vườn thiền' });
+          await this.sleep(400);
+          this.send(sitPayload);
+          lastStateSend = Date.now();
+          lastHeartbeat = Date.now();
+          log.success(`Đã kết nối lại thành công! Tiếp tục duy trì thiền định (đã ngồi ${Math.floor(elapsed / 60)} phút).`);
+        } catch (reconnErr) {
+          log.warn(`Chưa kết nối lại được (${reconnErr.message}), thử lại sau 2 giây...`);
+          await this.sleep(2000);
+          continue;
+        }
+      }
+
       await this.sleep(1000);
       const now = Date.now();
       elapsed = Math.floor((now - start) / 1000);
