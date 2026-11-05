@@ -377,6 +377,8 @@ async function refreshAccountData() {
     const j = await client.fetchJournal();
     // Không ghi đè snapshot cũ hoặc thời điểm cập nhật nếu lần đồng bộ mới thiếu dữ liệu.
     if (!client.merit?.me || !j) return false;
+    if (j.name) client.merit.me.name = j.name;
+    if (j.user) client.merit.me.user = j.user;
     state.merit = client.merit;
     state.journal = j;
     state.lastUpdated = new Date().toISOString();
@@ -917,11 +919,17 @@ function getTaskQuestBadge(task, quests = [], journal = {}) {
 function renderDashboardHTML() {
   const me = state.merit?.me || {};
   const j = state.journal || {};
+  const displayName = j.name || me.name || process.env.NAME || 'Phật Tử';
+  const rawUser = (j.user && j.user !== 'null') ? j.user : ((me.user && me.user !== 'null') ? me.user : null);
+  const userTag = rawUser ? `<span>(@${escapeHTML(rawUser)})</span>` : '';
+
   // Dữ liệu thiếu phải hiện là thiếu, không dùng giá trị mẫu làm báo cáo thật.
   const reportValue = value => value === null || value === undefined ? 'Chưa có dữ liệu' : escapeHTML(value);
-  const nextLevelPoints = me.next !== null && me.next !== undefined && me.total !== null && me.total !== undefined
-    && Number.isFinite(Number(me.next)) && Number.isFinite(Number(me.total))
-    ? Number(me.next) - Number(me.total)
+  const currentTotal = me.total !== null && me.total !== undefined ? me.total : j.merit;
+  const nextTarget = me.next !== null && me.next !== undefined ? me.next : j.next;
+  const nextLevelPoints = nextTarget !== null && nextTarget !== undefined && currentTotal !== null && currentTotal !== undefined
+    && Number.isFinite(Number(nextTarget)) && Number.isFinite(Number(currentTotal))
+    ? Number(nextTarget) - Number(currentTotal)
     : null;
 
   const questsHTML = (me.quests || []).map(q => {
@@ -1276,8 +1284,8 @@ function renderDashboardHTML() {
   <div class="container">
     <header>
       <div class="who">
-        <h1>🪷 ${reportValue(me.name)} <span>(@${reportValue(me.user)})</span></h1>
-        <p>Cấp bậc: <b>${reportValue(me.level)} (Lv.${reportValue(me.lv)})</b> · Chuỗi lên chùa: <b>${reportValue(me.days)} ngày liên tục</b></p>
+        <h1>🪷 ${escapeHTML(displayName)} ${userTag}</h1>
+        <p>Cấp bậc: <b>${reportValue(me.level || j.level)} (Lv.${reportValue(me.lv ?? j.lv)})</b> · Chuỗi lên chùa: <b>${reportValue(me.days ?? j.days)} ngày liên tục</b></p>
       </div>
       <div class="actions">
         <select id="meditateSelect" style="background:#2b221a; color:var(--gold); border:1px solid var(--card-border); padding:9px 12px; border-radius:10px; font-size:13px; outline:none; cursor:pointer;" ${isRunning || isStopping ? 'disabled' : ''}>
@@ -1340,7 +1348,7 @@ function renderDashboardHTML() {
         <h2>✨ Công Đức & Tích Lũy <small style="font-size:11px; color:var(--text-dim); font-weight:normal;">Cập nhật UTC: ${escapeHTML(state.lastUpdated || 'Chưa có dữ liệu')}</small></h2>
         <div class="stat-row">
           <div class="stat-box">
-            <b>${reportValue(me.total)}</b>
+            <b>${reportValue(me.total ?? j.merit)}</b>
             <span>Tổng công đức</span>
           </div>
           <div class="stat-box">
@@ -1354,7 +1362,7 @@ function renderDashboardHTML() {
             <span>Cần đến cấp sau</span>
           </div>
           <div class="stat-box">
-            <b>${reportValue(j.streak)} ngày</b>
+            <b>${reportValue(j.streak ?? me.days)} ngày</b>
             <span>Kỷ lục liên tiếp</span>
           </div>
         </div>

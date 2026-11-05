@@ -89,17 +89,18 @@ export async function notifyRunResult(result) {
     error: 'Thất bại',
     unverified: 'Đã chạy hết luồng; chưa xác minh kết quả phía máy chủ'
   }[status] || 'Không xác định';
-  const playerName = reportValue(merit?.me?.name);
-  const playerUser = reportValue(merit?.me?.user);
+  const playerName = reportValue(journal?.name || merit?.me?.name || process.env.NAME || 'Phật Tử');
+  const rawPlayerUser = (journal?.user && journal.user !== 'null') ? journal.user : ((merit?.me?.user && merit.me.user !== 'null') ? merit.me.user : null);
+  const playerUserTag = rawPlayerUser ? ` (@${rawPlayerUser})` : '';
 
   // 1. Soạn tin nhắn Telegram (HTML)
   let tg = `<b>🪷 BÁO CÁO CÔNG ĐỨC CHÙA ONLINE</b>\n`;
   tg += `⏰ <i>Thời gian: ${escapeTelegramHTML(timeStr)} (Asia/Ho_Chi_Minh)</i>\n`;
   tg += `🆔 <b>Run:</b> ${escapeTelegramHTML(reportValue(runId))}\n`;
-  tg += `👤 <b>Phật tử:</b> ${escapeTelegramHTML(playerName)} (@${escapeTelegramHTML(playerUser)})\n`;
-  tg += `🏅 <b>Cấp bậc:</b> ${escapeTelegramHTML(reportValue(merit?.me?.level))} (Lv.${escapeTelegramHTML(reportValue(merit?.me?.lv))})\n`;
-  tg += `✨ <b>Tổng công đức:</b> ${escapeTelegramHTML(reportValue(merit?.me?.total))} (+${escapeTelegramHTML(reportValue(merit?.me?.today))} hôm nay)\n`;
-  tg += `📅 <b>Chuỗi lên chùa:</b> ${escapeTelegramHTML(reportValue(merit?.me?.days))} ngày liên tiếp\n`;
+  tg += `👤 <b>Phật tử:</b> ${escapeTelegramHTML(playerName)}${escapeTelegramHTML(playerUserTag)}\n`;
+  tg += `🏅 <b>Cấp bậc:</b> ${escapeTelegramHTML(reportValue(merit?.me?.level ?? journal?.level))} (Lv.${escapeTelegramHTML(reportValue(merit?.me?.lv ?? journal?.lv))})\n`;
+  tg += `✨ <b>Tổng công đức:</b> ${escapeTelegramHTML(reportValue(merit?.me?.total ?? journal?.merit))} (+${escapeTelegramHTML(reportValue(merit?.me?.today))} hôm nay)\n`;
+  tg += `📅 <b>Chuỗi lên chùa:</b> ${escapeTelegramHTML(reportValue(merit?.me?.days ?? journal?.streak ?? journal?.days))} ngày liên tiếp\n`;
   tg += `📡 <b>Snapshot:</b> ${escapeTelegramHTML(snapshotStatus || 'không rõ')}${snapshotAt ? ` lúc ${escapeTelegramHTML(snapshotAt)} UTC` : ''}\n\n`;
 
   tg += `<b>📋 NHIỆM VỤ HÀNG NGÀY:</b>\n`;
@@ -133,7 +134,7 @@ export async function notifyRunResult(result) {
   // 2. Soạn tin nhắn Discord (Markdown)
   const discordText = `**🪷 BÁO CÁO CÔNG ĐỨC - AN TỰ DUYÊN**\n` +
     `> 🆔 Run: ${escapeDiscordMarkdown(reportValue(runId))}\n` +
-    `> 👤 ${escapeDiscordMarkdown(playerName)} (@${escapeDiscordMarkdown(playerUser)}) | Lv.${escapeDiscordMarkdown(reportValue(merit?.me?.lv))} ${escapeDiscordMarkdown(reportValue(merit?.me?.level))} | Tổng: ${escapeDiscordMarkdown(reportValue(merit?.me?.total))} công đức\n` +
+    `> 👤 ${escapeDiscordMarkdown(playerName)}${escapeDiscordMarkdown(playerUserTag)} | Lv.${escapeDiscordMarkdown(reportValue(merit?.me?.lv ?? journal?.lv))} ${escapeDiscordMarkdown(reportValue(merit?.me?.level ?? journal?.level))} | Tổng: ${escapeDiscordMarkdown(reportValue(merit?.me?.total ?? journal?.merit))} công đức\n` +
     `> 🎯 Lạy Phật: ${escapeDiscordMarkdown(reportValue(journal?.bows))}/108 | Tràng hạt: ${escapeDiscordMarkdown(reportValue(journal?.beads))} | Hương: ${escapeDiscordMarkdown(reportValue(journal?.incense))}/30 | Đèn: ${escapeDiscordMarkdown(reportValue(journal?.lanterns))}/10\n` +
     `> 📡 Snapshot: ${escapeDiscordMarkdown(snapshotStatus || 'không rõ')}${snapshotAt ? ` lúc ${escapeDiscordMarkdown(snapshotAt)} UTC` : ''}\n` +
     `> ⏰ ${escapeDiscordMarkdown(timeStr)} (Asia/Ho_Chi_Minh) - ${escapeDiscordMarkdown(statusText)}` +

@@ -124,6 +124,8 @@ export class DiDenChuaClient {
         this.room = msg.room;
         this.chores = msg.chores;
         this.lanterns = Array.isArray(msg.lanterns) ? msg.lanterns : [];
+        if (msg.saved?.name) this.savedName = msg.saved.name;
+        if (msg.user) this.accountUser = msg.user;
         if (Array.isArray(msg.peers)) {
           for (const p of msg.peers) {
             this.peers.set(p.id, p);
@@ -138,6 +140,10 @@ export class DiDenChuaClient {
 
       case 'journal':
         this.journal = msg.j;
+        if (this.journal && this.merit?.me) {
+          if (this.journal.name) this.merit.me.name = this.journal.name;
+          if (this.journal.user) this.merit.me.user = this.journal.user;
+        }
         break;
 
       case 'garden':
@@ -146,6 +152,10 @@ export class DiDenChuaClient {
 
       case 'merit':
         this.merit = msg;
+        if (this.merit?.me) {
+          if (!this.merit.me.name) this.merit.me.name = this.journal?.name || this.savedName || this.config.name || 'Phật Tử';
+          if (!this.merit.me.user) this.merit.me.user = this.journal?.user || this.accountUser || null;
+        }
         break;
 
       case 'chores':
@@ -379,6 +389,10 @@ export class DiDenChuaClient {
       await this.sleep(200);
       count++;
     }
+    if (this.journal && this.merit?.me) {
+      if (this.journal.name) this.merit.me.name = this.journal.name;
+      if (this.journal.user) this.merit.me.user = this.journal.user;
+    }
     return this.journal;
   }
 
@@ -391,7 +405,8 @@ export class DiDenChuaClient {
     console.log('\n===============================================');
     console.log(`📜  BẢNG TIẾN ĐỘ THÀNH TỰU & DANH HIỆU CHÙA`);
     console.log('===============================================');
-    console.log(`• Tên & Tài khoản : ${j.name} (@${j.user})`);
+    const userDisplay = (j.user && j.user !== 'null') ? ` (@${j.user})` : '';
+    console.log(`• Tên & Tài khoản : ${j.name || 'Phật Tử'}${userDisplay}`);
     console.log(`• Cấp bậc tu tập  : ${j.level} (Lv.${j.lv})`);
     console.log(`• Tổng công đức   : ${j.merit} / ${j.next} điểm`);
     console.log(`• Chuỗi ngày lên chùa: ${j.streak} ngày liên tục (kỷ lục: ${j.best})`);
