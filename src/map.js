@@ -118,3 +118,4 @@ export async function teleportToPlace(client, placeQuery) {
 if (process.argv[1]?.endsWith('map.js')) {
   printTempleMap();
 }
+

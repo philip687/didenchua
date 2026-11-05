@@ -169,7 +169,7 @@ async function main() {
 
     case 'bell':
     case 'chuong':
-      await runBell();
+      await runBell(args[0] ? parseInt(args[0], 10) : 1);
       break;
 
     case 'meditate':

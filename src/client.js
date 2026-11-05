@@ -851,13 +851,38 @@ export class DiDenChuaClient {
     }
   }
 
-  async doBell() {
+  async doBell(count = 1) {
     this.checkAborted();
-    await this.humanDelay('tiến đến giá chuông chánh điện');
+    log.temple('🔔', `Thỉnh chuông Bát Nhã tại Gác chuông (${count} tiếng)...`);
+    await this.humanDelay('khoan thai bước lên bậc thềm Gác chuông');
     this.checkAborted();
-    log.temple('🔔', 'Thỉnh một tiếng đại hồng chung ngân vang…');
-    this.send({ t: 'bell' });
-    await this.sleep(500);
+
+    // 1. Đến khu vực Gác chuông (tọa độ L8 của game)
+    this.send({ t: 'visit', zone: 'Gác chuông' });
+    this.send({
+      t: 'state',
+      x: -12.8,
+      y: 0.5,
+      z: 52.0,
+      ry: -1.57,
+      s: 0
+    });
+    await this.sleep(400);
+
+    // 2. Thỉnh từng tiếng chuông ngân vang
+    const total = Math.max(1, count);
+    for (let i = 1; i <= total; i++) {
+      this.checkAborted();
+      this.send({ t: 'bell' });
+      log.info(`-> Thỉnh tiếng chuông [${i}/${total}]... (Nguyện tiếng chuông này vang khắp pháp giới)`);
+      if (i < total) {
+        await this.sleep(1800);
+      }
+    }
+
+    // 3. Tự động nhận thưởng nhiệm vụ ngày thỉnh chuông
+    await this.sleep(400);
+    this.claimQuest('chuong');
   }
 
   async doXam() {
