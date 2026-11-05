@@ -799,7 +799,6 @@ export class DiDenChuaClient {
       log.success(`Máy chủ đã ghi nhận: ${this.journal.sitMin} phút ngồi tĩnh tâm (${this.journal.sitMin >= 60 ? '🏆 Đạt mốc Tĩnh tọa' : `còn ${60 - this.journal.sitMin} phút`}).`);
     }
   }
-  }
 
   claimQuest(questId) {
     this.send({ t: 'claim', q: questId });
