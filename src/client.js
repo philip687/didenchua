@@ -968,6 +968,29 @@ export class DiDenChuaClient {
     log.success('-> Đã trở lại khuôn viên chùa.');
   }
 
+  async doEnterPhapDuong() {
+    this.checkAborted();
+    log.temple('🏛️', 'Bước vào Pháp đường tu tập (giảng đường Phật pháp)...');
+    await this.humanDelay('khoan thai bước qua cửa Pháp đường');
+    this.checkAborted();
+
+    this.send({ t: 'visit', zone: 'Pháp đường' });
+    await this.sleep(300);
+    this.send({ t: 'phap-in' });
+    this.inPhapDuong = true;
+    await this.sleep(500);
+    log.success('-> Đã vào Pháp đường (Xin giữ im lặng · an tọa lắng nghe giáo lý hoặc tĩnh tâm).');
+  }
+
+  async doLeavePhapDuong() {
+    this.checkAborted();
+    log.temple('🚪', 'Rời Pháp đường, trở về khuôn viên chùa...');
+    this.send({ t: 'phap-out' });
+    this.inPhapDuong = false;
+    await this.sleep(400);
+    log.success('-> Đã trở lại sân chùa.');
+  }
+
   async doVow(text = 'Cầu cho muôn người bình an, thân tâm thường an lạc, vạn sự hanh thông') {
     this.checkAborted();
     log.temple('🙏', `Gửi một lời nguyện chung tới cả chùa: "${text}"…`);

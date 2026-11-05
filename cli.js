@@ -22,6 +22,7 @@ import { runTitle } from './src/tasks/title.js';
 import { runLook } from './src/tasks/look.js';
 import { runKhoe } from './src/tasks/khoe.js';
 import { runAm } from './src/tasks/am.js';
+import { runPhapDuong } from './src/tasks/phapduong.js';
 import { printTempleMap, teleportToPlace } from './src/map.js';
 import { DiDenChuaClient } from './src/client.js';
 import { runAllQuests } from './src/tasks/all.js';
@@ -157,6 +158,11 @@ async function main() {
     case 'amrieng':
     case 'am-rieng':
       await runAm(args[0], args[1], args[2]);
+      break;
+
+    case 'phapduong':
+    case 'phap-duong':
+      await runPhapDuong(args[0] ? parseFloat(args[0]) : 1);
       break;
 
     case 'secrets':
