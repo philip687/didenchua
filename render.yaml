@@ -10,7 +10,7 @@ services:
       - key: CID
         sync: false
       - key: NAME
-        value: phat-tu
+        value: thichkngan
       - key: ROOM
         value: chua-1
       - key: SAFE_MODE

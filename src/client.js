@@ -741,32 +741,25 @@ export class DiDenChuaClient {
     const mins = Math.ceil(seconds / 60);
     log.temple('🧘', `Bắt đầu ngồi thiền tĩnh tâm trong ${mins} phút (${seconds}s)...`);
 
-    // 1. Chuyển đến khu vực Vườn thiền (vị trí thiền định tĩnh tâm chính thức)
-    this.send({ t: 'visit', zone: 'Vườn thiền' });
+    // 1. Chuyển đến Chánh điện (khu vực thiền định & tĩnh tâm chính thức của chùa)
+    this.send({ t: 'visit', zone: 'Chánh điện' });
     await this.sleep(600);
     this.checkAborted();
 
-    // 2. Tọa độ chuẩn Vườn thiền: x: -36, y: 0, z: 30, ry: 1.57, s: 2 (ngồi tại chỗ id: 'dat')
-    const sitPayload = { t: 'state', x: -36, y: 0, z: 30, ry: 1.57, s: 2 };
-    this.send(sitPayload);
-
     const start = Date.now();
     let elapsed = 0;
-    let lastStateSend = Date.now();
     let lastHeartbeat = Date.now();
 
     while (elapsed < seconds) {
       this.checkAborted();
 
-      // Kiểm tra và tự động phục hồi kết nối nếu máy chủ ngắt kết nối WebSocket giữa chừng
+      // Kiểm tra và tự động phục hồi kết nối nếu mạng gián đoạn
       if (!this.connected || this.ws?.readyState !== WebSocket.OPEN) {
         log.warn(`Phát hiện mất kết nối với chùa tại giây ${elapsed}. Đang tự động kết nối lại...`);
         try {
           await this.connect(8000);
-          this.send({ t: 'visit', zone: 'Vườn thiền' });
+          this.send({ t: 'visit', zone: 'Chánh điện' });
           await this.sleep(400);
-          this.send(sitPayload);
-          lastStateSend = Date.now();
           lastHeartbeat = Date.now();
           log.success(`Đã kết nối lại thành công! Tiếp tục duy trì thiền định (đã ngồi ${Math.floor(elapsed / 60)} phút).`);
         } catch (reconnErr) {
@@ -781,14 +774,7 @@ export class DiDenChuaClient {
       elapsed = Math.floor((now - start) / 1000);
       const remain = Math.max(0, seconds - elapsed);
 
-      // Gửi cập nhật trạng thái s = 2 liên tục mỗi 2 giây
-      if (now - lastStateSend >= 2000) {
-        this.checkAborted();
-        this.send(sitPayload);
-        lastStateSend = now;
-      }
-
-      // Gửi heartbeat duy trì kết nối WebSocket mỗi 20 giây
+      // Gửi heartbeat định kỳ 20 giây chuẩn như trình duyệt web (main.js)
       if (now - lastHeartbeat >= 20000) {
         this.send({ t: 'hb' });
         lastHeartbeat = now;
@@ -802,18 +788,17 @@ export class DiDenChuaClient {
     }
 
     this.checkAborted();
-    // 3. Đứng dậy trở về trạng thái bình thường (s = 0)
-    this.send({ t: 'state', x: -36, y: 0, z: 30, ry: 1.57, s: 0 });
-    await this.sleep(800);
-
     log.info(`Đã hoàn thành ${mins} phút tĩnh tâm thiền định. Gửi yêu cầu nhận thưởng...`);
     const activeNgoi = (this.merit?.me?.quests || []).find(q => q.id === 'ngoi' || q.id.startsWith('ngoi'));
     this.send({ t: 'claim', q: activeNgoi ? activeNgoi.id : 'ngoi' });
+    // Đồng thời nhận thưởng nhiệm vụ tuần wNgoi (Ngồi tĩnh 30 phút) nếu đủ điều kiện
+    this.send({ t: 'claim', q: 'wNgoi' });
     await this.sleep(800);
     await this.fetchJournal();
     if (this.journal) {
       log.success(`Máy chủ đã ghi nhận: ${this.journal.sitMin} phút ngồi tĩnh tâm (${this.journal.sitMin >= 60 ? '🏆 Đạt mốc Tĩnh tọa' : `còn ${60 - this.journal.sitMin} phút`}).`);
     }
+  }
   }
 
   claimQuest(questId) {
