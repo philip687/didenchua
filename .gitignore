@@ -3,6 +3,7 @@ node_modules/
 .env
 .env.*
 config.local.json
+.scheduler_state.json
 AGENT_UPGRADE_GUIDE.md
 SYSTEM_LOG_REPORT_UPGRADE_GUIDE.md
 *_GUIDE.md

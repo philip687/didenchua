@@ -1,4 +1,6 @@
 import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
 import crypto from 'node:crypto';
 import { runAllQuests } from './src/tasks/all.js';
 import { DiDenChuaClient } from './src/client.js';
@@ -102,6 +104,31 @@ setLogHook((msg, level, icon) => {
   addWebLog(msg, level, icon);
 });
 
+// Lưu vết trạng thái lịch chạy để không chạy lặp lại khi tiến trình khởi động lại
+const SCHEDULER_STATE_FILE = path.join(process.cwd(), '.scheduler_state.json');
+
+function getSavedSchedulerDate() {
+  try {
+    if (fs.existsSync(SCHEDULER_STATE_FILE)) {
+      const data = JSON.parse(fs.readFileSync(SCHEDULER_STATE_FILE, 'utf-8'));
+      return data.lastRunDate || '';
+    }
+  } catch {}
+  return '';
+}
+
+function saveSchedulerDate(dateStr) {
+  try {
+    fs.writeFileSync(SCHEDULER_STATE_FILE, JSON.stringify({
+      lastRunDate: dateStr,
+      updatedAt: new Date().toISOString()
+    }, null, 2), 'utf-8');
+  } catch {}
+}
+
+let lastScheduledRunDate = getSavedSchedulerDate();
+let isSchedulerRunning = false;
+
 // Cập nhật thông tin tài khoản từ máy chủ chùa
 async function refreshAccountData() {
   const client = new DiDenChuaClient();
@@ -113,6 +140,15 @@ async function refreshAccountData() {
     state.merit = client.merit;
     state.journal = j;
     state.lastUpdated = new Date().toISOString();
+
+    // Nếu snapshot cho thấy các nhiệm vụ hôm nay đã hoàn thành, ghi nhận ngày hôm nay đã chạy
+    const quests = client.merit.me.quests || [];
+    if (Array.isArray(quests) && quests.length > 0 && quests.every(q => q.claimed)) {
+      const todayStr = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+      lastScheduledRunDate = todayStr;
+      saveSchedulerDate(todayStr);
+    }
+
     return true;
   } catch (err) {
     log.error('Lỗi làm mới dữ liệu chùa:', err.message);
@@ -178,6 +214,11 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
       ? 'success'
       : (Number(routineResult?.unverifiedCount) > 0 ? 'partial' : 'unverified');
     const finishedAt = new Date().toISOString();
+    if (runStatus === 'success') {
+      const today = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+      lastScheduledRunDate = today;
+      saveSchedulerDate(today);
+    }
 
     const result = {
       id: runId,
@@ -279,10 +320,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
   }
 }
 
-// Lập lịch tự động chạy sau 00:05 mỗi sáng giờ VN (UTC+7) với cơ chế chạy bù an toàn (Priority 4)
-let lastScheduledRunDate = '';
-let isSchedulerRunning = false;
-
+// Lập lịch tự động chạy sau 00:05 sáng mỗi ngày giờ VN (UTC+7)
 function startDailyScheduler() {
   async function checkSchedule() {
     if (isSchedulerRunning || state.isRunning) return;
@@ -292,15 +330,20 @@ function startDailyScheduler() {
     const hour = now.getUTCHours();
     const minute = now.getUTCMinutes();
 
-    // Điều kiện: Sau 00:05 sáng (giờ VN) và ngày hôm nay chưa chạy thành công
-    const pastScheduledTime = (hour > 0) || (hour === 0 && minute >= 5);
-    if (pastScheduledTime && lastScheduledRunDate !== todayStr) {
+    // Khung giờ vận hành tự động định kỳ: Từ 00:05 đến 01:59 sáng (giờ Việt Nam UTC+7)
+    // Ngăn chặn việc server khởi động lại vào ban ngày (ví dụ khi user truy cập xem report) lại kích hoạt chạy tự động
+    const inScheduledWindow = (hour === 0 && minute >= 5) || (hour === 1);
+    const allowDaytimeCatchup = process.env.AUTO_RUN_ON_BOOT === 'true';
+
+    const shouldTrigger = (inScheduledWindow || allowDaytimeCatchup) && lastScheduledRunDate !== todayStr;
+    if (shouldTrigger) {
       isSchedulerRunning = true;
       log.temple('⏰', `Đến lịch chạy tự động ngày mới ${todayStr} (giờ Việt Nam). Khởi động chu kỳ...`);
       try {
         const res = await executeRoutine(`Daily Scheduler (${todayStr})`, { meditateSeconds: 3600 });
         if (res && res.ok) {
           lastScheduledRunDate = todayStr;
+          saveSchedulerDate(todayStr);
           log.success(`Đã hoàn thành lịch chạy tự động ngày ${todayStr}.`);
         } else {
           log.warn(`Lịch chạy ngày ${todayStr} chưa hoàn tất: ${res?.error || res?.message || 'Lỗi không xác định'}. Sẽ thử lại sau.`);
@@ -315,7 +358,7 @@ function startDailyScheduler() {
 
   setInterval(checkSchedule, 60000);
   checkSchedule();
-  log.info('⏰ Đã kích hoạt lịch trình tự động canh sau 00:05 sáng mỗi ngày (giờ Việt Nam) với cơ chế chạy bù an toàn.');
+  log.info('⏰ Đã kích hoạt lịch trình tự động canh khung giờ 00:05 - 01:59 sáng mỗi ngày (giờ Việt Nam).');
 }
 
 // Tạo mã HTML Dashboard an toàn chống XSS (Priority 2 & SYSTEM_LOG_REPORT)
