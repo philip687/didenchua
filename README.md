@@ -2,6 +2,9 @@
 
 Hệ thống tự động hóa công đức, điểm danh và làm nhiệm vụ hàng ngày cho [An Tự Duyên - didenchua.online](https://didenchua.online/?phong=chua-1).
 
+> 📖 **TÀI LIỆU TOÀN DIỆN MASTER:** Đọc tài liệu chi tiết đầy đủ 100% về kiến trúc, 4 tab hồ sơ tu tập, 17 danh hiệu, 12 pháp khí, bản đồ 3D 17 thắng cảnh, 31 tác vụ 5 tầng, và cẩm nang vận hành tại:  
+> 👉 [**PROJECT_DOCUMENTATION.md**](PROJECT_DOCUMENTATION.md)
+
 Hỗ trợ 2 chế độ:
 1. **Chạy ngầm siêu nhẹ qua WebSocket**: Tiêu tốn < 20MB RAM, không cần mở Chrome, cày điểm và làm nhiệm vụ trong vài giây.
 2. **Mở trình duyệt ảo (Google Chrome 3D)**: Xem trực tiếp nhân vật, không gian chùa 3D, đồng bộ tài khoản giữa tool và trình duyệt.
