@@ -42,6 +42,8 @@
     "equip": "node cli.js equip",
     "look": "node cli.js look",
     "khoe": "node cli.js khoe",
+    "map": "node cli.js map",
+    "bando": "node cli.js map",
     "lay": "node cli.js lay",
     "tham": "node cli.js tham",
     "ci": "node cli.js ci",

@@ -16,3 +16,4 @@ export async function runKhoe() {
 if (process.argv[1]?.endsWith('khoe.js')) {
   runKhoe().then(() => process.exit(0));
 }
+

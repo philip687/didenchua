@@ -21,6 +21,8 @@ import { runStatus } from './src/tasks/status.js';
 import { runTitle } from './src/tasks/title.js';
 import { runLook } from './src/tasks/look.js';
 import { runKhoe } from './src/tasks/khoe.js';
+import { printTempleMap, teleportToPlace } from './src/map.js';
+import { DiDenChuaClient } from './src/client.js';
 import { runAllQuests } from './src/tasks/all.js';
 import { runMaximumQuests } from './src/tasks/max.js';
 import { openTempleBrowser } from './src/tasks/browser.js';
@@ -130,6 +132,25 @@ async function main() {
     case 'danh-hieu':
       await runJournal();
       break;
+
+    case 'map':
+    case 'bando':
+    case 'ban-do':
+    case 'goto':
+    case 'denkhu': {
+      if (args[0]) {
+        const client = new DiDenChuaClient();
+        try {
+          await client.connect(15000);
+          await teleportToPlace(client, args.join(' '));
+        } finally {
+          client.close();
+        }
+      } else {
+        printTempleMap();
+      }
+      break;
+    }
 
     case 'secrets':
     case 'hidden':

@@ -28,3 +28,4 @@ if (process.argv[1]?.endsWith('title.js')) {
   const tId = process.argv[2] || 'ngan-lay';
   runTitle(tId).then(() => process.exit(0));
 }
+

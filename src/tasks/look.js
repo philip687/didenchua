@@ -24,3 +24,4 @@ if (process.argv[1]?.endsWith('look.js')) {
   }
   runLook(options).then(() => process.exit(0));
 }
+

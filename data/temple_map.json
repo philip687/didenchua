@@ -1,0 +1,185 @@
+{
+  "bounds": {
+    "x0": -58,
+    "x1": 72,
+    "z0": -82,
+    "z1": 157,
+    "width": 130,
+    "depth": 239,
+    "desc": "Tọa độ ranh giới toàn bộ khuôn viên chùa An Tự Duyên"
+  },
+  "spawn": {
+    "x": 0,
+    "y": 0.3,
+    "z": 39.5,
+    "desc": "Điểm hồi sinh / xuất hiện ban đầu khi bước vào chùa"
+  },
+  "places": [
+    {
+      "id": "tam-quan",
+      "name": "Cổng tam quan",
+      "zone": "Cổng tam quan",
+      "pos": { "x": 0, "y": 0.3, "z": 140 },
+      "yaw": 0,
+      "desc": "Cổng chính bước vào chùa, nhìn ra mặt hồ lớn phía trước"
+    },
+    {
+      "id": "san-chua",
+      "name": "Sân chùa",
+      "zone": "Sân chùa",
+      "pos": { "x": 0, "y": 0, "z": 40 },
+      "yaw": 0,
+      "desc": "Khuôn viên sân gạch chính giữa chùa, nơi diễn ra các hoạt động tập trung"
+    },
+    {
+      "id": "chanh-dien",
+      "name": "Chánh điện",
+      "zone": "Chánh điện",
+      "pos": { "x": 0, "y": 2.4, "z": -3 },
+      "yaw": 0,
+      "desc": "Nơi thờ Phật trang nghiêm nhất, gồm 50 bồ đoàn thiền định (cd-0 đến cd-49), bàn thờ Phật, chuông mõ và đèn dầu"
+    },
+    {
+      "id": "bao-thap",
+      "name": "Bảo tháp",
+      "zone": "Bảo tháp",
+      "pos": { "x": 0, "y": 4.6, "z": -50 },
+      "yaw": 0,
+      "desc": "Bảo tháp uy nghiêm ở độ cao +4.6m sau chánh điện, biểu tượng tâm linh đỉnh cao của chùa"
+    },
+    {
+      "id": "ho-sen",
+      "name": "Hồ sen · Cầu Duyên",
+      "zone": "Hồ sen · Cầu Duyên",
+      "pos": { "x": 35.5, "y": 0, "z": 12 },
+      "yaw": -1.5707963,
+      "desc": "Hồ nước lớn bên phải chùa với hoa sen nở rộ, nơi thả hoa đăng cầu an và phóng sinh đàn cá"
+    },
+    {
+      "id": "vuon-thien",
+      "name": "Vườn thiền",
+      "zone": "Vườn thiền",
+      "pos": { "x": -36, "y": 0, "z": 30 },
+      "yaw": 1.5707963,
+      "desc": "Khu vực vườn đá tĩnh mịch bên trái, có bồ đoàn ngồi thiền ngoài trời và không gian tĩnh tâm"
+    },
+    {
+      "id": "gac-chuong",
+      "name": "Gác chuông",
+      "zone": "Sân chùa",
+      "pos": { "x": -15, "y": 0, "z": 47.4 },
+      "yaw": 3.1415927,
+      "desc": "Nơi đặt Đại hồng chung cổ, thỉnh chuông ngân vang tích công đức"
+    },
+    {
+      "id": "thap-nghi-chan",
+      "name": "Tháp nghỉ chân",
+      "zone": "Sân chùa",
+      "pos": { "x": 15, "y": 0, "z": 47.4 },
+      "yaw": 3.1415927,
+      "desc": "Khu vực nghỉ chân, đàm đạo uống trà của Phật tử đối xứng với gác chuông"
+    },
+    {
+      "id": "am-rieng",
+      "name": "Am riêng",
+      "zone": "Am riêng",
+      "pos": { "x": -45.6, "y": 0, "z": 33.5 },
+      "teleportPos": { "x": 3000, "y": 0, "z": 3000 },
+      "yaw": 1.5707963,
+      "desc": "Lối vào am riêng tu tập cá nhân (không gian riêng biệt tại tọa độ x:3000, z:3000)"
+    },
+    {
+      "id": "phap-duong",
+      "name": "Pháp đường",
+      "zone": "Pháp đường",
+      "pos": { "x": -40.5, "y": 0, "z": 4 },
+      "teleportPos": { "x": -3006, "y": 0, "z": 3006 },
+      "yaw": 1.5707963,
+      "desc": "Lối vào Pháp đường giảng đạo và sinh hoạt cộng đồng (không gian riêng x:-3006, z:3006)"
+    },
+    {
+      "id": "tang-kinh-cac",
+      "name": "Tàng Kinh Các",
+      "zone": "Sân chùa",
+      "pos": { "x": -6.5, "y": 0, "z": 75.75 },
+      "yaw": 1.5707963,
+      "desc": "Kho tàng lưu trữ kinh sách, lời Phật dạy và giáo lý đại thừa"
+    },
+    {
+      "id": "thay-do",
+      "name": "Thầy đồ",
+      "zone": "Sân chùa",
+      "pos": { "x": -5.6, "y": 0, "z": 86.5 },
+      "yaw": 1.5707963,
+      "desc": "Lều thư pháp của Thầy đồ, nơi xin 12 chữ cát tường và cất giữ vào Tủ chữ"
+    },
+    {
+      "id": "gieng-ngoc",
+      "name": "Giếng Ngọc",
+      "zone": "Giếng Ngọc",
+      "pos": { "x": -44, "y": 0, "z": -16 },
+      "yaw": 0,
+      "desc": "Nguồn nước trong lành linh thiêng góc tây bắc chùa"
+    },
+    {
+      "id": "tuong-di-lac",
+      "name": "Tượng Di Lặc",
+      "zone": "Tượng Di Lặc",
+      "pos": { "x": 46, "y": 0, "z": -32 },
+      "yaw": 0,
+      "desc": "Tôn tượng Đức Phật Di Lặc với nụ cười hoan hỷ, đặt trên đồi nhỏ phía đông bắc"
+    },
+    {
+      "id": "den-nguyet-lao",
+      "name": "Đền Nguyệt Lão",
+      "zone": "Đền Nguyệt Lão",
+      "pos": { "x": 50, "y": 0, "z": -12.5 },
+      "yaw": 0,
+      "desc": "Đền cầu duyên, kết duyên và rút quẻ tình duyên (thượng cát/trung cát/bình an) trên gò đảo hồ sen"
+    },
+    {
+      "id": "vuon-linh-thu",
+      "name": "Vườn Linh Thú",
+      "zone": "Vườn Linh Thú",
+      "pos": { "x": -39, "y": 0, "z": 81 },
+      "yaw": 1.5707963,
+      "desc": "Khu bảo tồn và nuôi dưỡng 7 loài linh thú chùa (Mèo chùa, Chim sẻ, Thỏ, Sóc, Rùa, Hươu, Hạc)"
+    },
+    {
+      "id": "vuon-hoa",
+      "name": "Vườn hoa",
+      "zone": "Vườn hoa",
+      "pos": { "x": 9.6, "y": 0, "z": 75.75 },
+      "yaw": -1.5707963,
+      "desc": "Vườn hoa đua nở bên đường thần đạo, nơi gieo hạt và tưới hoa tích phúc"
+    }
+  ],
+  "zones": {
+    "Chánh điện": { "x0": -21, "x1": 21, "z0": -31, "z1": 3, "y": 2.4 },
+    "Bảo tháp": { "x0": -14, "x1": 14, "z0": -74, "z1": -46, "y": 4.6 },
+    "Giếng Ngọc": { "center": { "x": -44, "z": -32 }, "radius": 17 },
+    "Tượng Di Lặc": { "center": { "x": 46, "z": -52 }, "radius": 17 },
+    "Hồ sen · Cầu Duyên": { "xMin": 29, "center": { "x": 51.25, "z": 20 } },
+    "Vườn Linh Thú": { "x0": -55, "x1": -37, "z0": 66, "z1": 96 },
+    "Vườn hoa": { "x0": 9, "x1": 20.3, "z0": 65.5, "z1": 86 },
+    "Vườn thiền": { "xMax": -29 },
+    "Hành lang La Hán": { "xAbsMin": 24, "z0": 10, "z1": 58 },
+    "Cổng tam quan": { "zMin": 95 },
+    "Đường thần đạo": { "z0": 58, "z1": 95, "halfWidth": 3.2 },
+    "Sân chùa": { "x0": -24, "x1": 24, "z0": 15, "z1": 58 }
+  },
+  "structures": {
+    "avenue": { "name": "Đường thần đạo", "z0": 58, "z1": 100, "width": 6.4 },
+    "yard": { "name": "Sân chùa", "x0": -24, "x1": 24, "z0": 15, "z1": 58 },
+    "terrace": { "name": "Bậc thềm Chánh điện", "x0": -30, "x1": 30, "z0": -46, "z1": 15, "y": 1.8 },
+    "hall": { "name": "Tòa Chánh điện", "x0": -21, "x1": 21, "z0": -31, "z1": 3, "y": 2.4 },
+    "upper": { "name": "Khu vực tầng trên Bảo tháp", "x0": -14, "x1": 14, "z0": -74, "z1": -46, "y": 4.6 },
+    "bridge": { "name": "Cầu sang gò đảo Hồ sen", "x0": 33.6, "x1": 47.8, "z": 12, "halfWidth": 1.1 },
+    "isle": { "name": "Gò đảo Đền Nguyệt Lão", "x": 50, "z": 12, "radius": 2.2 },
+    "well": { "name": "Giếng Ngọc", "x": -44, "z": -32, "radius": 8.5 },
+    "mound": { "name": "Gò đất Tượng Di Lặc", "x": 46, "z": -52, "radius": 15, "height": 6 },
+    "halfMoon": { "name": "Hồ Bán Nguyệt", "x": -22, "z": 82, "radius": 11 },
+    "frontLake": { "name": "Hồ nước trước Cổng tam quan", "x": 0, "z": 137, "rx": 44, "rz": 17 },
+    "causeway": { "name": "Đoạn đường nối ngoài cổng", "halfWidth": 4, "z0": 117, "z1": 157, "y": 0.3 }
+  }
+}
