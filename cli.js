@@ -18,6 +18,9 @@ import { runMeditate } from './src/tasks/meditate.js';
 import { runQuiz } from './src/tasks/quiz.js';
 import { runClaim } from './src/tasks/claim.js';
 import { runStatus } from './src/tasks/status.js';
+import { runTitle } from './src/tasks/title.js';
+import { runLook } from './src/tasks/look.js';
+import { runKhoe } from './src/tasks/khoe.js';
 import { runAllQuests } from './src/tasks/all.js';
 import { runMaximumQuests } from './src/tasks/max.js';
 import { openTempleBrowser } from './src/tasks/browser.js';
@@ -196,6 +199,30 @@ async function main() {
       await runMaximumQuests();
       break;
     }
+
+    case 'title':
+    case 'settitle':
+    case 'danhhieu-set':
+      await runTitle(args[0]);
+      break;
+
+    case 'look':
+    case 'equip':
+    case 'trangbi': {
+      const options = {};
+      for (const a of args) {
+        if (a.includes('=')) {
+          const [k, v] = a.split('=');
+          options[k.trim()] = v.trim();
+        }
+      }
+      await runLook(options);
+      break;
+    }
+
+    case 'khoe':
+      await runKhoe();
+      break;
 
     case 'watch':
     case 'live':

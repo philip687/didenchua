@@ -33,6 +33,76 @@ export const CALLIGRAPHY_WORDS = [
   { id: 'biet-on', text: 'Biết Ơn', wish: 'Biết ơn', meaning: 'Biết ơn là nhận ra những điều đã có. Càng thấy mình được cho nhiều, lòng càng đủ đầy.' }
 ];
 
+// Danh sách 11 loại áo tràng trong chùa
+export const ROBES_CATALOG = {
+  nau: { name: 'Áo nâu', color: '#7a5134' },
+  lam: { name: 'Áo tràng lam', color: '#5d7487' },
+  xam: { name: 'Áo xám', color: '#8a8a84' },
+  vang: { name: 'Áo vàng', color: '#b98a3a' },
+  cam: { name: 'Áo cam', color: '#b8602c' },
+  trang: { name: 'Áo tràng nâu', color: '#54392a' },
+  tieu: { name: 'Áo tiểu', color: '#b5b2a6' },
+  sen: { name: 'Áo tràng sen', color: '#cf93a2', event: 'Lễ rằm' },
+  xuan: { name: 'Áo Xuân', color: '#a8402e', event: 'Lễ Tết' },
+  vulan: { name: 'Áo Vu Lan', color: '#e6e0d2', event: 'Lễ Vu Lan' },
+  tangoc: { name: 'Áo tràng ngọc', color: '#3f8f86', needMerit: 15000 }
+};
+
+// Danh sách 13 loại tràng hạt
+export const BEADS_CATALOG = {
+  go: { name: 'Tràng hạt gỗ', color: '#e0852c', lv: 0 },
+  bode: { name: 'Tràng hạt bồ đề', color: '#b98a5a', lv: 1 },
+  tram: { name: 'Tràng hạt trầm hương', color: '#6b442a', lv: 2 },
+  hophach: { name: 'Tràng hạt hổ phách', color: '#f2a91f', lv: 3 },
+  ngoc: { name: 'Tràng hạt ngọc bích', color: '#4fae84', lv: 4 },
+  mun: { name: 'Tràng hạt gỗ mun', color: '#2c2320', special: 'Xong mục Người mới' },
+  tuDan: { name: 'Tràng hạt tử đàn', color: '#5a1f28', special: 'Đạt 1.000 công đức' },
+  manao: { name: 'Tràng hạt mã não', color: '#c2412b', special: 'Quà điểm danh ngày 7' },
+  thachAnh: { name: 'Tràng hạt thạch anh tím', color: '#8e5fc0', special: 'Đạt 3.000 công đức' },
+  maivang: { name: 'Tràng hạt hoa mai', color: '#f4c430', special: 'Làm trọn lễ Tết' },
+  bachngoc: { name: 'Tràng hạt bạch ngọc', color: '#e6ebe2', special: 'Lễ Phật Đản' },
+  hongngoc: { name: 'Tràng hạt hồng ngọc', color: '#d9506e', special: 'Lễ Vu Lan' },
+  bachHop: { name: 'Tràng hạt bách hợp', color: '#f1ead8', special: 'Đạt 30.000 công đức' }
+};
+
+// Danh sách 7 loại bồ đoàn
+export const CUSHIONS_CATALOG = {
+  xam: { name: 'Bồ đoàn xám', color: '#8a8a84', lv: 0 },
+  nau: { name: 'Bồ đoàn nâu', color: '#7a5134', lv: 1 },
+  vang: { name: 'Bồ đoàn vàng', color: '#c9a24a', lv: 2 },
+  son: { name: 'Bồ đoàn đỏ son', color: '#a3452f', lv: 3 },
+  sen: { name: 'Bồ đoàn hoa sen', color: '#d98fa0', lv: 5 },
+  laSen: { name: 'Bồ đoàn lá sen', color: '#5c8f5a', special: 'Đạt 500 công đức' },
+  gam: { name: 'Bồ đoàn gấm', color: '#8c2f4a', special: 'Đạt 7.000 công đức' }
+};
+
+// Danh sách 12 pháp khí chùa
+export const PHAPKHI_CATALOG = {
+  huong: { name: 'Nén hương', rank: 'Thường', how: 'Dâng hương 10 lần' },
+  gio: { name: 'Giỏ hoa sen', rank: 'Thường', how: 'Thả 5 ngọn hoa đăng' },
+  gaytruc: { name: 'Gậy trúc hành hương', rank: 'Thường', how: 'Thăm đủ 10 khu trong chùa' },
+  mo: { name: 'Mõ cầm tay', rank: 'Hiếm', how: 'Gõ 500 tiếng mõ khi Tụng kinh' },
+  kinh: { name: 'Cuốn kinh', rank: 'Hiếm', how: 'Chơi Đố vui Phật pháp 3 tối' },
+  trentram: { name: 'Cây tre trăm đốt', rank: 'Hiếm', how: 'Lần 30 chuỗi tràng hạt' },
+  truong: { name: 'Thiền trượng chín khoen', rank: 'Quý', how: 'Lạy Phật 1.000 lạy' },
+  nonla: { name: 'Nón lá', rank: 'Thường', how: 'Lên chùa 14 ngày' },
+  denlong: { name: 'Đèn lồng', rank: 'Hiếm', how: 'Làm trọn lễ mùng một' },
+  chuong: { name: 'Chuông tay', rank: 'Hiếm', how: 'Thỉnh chuông 10 lần' },
+  bat: { name: 'Bát tím vàng', rank: 'Quý', how: 'Làm trọn 6 lễ chùa' },
+  gaythan: { name: 'Gậy thần Chử Đồng Tử', rank: 'Quý', how: 'Ngồi tĩnh 300 phút' }
+};
+
+// Danh sách 7 linh thú
+export const PETS_CATALOG = {
+  meo: { name: 'Mèo chùa', lv: 2, days: 7, desc: 'Lười biếng mà hiền, thích nằm sưởi nắng bên hiên' },
+  se: { name: 'Chim sẻ', lv: 3, days: 14, desc: 'Nhảy lích chích theo chân, mổ hạt thóc rơi' },
+  tho: { name: 'Thỏ trắng', lv: 4, days: 21, desc: 'Nhút nhát nhưng quấn chủ, nhảy từng bước nhỏ' },
+  soc: { name: 'Sóc nâu', lv: 4, days: 30, desc: 'Nhanh nhẹn, đuôi to như chổi lông' },
+  rua: { name: 'Rùa vàng', lv: 5, days: 45, desc: 'Chậm rãi, điềm tĩnh, sống lâu như chùa' },
+  huou: { name: 'Hươu sao', lv: 5, days: 60, desc: 'Hiền lành, lưng lấm tấm sao trắng' },
+  hac: { name: 'Hạc trắng', lv: 6, days: 90, desc: 'Thanh cao, chân dài, cổ vươn như đang múa' }
+};
+
 export class DiDenChuaClient {
   constructor(customConfig = {}) {
     this.config = { ...loadConfig(), ...customConfig };
@@ -55,7 +125,7 @@ export class DiDenChuaClient {
     this.abortResolvers = new Set();
   }
 
-  async connect(timeoutMs = 10000) {
+  async connect(timeoutMs = 15000) {
     return new Promise((resolve, reject) => {
       if (this.aborted) {
         return reject(new Error('Tác vụ đã bị dừng bởi người dùng.'));
@@ -463,31 +533,132 @@ export class DiDenChuaClient {
       return;
     }
     const j = this.journal;
-    console.log('\n===============================================');
-    console.log(`📜  BẢNG TIẾN ĐỘ THÀNH TỰU & DANH HIỆU CHÙA`);
-    console.log('===============================================');
-    const userDisplay = (j.user && j.user !== 'null') ? ` (@${j.user})` : '';
-    console.log(`• Tên & Tài khoản : ${j.name || 'Phật Tử'}${userDisplay}`);
-    console.log(`• Cấp bậc tu tập  : ${j.level} (Lv.${j.lv})`);
-    console.log(`• Tổng công đức   : ${j.merit} / ${j.next} điểm`);
-    console.log(`• Chuỗi ngày lên chùa: ${j.streak} ngày liên tục (kỷ lục: ${j.best})`);
-    console.log('-----------------------------------------------');
-    console.log('🎯  TIẾN ĐỘ ĐẠT SỐ LƯỢNG (MILESTONES):');
-    console.log(`  🙏 Lạy Phật         : ${j.bows} / 108 lạy  (Trăm lạy: ${j.bows >= 108 ? '✅ Đã đạt' : `còn thiếu ${108 - j.bows} lạy`})`);
-    console.log(`  📿 Lăn tràng hạt     : ${j.beads} hạt (đã xong ${j.rounds} chuỗi tròn 108 hạt)`);
-    console.log(`  🪔 Dâng hương       : ${j.incense} / 30 lần (Hương trầm: ${j.incense >= 30 ? '✅ Đã đạt' : `còn thiếu ${30 - j.incense} lần`})`);
-    console.log(`  🏮 Thả hoa đăng     : ${j.lanterns} / 10 ngọn (Người thả đèn: ${j.lanterns >= 10 ? '✅ Đã đạt' : `còn thiếu ${10 - j.lanterns} ngọn`})`);
-    console.log(`  🧘 Ngồi tĩnh tâm    : ${j.sitMin} / 60 phút (Tĩnh tọa: ${j.sitMin >= 60 ? '✅ Đã đạt' : `còn thiếu ${60 - j.sitMin} phút`})`);
-    console.log(`  🚶 Khám phá chùa    : ${j.visited} / ${j.zones} khu vực (Thăm khắp chùa: ${j.visited >= j.zones ? '✅ Đã đạt' : `còn thiếu ${j.zones - j.visited} khu`})`);
-    console.log('-----------------------------------------------');
-    console.log('🏅  DANH HIỆU HIỆN CÓ & MỤC TIÊU:');
+    const userDisplay = (j.user && j.user !== 'null') ? `@${j.user}` : 'Chưa liên kết';
+    const curTitle = j.titles?.find(t => t.id === j.title)?.name || j.title || 'Chưa chọn';
+
+    console.log('\n========================================================================');
+    console.log(`🪷  HỒ SƠ TU TẬP & THÀNH TỰU (4 TABS TRONG CHÙA AN TỰ DUYÊN)`);
+    console.log('========================================================================');
+
+    // TAB 1: CỦA TÔI
+    console.log(`\n[TAB 1: CỦA TÔI]`);
+    console.log(`• Nhân vật      : ${j.name || this.config.name} (Tài khoản: ${userDisplay})`);
+    console.log(`• Cấp bậc       : ${j.level} (Lv.${j.lv}) · Danh hiệu: ${curTitle}`);
+    console.log(`• Công đức      : ${j.merit?.toLocaleString('vi-VN')} / ${j.next?.toLocaleString('vi-VN')} điểm`);
+    console.log(`• Tâm niệm/Bio  : "${this.config.bio || 'Nam Mô A Di Đà Phật'}"`);
+    console.log(`• Trang bị trên người:`);
+    console.log(`  - Áo: ${ROBES_CATALOG[this.config.robe]?.name || this.config.robe || 'Áo nâu'}`);
+    console.log(`  - Tràng hạt: ${BEADS_CATALOG[this.config.beads]?.name || this.config.beads || 'Tràng hạt gỗ'}`);
+    console.log(`  - Bồ đoàn: ${CUSHIONS_CATALOG[this.config.cushion]?.name || this.config.cushion || 'Bồ đoàn xám'}`);
+    console.log(`  - Pháp khí: ${PHAPKHI_CATALOG[this.config.phapkhi]?.name || this.config.phapkhi || (j.phapkhi?.includes('truong') ? 'Thiền trượng chín khoen' : 'Chưa cầm')}`);
+    console.log(`• Chỉ số tu tập :`);
+    console.log(`  🙏 Lạy Phật         : ${j.bows?.toLocaleString('vi-VN')} lạy`);
+    console.log(`  📿 Chuỗi tràng hạt  : ${j.rounds} chuỗi (${j.beads?.toLocaleString('vi-VN')} hạt)`);
+    console.log(`  🧘 Phút ngồi tĩnh   : ${j.sitMin} phút`);
+    console.log(`  🔥 Ngày liên tiếp   : ${j.streak} ngày (kỷ lục: ${j.best})`);
+    console.log(`  🚶 Khu đã viếng     : ${j.visited}/${j.zones} khu vực`);
+    console.log(`  📅 Ngày đồng hành   : ${j.days} ngày`);
+    console.log(`  🕯️ Lần dâng hương   : ${j.incense} lần`);
+    console.log(`  🏮 Hoa đăng đã thả  : ${j.lanterns} ngọn`);
+
+    // TAB 2: BỘ SƯU TẬP
+    console.log(`\n[TAB 2: BỘ SƯU TẬP]`);
+    const ownedItems = new Set([...(j.items || []), ...(j.robes || [])]);
+    const ownedPhapkhi = new Set(j.phapkhi || []);
+    console.log(`• Pháp khí đã có (${ownedPhapkhi.size}/${Object.keys(PHAPKHI_CATALOG).length}):`);
+    for (const [id, pk] of Object.entries(PHAPKHI_CATALOG)) {
+      const have = ownedPhapkhi.has(id);
+      console.log(`  ${have ? '✅' : '🔒'} [${pk.rank}] ${pk.name}: ${have ? 'Đã sở hữu' : pk.how}`);
+    }
+    console.log(`• Tràng hạt & Bồ đoàn mở khóa đặc biệt:`);
+    for (const id of (j.items || [])) {
+      const bName = BEADS_CATALOG[id]?.name;
+      const cName = CUSHIONS_CATALOG[id]?.name;
+      if (bName) console.log(`  ✨ ${bName}`);
+      if (cName) console.log(`  ✨ ${cName}`);
+    }
+
+    // TAB 3: DANH HIỆU
+    console.log(`\n[TAB 3: DANH HIỆU]`);
+    const gotCount = j.titles?.filter(t => t.got).length || 0;
+    console.log(`• Đã đạt ${gotCount}/${j.titles?.length || 0} danh hiệu (Đang dùng: ${curTitle}):`);
     if (Array.isArray(j.titles)) {
       for (const t of j.titles) {
-        const badge = t.got ? '🏆 [ĐÃ ĐẠT]' : '🔒 [CHƯA ĐẠT]';
-        console.log(`  ${badge} ${t.name}: ${t.desc}`);
+        const isCurrent = t.id === j.title;
+        const icon = isCurrent ? '🌟 [ĐANG DÙNG]' : t.got ? '✅ [ĐÃ ĐẠT]' : '🔒 [CHƯA ĐẠT]';
+        console.log(`  ${icon} ${t.name} (${t.id}): ${t.desc}`);
       }
     }
-    console.log('===============================================\n');
+
+    // TAB 4: TÀI KHOẢN
+    console.log(`\n[TAB 4: TÀI KHOẢN]`);
+    console.log(`• Tên đăng nhập : ${userDisplay}`);
+    console.log(`• Mã khôi phục  : ${this.config.cid}`);
+    console.log(`• Trạng thái    : Đã bảo vệ công đức trên máy chủ.`);
+    console.log('========================================================================\n');
+  }
+
+  async setTitle(titleId) {
+    this.checkAborted();
+    log.temple('🎖️', `Đổi danh hiệu nhân vật thành: [${titleId}]...`);
+    this.send({ t: 'title', id: titleId });
+    await this.sleep(400);
+    this.config.title = titleId;
+    log.success(`-> Đã chọn danh hiệu [${titleId}] thành công!`);
+  }
+
+  async setLook(options = {}) {
+    this.checkAborted();
+    const currentLook = {
+      name: options.name || this.config.name,
+      kind: options.kind || this.config.kind || 'tieu',
+      robe: options.robe || this.config.robe || 'nau',
+      skin: options.skin || this.config.skin || 'dong',
+      bio: options.bio !== undefined ? options.bio : (this.config.bio || 'Nam Mô A Di Đà Phật'),
+      beads: options.beads || this.config.beads || 'go',
+      cushion: options.cushion || this.config.cushion || 'xam',
+      phapkhi: options.phapkhi !== undefined ? options.phapkhi : (this.config.phapkhi || null)
+    };
+
+    log.temple('🥼', 'Cập nhật diện mạo & trang bị bộ sưu tập:');
+    if (options.name) log.info(`  • Tên/Pháp danh: ${options.name}`);
+    if (options.robe) log.info(`  • Áo: ${ROBES_CATALOG[options.robe]?.name || options.robe}`);
+    if (options.beads) log.info(`  • Tràng hạt: ${BEADS_CATALOG[options.beads]?.name || options.beads}`);
+    if (options.cushion) log.info(`  • Bồ đoàn: ${CUSHIONS_CATALOG[options.cushion]?.name || options.cushion}`);
+    if (options.phapkhi !== undefined) log.info(`  • Pháp khí: ${PHAPKHI_CATALOG[options.phapkhi]?.name || options.phapkhi || 'Cất pháp khí'}`);
+    if (options.bio) log.info(`  • Tâm niệm/Bio: "${options.bio}"`);
+
+    this.send({
+      t: 'look',
+      name: currentLook.name,
+      kind: currentLook.kind,
+      robe: currentLook.robe,
+      skin: currentLook.skin,
+      bio: currentLook.bio,
+      beads: currentLook.beads,
+      cushion: currentLook.cushion,
+      phapkhi: currentLook.phapkhi === 'none' ? null : currentLook.phapkhi
+    });
+
+    Object.assign(this.config, currentLook);
+    await this.sleep(400);
+    log.success('-> Đã cập nhật diện mạo & trang bị thành công!');
+  }
+
+  async doKhoe() {
+    this.checkAborted();
+    log.temple('📢', 'Khoe thành tích tu tập lên kênh chung của chùa...');
+    this.send({ t: 'khoe' });
+    await this.sleep(400);
+    log.success('-> Đã gửi thông báo khoe thành tích!');
+  }
+
+  async doChoosePet(kind, name) {
+    this.checkAborted();
+    log.temple('🐾', `Nhận nuôi linh thú chùa [${kind}] với tên "${name}"...`);
+    this.send({ t: 'pet-choose', k: kind, n: name });
+    await this.sleep(500);
+    log.success(`-> Đã gửi yêu cầu nhận nuôi linh thú ${kind}!`);
   }
 
   async doChores() {

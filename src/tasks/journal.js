@@ -4,7 +4,7 @@ import { log } from '../logger.js';
 export async function runJournal() {
   const client = new DiDenChuaClient();
   try {
-    await client.connect();
+    await client.connect(15000);
     await client.fetchJournal();
     client.printJournal();
   } catch (err) {
