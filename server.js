@@ -2429,6 +2429,10 @@ const server = http.createServer(async (req, res) => {
       res.end('Method Not Allowed');
       return;
     }
+    const lastUpdateMs = state.lastUpdated ? new Date(state.lastUpdated).getTime() : 0;
+    if (!state.isRunning && (Date.now() - lastUpdateMs > 30000 || !state.journal)) {
+      await refreshAccountData().catch(() => {});
+    }
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(renderDashboardHTML());
     return;
