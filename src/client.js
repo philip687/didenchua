@@ -2,6 +2,8 @@ import { log } from './logger.js';
 import { loadConfig } from '../config.js';
 
 const WS_URL = 'wss://didenchua.online/ws';
+// Send before the server's reported 20s idle window to tolerate event-loop/network jitter.
+const HEARTBEAT_INTERVAL_MS = 15000;
 
 // Danh sách trọn vẹn 12 chữ thư pháp tại lều Thầy đồ cùng ước nguyện & ý nghĩa
 export const CALLIGRAPHY_WORDS = [
@@ -64,6 +66,9 @@ export class DiDenChuaClient {
       }, timeoutMs);
 
       if (this.ws) {
+        // Avoid leaving an old interval alive when reconnect replaces a socket.
+        clearInterval(this.heartbeatTimer);
+        this.heartbeatTimer = null;
         try {
           this.ws.onopen = this.ws.onmessage = this.ws.onerror = this.ws.onclose = null;
           this.ws.close();
@@ -97,12 +102,13 @@ export class DiDenChuaClient {
         };
         this.ws.send(JSON.stringify(handshake));
 
-        // Bật heartbeat định kỳ 20 giây
+        // Keep exactly one heartbeat schedule per active socket; 15s leaves room for jitter.
+        clearInterval(this.heartbeatTimer);
         this.heartbeatTimer = setInterval(() => {
           if (this.ws?.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify({ t: 'hb' }));
           }
-        }, 20000);
+        }, HEARTBEAT_INTERVAL_MS);
         if (this.heartbeatTimer?.unref) {
           this.heartbeatTimer.unref();
         }
@@ -133,9 +139,14 @@ export class DiDenChuaClient {
         log.error('Lỗi WebSocket:', err?.message || err);
       };
 
-      this.ws.onclose = () => {
+      this.ws.onclose = (event) => {
         this.connected = false;
         clearInterval(this.heartbeatTimer);
+        this.heartbeatTimer = null;
+        if (event?.code === 1008) {
+          const reason = String(event.reason || '').slice(0, 160);
+          log.warn(`Máy chủ đóng WebSocket theo policy (1008)${reason ? `: ${reason}` : '.'}`);
+        }
       };
     });
   }
@@ -740,17 +751,19 @@ export class DiDenChuaClient {
     this.checkAborted();
     const mins = Math.ceil(seconds / 60);
     log.temple('🧘', `Bắt đầu ngồi thiền tĩnh tâm trong ${mins} phút (${seconds}s)...`);
+    const journalBefore = await this.fetchJournal();
+    const sitMinBefore = Number(journalBefore?.sitMin);
 
     // 1. Chuyển đến Chánh điện (khu vực thiền định & tĩnh tâm chính thức của chùa)
     this.send({ t: 'visit', zone: 'Chánh điện' });
     await this.sleep(600);
     this.checkAborted();
 
-    const start = Date.now();
+    // Count only connected time; reconnect/outage time must not be claimed as meditation.
+    let activeElapsedMs = 0;
     let elapsed = 0;
-    let lastHeartbeat = Date.now();
 
-    while (elapsed < seconds) {
+    while (activeElapsedMs < seconds * 1000) {
       this.checkAborted();
 
       // Kiểm tra và tự động phục hồi kết nối nếu mạng gián đoạn
@@ -760,7 +773,6 @@ export class DiDenChuaClient {
           await this.connect(8000);
           this.send({ t: 'visit', zone: 'Chánh điện' });
           await this.sleep(400);
-          lastHeartbeat = Date.now();
           log.success(`Đã kết nối lại thành công! Tiếp tục duy trì thiền định (đã ngồi ${Math.floor(elapsed / 60)} phút).`);
         } catch (reconnErr) {
           log.warn(`Chưa kết nối lại được (${reconnErr.message}), thử lại sau 2 giây...`);
@@ -769,16 +781,13 @@ export class DiDenChuaClient {
         }
       }
 
+      const tickStartedAt = performance.now();
       await this.sleep(1000);
-      const now = Date.now();
-      elapsed = Math.floor((now - start) / 1000);
-      const remain = Math.max(0, seconds - elapsed);
-
-      // Gửi heartbeat định kỳ 20 giây chuẩn như trình duyệt web (main.js)
-      if (now - lastHeartbeat >= 20000) {
-        this.send({ t: 'hb' });
-        lastHeartbeat = now;
+      if (this.connected && this.ws?.readyState === WebSocket.OPEN) {
+        activeElapsedMs += performance.now() - tickStartedAt;
       }
+      elapsed = Math.floor(activeElapsedMs / 1000);
+      const remain = Math.max(0, seconds - elapsed);
 
       if (onProgress) {
         onProgress(elapsed, seconds);
@@ -793,10 +802,20 @@ export class DiDenChuaClient {
     this.send({ t: 'claim', q: activeNgoi ? activeNgoi.id : 'ngoi' });
     // Đồng thời nhận thưởng nhiệm vụ tuần wNgoi (Ngồi tĩnh 30 phút) nếu đủ điều kiện
     this.send({ t: 'claim', q: 'wNgoi' });
-    await this.sleep(800);
-    await this.fetchJournal();
-    if (this.journal) {
-      log.success(`Máy chủ đã ghi nhận: ${this.journal.sitMin} phút ngồi tĩnh tâm (${this.journal.sitMin >= 60 ? '🏆 Đạt mốc Tĩnh tọa' : `còn ${60 - this.journal.sitMin} phút`}).`);
+    await this.sleep(500);
+    let journalAfterClaim = await this.fetchJournal();
+    // Journal can lag behind the claim response; poll read-only a few times before reporting.
+    for (let attempt = 0; attempt < 3 && journalAfterClaim && Number(journalAfterClaim.sitMin) <= sitMinBefore; attempt++) {
+      await this.sleep(700);
+      journalAfterClaim = await this.fetchJournal();
+    }
+    if (journalAfterClaim && Number.isFinite(Number(journalAfterClaim.sitMin))) {
+      const sitMinAfter = Number(journalAfterClaim.sitMin);
+      if (Number.isFinite(sitMinBefore) && sitMinAfter > sitMinBefore) {
+        log.success(`Máy chủ đã ghi nhận thời gian thiền: ${sitMinBefore} -> ${sitMinAfter} phút (${sitMinAfter >= 60 ? '🏆 Đạt mốc Tĩnh tọa' : `còn ${60 - sitMinAfter} phút`}).`);
+      } else {
+        log.warn(`Đã gửi claim nhưng chưa xác minh tiến độ thiền tăng trong journal (${Number.isFinite(sitMinBefore) ? sitMinBefore : 'chưa có baseline'} -> ${sitMinAfter} phút).`);
+      }
     }
   }
 
