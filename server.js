@@ -105,12 +105,22 @@ export const TASKS_CATALOG = [
   {
     id: 'lay',
     group: 'daily',
-    title: 'Lạy Phật Cùng Người Khác',
-    desc: 'Trang nghiêm cúi lạy Phật sám hối cùng bạn đồng tu',
+    title: 'Lạy Phật Sám Hối',
+    desc: 'Trang nghiêm cúi lạy Phật sám hối (chọn số lượng: 1, 18, 36, 108 lạy...)',
     icon: '🙇',
     reward: '+15 điểm',
-    badge: 'Nhiệm vụ ngày',
-    questKeyword: 'lạy'
+    badge: 'Mốc lạy Phật',
+    questKeyword: 'lạy',
+    hasCount: true,
+    defaultCount: 18,
+    countOptions: [
+      { value: 1, label: '1 lạy (Quest ngày)' },
+      { value: 18, label: '18 lạy (Khởi tâm)' },
+      { value: 36, label: '36 lạy (Tinh tấn)' },
+      { value: 108, label: '108 lạy (Trăm lạy 🏆)' },
+      { value: 300, label: '300 lạy' },
+      { value: 1000, label: '1.000 lạy (Ngàn lạy 🏆)' }
+    ]
   },
   {
     id: 'greet',
@@ -130,7 +140,14 @@ export const TASKS_CATALOG = [
     icon: '🧹',
     reward: 'Công quả',
     badge: 'Nhiệm vụ ngày',
-    questKeyword: 'quét'
+    questKeyword: 'quét',
+    hasCount: true,
+    defaultCount: 1,
+    countOptions: [
+      { value: 1, label: '1 lần (Quest ngày)' },
+      { value: 5, label: '5 lần (Cày sân)' },
+      { value: 10, label: '10 lần' }
+    ]
   },
   {
     id: 'chores',
@@ -146,21 +163,38 @@ export const TASKS_CATALOG = [
     id: 'mo',
     group: 'daily',
     title: 'Gõ Mõ Tụng Kinh',
-    desc: 'Gõ mõ theo nhịp thong thả tự nhiên (15 tiếng mõ)',
+    desc: 'Gõ mõ theo nhịp thong thả tự nhiên',
     icon: '🪵',
     reward: 'Tụng kinh',
     badge: 'Tu tập',
-    questKeyword: 'mõ'
+    questKeyword: 'mõ',
+    hasCount: true,
+    defaultCount: 15,
+    countOptions: [
+      { value: 15, label: '15 tiếng' },
+      { value: 30, label: '30 tiếng' },
+      { value: 60, label: '60 tiếng' }
+    ]
   },
   {
     id: 'beads',
     group: 'daily',
     title: 'Lăn Tràng Hạt Niệm Phật',
-    desc: 'Lăn tràng hạt niệm Phật trang nghiêm (20 hạt niệm)',
+    desc: 'Lăn tràng hạt niệm Phật (chọn số hạt: 20, 54, 108 hạt/chuỗi tròn...)',
     icon: '📿',
     reward: 'Niệm Phật',
-    badge: 'Tu tập',
-    questKeyword: 'hạt'
+    badge: 'Chuỗi hạt',
+    questKeyword: 'hạt',
+    hasCount: true,
+    defaultCount: 108,
+    countOptions: [
+      { value: 20, label: '20 hạt (Nhanh)' },
+      { value: 54, label: '54 hạt (Nửa chuỗi)' },
+      { value: 108, label: '108 hạt (1 chuỗi tròn 🏆)' },
+      { value: 216, label: '216 hạt (2 chuỗi)' },
+      { value: 540, label: '540 hạt (5 chuỗi)' },
+      { value: 1080, label: '1.080 hạt (10 chuỗi 🏆)' }
+    ]
   },
   {
     id: 'xam',
@@ -180,6 +214,16 @@ export const TASKS_CATALOG = [
     icon: '🎁',
     reward: 'Nhận quà',
     badge: 'Thu hoạch'
+  },
+  {
+    id: 'farm-bows-beads',
+    group: 'extra',
+    title: 'Cày Tự Động: Chuỗi Hạt & Lạy Phật',
+    desc: 'Chạy tự động kết hợp cả Lạy Phật và Lăn Tràng Hạt (set số lượng tùy ý)',
+    icon: '📿',
+    reward: 'Thành tựu',
+    badge: 'Cày tự động',
+    isCombo: true
   },
   {
     id: 'garden',
@@ -400,7 +444,8 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           await client.doIncense(runOptions.count || 1);
           break;
         case 'lay':
-          await client.doLay(runOptions.count || 1);
+          const bowsCount = runOptions.count || 18;
+          await client.doLay(bowsCount);
           break;
         case 'greet':
           await client.doGreet();
@@ -416,7 +461,24 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           await client.doMo(runOptions.count || 15);
           break;
         case 'beads':
-          await client.doBeads(runOptions.count || 20);
+          const beadsCount = runOptions.count || 108;
+          await client.doBeads(beadsCount);
+          break;
+        case 'farm-bows-beads':
+          const farmBows = runOptions.bowsCount ?? runOptions.count ?? 18;
+          const farmBeads = runOptions.beadsCount ?? 108;
+          log.temple('📿', `[Cày tự động] Bắt đầu chu trình tự động Chuỗi hạt & Lạy Phật (${farmBows} lạy, ${farmBeads} hạt tràng)...`);
+          if (farmBows > 0) {
+            log.temple('🙏', `[1/2] Tiến hành cày ${farmBows} lạy Phật sám hối...`);
+            await client.doLay(farmBows);
+            await client.humanDelay('nghỉ ngơi tĩnh tâm sau khi lạy Phật');
+          }
+          if (farmBeads > 0) {
+            log.temple('📿', `[2/2] Tiến hành lăn thêm ${farmBeads} hạt tràng niệm Phật...`);
+            await client.doBeads(farmBeads);
+            await client.humanDelay('thong thả nghỉ tay niệm Phật');
+          }
+          log.success(`Đã hoàn tất cày tự động: ${farmBows} lạy Phật và ${farmBeads} hạt tràng niệm Phật!`);
           break;
         case 'xam':
           await client.doXam();
@@ -452,7 +514,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
       }
 
       // Tự động nhận thưởng nếu nhiệm vụ này hoàn thành quest ngày
-      if (['bell', 'vow', 'incense', 'lay', 'greet', 'xam', 'chores', 'quet'].includes(taskId)) {
+      if (['bell', 'vow', 'incense', 'lay', 'greet', 'xam', 'chores', 'quet', 'farm-bows-beads'].includes(taskId)) {
         await client.sleep(1000);
         await client.claimAllQuests();
       }
@@ -729,10 +791,45 @@ function renderDashboardHTML() {
     const isAnyRunning = isRunning;
     const stopActive = isThisRunning || (isAnyRunning && state.runningTask === 'all');
 
-    let durationControl = '';
-    if (t.hasDuration) {
-      durationControl = `
-        <select id="duration_${escapeHTML(t.id)}" style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 8px; border-radius:6px; font-size:12px; cursor:pointer;" ${isAnyRunning ? 'disabled' : ''}>
+    let inputControl = '';
+    if (t.isCombo) {
+      inputControl = `
+        <div style="display:flex; flex-direction:column; gap:4px; margin-right:4px;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:11px; color:var(--gold); width:28px;">Lạy:</span>
+            <select id="combo_bows" style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:4px 6px; border-radius:6px; font-size:12px; cursor:pointer;" ${isAnyRunning ? 'disabled' : ''}>
+              <option value="18" selected>18 lạy</option>
+              <option value="36">36 lạy</option>
+              <option value="108">108 lạy (Trăm lạy 🏆)</option>
+              <option value="300">300 lạy</option>
+              <option value="1000">1.000 lạy (Ngàn lạy 🏆)</option>
+            </select>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:11px; color:var(--gold); width:28px;">Hạt:</span>
+            <select id="combo_beads" style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:4px 6px; border-radius:6px; font-size:12px; cursor:pointer;" ${isAnyRunning ? 'disabled' : ''}>
+              <option value="54">54 hạt</option>
+              <option value="108" selected>108 hạt (1 chuỗi tròn 🏆)</option>
+              <option value="216">216 hạt (2 chuỗi)</option>
+              <option value="540">540 hạt (5 chuỗi)</option>
+              <option value="1080">1.080 hạt (10 chuỗi 🏆)</option>
+            </select>
+          </div>
+        </div>
+      `;
+    } else if (t.hasCount) {
+      inputControl = `
+        <div style="display:flex; align-items:center; gap:4px; margin-right:4px;">
+          <select id="count_${escapeHTML(t.id)}" onchange="handleCountChange('${escapeHTML(t.id)}')" style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 8px; border-radius:6px; font-size:12px; cursor:pointer;" ${isAnyRunning ? 'disabled' : ''}>
+            ${(t.countOptions || []).map(opt => `<option value="${opt.value}" ${opt.value === t.defaultCount ? 'selected' : ''}>${escapeHTML(opt.label)}</option>`).join('')}
+            <option value="custom">Số khác…</option>
+          </select>
+          <input type="number" id="custom_${escapeHTML(t.id)}" min="1" max="1080" placeholder="Số" style="display:none; width:60px; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 6px; border-radius:6px; font-size:12px;" ${isAnyRunning ? 'disabled' : ''}>
+        </div>
+      `;
+    } else if (t.hasDuration) {
+      inputControl = `
+        <select id="duration_${escapeHTML(t.id)}" style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 8px; border-radius:6px; font-size:12px; cursor:pointer; margin-right:4px;" ${isAnyRunning ? 'disabled' : ''}>
           <option value="300">5 phút</option>
           <option value="1800">30 phút</option>
           <option value="3600" selected>60 phút</option>
@@ -755,7 +852,7 @@ function renderDashboardHTML() {
           </div>
         </div>
         <div class="task-actions">
-          ${durationControl}
+          ${inputControl}
           <button class="btn-task btn-run" onclick="runTask('${escapeHTML(t.id)}')" ${isAnyRunning ? 'disabled' : ''}>
             ${isThisRunning ? '⏳ Đang chạy…' : '⚡ Chạy'}
           </button>
@@ -1130,6 +1227,18 @@ function renderDashboardHTML() {
   </div>
 
   <script>
+    function handleCountChange(taskId) {
+      const sel = document.getElementById('count_' + taskId);
+      const inp = document.getElementById('custom_' + taskId);
+      if (!sel || !inp) return;
+      if (sel.value === 'custom') {
+        inp.style.display = 'inline-block';
+        inp.focus();
+      } else {
+        inp.style.display = 'none';
+      }
+    }
+
     async function runTask(taskId, customOptions = {}) {
       const csrfMeta = document.querySelector('meta[name="csrf-token"]');
       const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
@@ -1138,6 +1247,21 @@ function renderDashboardHTML() {
       if (taskId === 'meditate') {
         const medSel = document.getElementById('duration_meditate') || document.getElementById('meditateSelect');
         if (medSel) payload.meditate = Number(medSel.value);
+      } else if (taskId === 'farm-bows-beads') {
+        const bowsSel = document.getElementById('combo_bows');
+        const beadsSel = document.getElementById('combo_beads');
+        if (bowsSel) payload.bowsCount = Number(bowsSel.value);
+        if (beadsSel) payload.beadsCount = Number(beadsSel.value);
+      } else {
+        const countSel = document.getElementById('count_' + taskId);
+        const customInp = document.getElementById('custom_' + taskId);
+        if (countSel) {
+          if (countSel.value === 'custom' && customInp && customInp.value) {
+            payload.count = Number(customInp.value);
+          } else {
+            payload.count = Number(countSel.value);
+          }
+        }
       }
 
       const allRunBtns = document.querySelectorAll('.btn-run, #runBtn');
@@ -1410,10 +1534,24 @@ const server = http.createServer(async (req, res) => {
     }
     runOptions.task = task;
 
-    if (bodyData.count) {
+    if (bodyData.count !== undefined && bodyData.count !== null) {
       const c = parseInt(bodyData.count, 10);
-      if (Number.isInteger(c) && c > 0 && c <= 200) {
+      if (Number.isInteger(c) && c > 0 && c <= 1080) {
         runOptions.count = c;
+      }
+    }
+
+    if (bodyData.bowsCount !== undefined && bodyData.bowsCount !== null) {
+      const b = parseInt(bodyData.bowsCount, 10);
+      if (Number.isInteger(b) && b > 0 && b <= 1000) {
+        runOptions.bowsCount = b;
+      }
+    }
+
+    if (bodyData.beadsCount !== undefined && bodyData.beadsCount !== null) {
+      const bd = parseInt(bodyData.beadsCount, 10);
+      if (Number.isInteger(bd) && bd > 0 && bd <= 1080) {
+        runOptions.beadsCount = bd;
       }
     }
 
