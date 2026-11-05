@@ -14,6 +14,104 @@ if (fs.existsSync(bankPath)) {
 
 const labels = ['A', 'B', 'C', 'D'];
 
+// Hàm tìm kiếm web trực tuyến giải đáp câu hỏi Phật học
+async function searchWebForAnswer(qText, opts) {
+  try {
+    const cleanQ = qText.replace(/[?.,!]/g, '').trim();
+    const url = 'https://html.duckduckgo.com/html/?q=' + encodeURIComponent(cleanQ);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3500); // Giới hạn 3.5s để kịp nộp bài
+    
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'vi-VN,vi;q=0.9,en;q=0.8'
+      }
+    });
+    clearTimeout(timeout);
+
+    const html = await res.text();
+    const snippets = [];
+    const regex = /class="result__snippet"[^>]*>(.*?)<\/a>/gs;
+    let m;
+    while ((m = regex.exec(html)) !== null) {
+      const cleanSnippet = m[1].replace(/<[^>]+>/g, '').replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
+      snippets.push(cleanSnippet);
+    }
+
+    if (snippets.length === 0) return null;
+    const fullText = snippets.join(' ').toLowerCase();
+
+    let bestScore = -1;
+    let bestIdx = 0;
+
+    opts.forEach((opt, idx) => {
+      const optClean = opt.toLowerCase().trim();
+      let score = 0;
+      const exactMatches = (fullText.match(new RegExp(escapeRegex(optClean), 'g')) || []).length;
+      score += exactMatches * 10;
+
+      const words = optClean.split(/\s+/).filter(w => w.length > 2 && !['kinh', 'của', 'trong', 'với', 'những', 'được'].includes(w));
+      for (const w of words) {
+        const wordMatches = (fullText.match(new RegExp(escapeRegex(w), 'g')) || []).length;
+        score += wordMatches * 2;
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestIdx = idx;
+      }
+    });
+
+    if (bestScore > 0) {
+      return {
+        pickIndex: bestIdx,
+        snippet: snippets[0],
+        score: bestScore
+      };
+    }
+    return null;
+  } catch (err) {
+    return null;
+  }
+}
+
+// Hàm gọi Gemini API nếu có GEMINI_API_KEY trong .env
+async function askGeminiAPI(qText, opts) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3500);
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const prompt = `Bạn là một học giả Phật học uyên bác. Hãy chọn đáp án đúng cho câu hỏi trắc nghiệm Phật giáo sau:\nCâu hỏi: ${qText}\nCác lựa chọn:\n${opts.map((o, i) => `${i}. ${o}`).join('\n')}\nChỉ trả về JSON dạng: {"right": 0, "why": "giải thích ngắn gọn"}`;
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: 'application/json' }
+      })
+    });
+    clearTimeout(timeout);
+    const data = await res.json();
+    const reply = JSON.parse(data.candidates?.[0]?.content?.parts?.[0]?.text || '{}');
+    if (reply.right !== undefined && reply.right >= 0 && reply.right < opts.length) {
+      return { pickIndex: reply.right, why: reply.why };
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export class BuddhistQuizBot {
   constructor(client) {
     this.client = client;
@@ -23,16 +121,16 @@ export class BuddhistQuizBot {
     this.sessionLog = [];
   }
 
-  solveQuestion(qText, opts) {
+  async solveQuestion(qText, opts) {
     const cleanQ = qText.trim();
     const found = bank[cleanQ];
     let pickIndex = -1;
     let explanation = '';
     let isBankHit = false;
 
+    // 1. Tầng 1: So khớp ngân hàng 166 câu kinh điển chuẩn xác đã thẩm định từ máy chủ
     if (found && found.rightText) {
       isBankHit = true;
-      // Khớp theo nội dung đáp án chuẩn (phòng máy chủ xáo trộn vị trí A/B/C/D)
       pickIndex = opts.findIndex(o => o.trim().toLowerCase() === found.rightText.trim().toLowerCase());
       if (pickIndex === -1) {
         pickIndex = opts.findIndex(o => o.includes(found.rightText) || found.rightText.includes(o));
@@ -40,8 +138,27 @@ export class BuddhistQuizBot {
       explanation = `[Kinh Tạng Khớp Chuẩn] "${found.rightText}". Lời Phật dạy: ${found.why || 'Đúng theo chánh pháp.'}`;
     }
 
+    // 2. Tầng 2: Nếu có GEMINI_API_KEY trong .env thì gọi Gemini AI
     if (pickIndex === -1) {
-      // AI Phật giáo suy luận tự động nếu gặp câu hỏi hoàn toàn mới
+      const geminiResult = await askGeminiAPI(cleanQ, opts);
+      if (geminiResult) {
+        pickIndex = geminiResult.pickIndex;
+        explanation = `[Gemini AI Phật Học] Lựa chọn ${labels[pickIndex]}. ${geminiResult.why || ''}`;
+      }
+    }
+
+    // 3. Tầng 3: Tìm kiếm trực tuyến Live Web Search (Google/DuckDuckGo tra cứu kinh điển)
+    if (pickIndex === -1) {
+      console.log('   🔍 Đang tìm kiếm trực tuyến (Live Web Search) kinh tạng Phật giáo...');
+      const webResult = await searchWebForAnswer(cleanQ, opts);
+      if (webResult) {
+        pickIndex = webResult.pickIndex;
+        explanation = `[Live Web Search] Trích xuất kinh văn trực tuyến: Lựa chọn ${labels[pickIndex]} đạt điểm đối chiếu ${webResult.score}. Trích đoạn: "${webResult.snippet.slice(0, 80)}..."`;
+      }
+    }
+
+    // 4. Tầng 4: AI suy luận từ khóa thanh tịnh & chánh kiến dự phòng
+    if (pickIndex === -1) {
       pickIndex = this.heuristicSolve(cleanQ, opts);
       explanation = `[AI Phật Học Tự Động Suy Luận] Lựa chọn ${labels[pickIndex]} là phương án thanh tịnh, chánh tín và chuẩn xác nhất theo tinh thần nhà Phật.`;
     }
@@ -117,7 +234,7 @@ export class BuddhistQuizBot {
       });
 
       // Suy nghĩ và phân tích
-      const { pickIndex, explanation, isBankHit } = this.solveQuestion(q.text, q.opts);
+      const { pickIndex, explanation, isBankHit } = await this.solveQuestion(q.text, q.opts);
       const chosenLabel = labels[pickIndex];
       const chosenText = q.opts[pickIndex];
 
