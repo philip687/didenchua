@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { runAllQuests } from './src/tasks/all.js';
-import { DiDenChuaClient } from './src/client.js';
+import { DiDenChuaClient, CALLIGRAPHY_WORDS } from './src/client.js';
 import { log, setLogHook } from './src/logger.js';
 import { notifyRunResult } from './src/notify.js';
 
@@ -160,10 +160,13 @@ export const TASKS_CATALOG = [
     group: 'daily',
     questId: 'chu',
     title: 'Xin Chữ Thầy Đồ',
-    desc: 'Đến lều Thầy đồ xin chữ thư pháp "Bình An" đầu ngày',
+    desc: 'Đến lều Thầy đồ xin chữ thư pháp đầu ngày (chọn chữ tùy ý)',
     icon: '✍️',
     reward: '+25 điểm',
-    badge: 'Nhiệm vụ ngày'
+    badge: 'Nhiệm vụ ngày',
+    hasWish: true,
+    defaultWish: 'binh-an',
+    wishOptions: CALLIGRAPHY_WORDS
   },
   {
     id: 'greet',
@@ -355,10 +358,13 @@ export const TASKS_CATALOG = [
     id: 'secrets',
     group: 'extra',
     title: 'Xin Chữ Thư Pháp & Tụng Kinh',
-    desc: 'Xin chữ thư pháp "Bình An" từ ông đồ và hoàn tất khóa lễ tụng kinh',
+    desc: 'Xin chữ thư pháp từ ông đồ và hoàn tất khóa lễ tụng kinh',
     icon: '✍️',
     reward: 'Thư pháp',
-    badge: 'Bí ẩn chùa'
+    badge: 'Bí ẩn chùa',
+    hasWish: true,
+    defaultWish: 'binh-an',
+    wishOptions: CALLIGRAPHY_WORDS
   },
   {
     id: 'meditate',
@@ -571,7 +577,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           await client.doGarden({ autoWaterOthers: true });
           break;
         case 'chu':
-          await client.doXinChu(runOptions.wish || 'binh-an');
+          await client.doXinChu(runOptions.wish || client.config.calligraphyWish || 'binh-an');
           break;
         case 'lay':
           const bowsCount = runOptions.count || 18;
@@ -635,7 +641,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           await client.doQaIncense();
           break;
         case 'secrets':
-          await client.doXinChu('binh-an');
+          await client.doXinChu(runOptions.wish || client.config.calligraphyWish || 'binh-an');
           client.send({ t: 'tk-done' });
           await client.sleep(1200);
           break;
@@ -1160,6 +1166,17 @@ function renderDashboardHTML() {
             <option value="15">15 phút</option>
             <option value="30">30 phút</option>
             <option value="60">60 phút</option>
+          </select>
+        </div>
+      `;
+    } else if (t.hasWish) {
+      inputControl = `
+        <div style="display:flex; align-items:center; gap:5px; margin-right:4px;">
+          <select id="wish_${escapeHTML(t.id)}"
+            style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 8px; border-radius:6px; font-size:12px; cursor:pointer; font-weight:600; max-width:155px;"
+            title="Chọn chữ thư pháp muốn xin từ Thầy đồ"
+            ${isAnyRunning ? 'disabled' : ''}>
+            ${(t.wishOptions || []).map(opt => `<option value="${opt.id}" ${opt.id === (t.defaultWish || 'binh-an') ? 'selected' : ''}>${escapeHTML(opt.text)} (${escapeHTML(opt.wish)})</option>`).join('')}
           </select>
         </div>
       `;
@@ -1913,6 +1930,9 @@ function renderDashboardHTML() {
         const beadsInp = document.getElementById('combo_beads');
         if (bowsInp && bowsInp.value !== '') payload.bowsCount = Number(bowsInp.value);
         if (beadsInp && beadsInp.value !== '') payload.beadsCount = Number(beadsInp.value);
+      } else if (taskId === 'chu' || taskId === 'secrets') {
+        const wishSel = document.getElementById('wish_' + taskId);
+        if (wishSel && wishSel.value) payload.wish = wishSel.value;
       } else {
         const countInp = document.getElementById('count_' + taskId);
         if (countInp && countInp.value !== '') {
@@ -2352,6 +2372,16 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       runOptions.meditateSeconds = parsedMed;
+    }
+
+    // Kiểm tra và validate chữ thư pháp (wish)
+    const wishRaw = bodyData.wish ?? (url.searchParams.has('wish') ? url.searchParams.get('wish') : null);
+    if (wishRaw !== null && wishRaw !== undefined) {
+      const wishStr = String(wishRaw).trim();
+      const validWishes = CALLIGRAPHY_WORDS.map(w => w.id);
+      if (validWishes.includes(wishStr)) {
+        runOptions.wish = wishStr;
+      }
     }
 
     // Nếu đang chạy dở hoặc đang dừng an toàn, trả về HTTP 409 Conflict

@@ -42,6 +42,7 @@ const DEFAULT_CONFIG = {
   meditateSeconds: 3600, // Thời gian treo máy thiền mặc định (3600s = 60 phút cho phần tự động để cày Top 1 Bảng Vàng)
   autoWaterOthers: true, // Tự động tưới nước giúp các luống hoa của bạn đồng tu (+2 công đức/luống)
   maxWaterOthers: 50,    // Số luống tối đa tưới giúp mỗi chu kỳ
+  calligraphyWish: 'binh-an', // Chữ thư pháp mặc định xin Thầy đồ (binh-an, an-khang, hoa-thuan, hieu, nhan, tinh-tam, tri-tue, phuc-duc, duyen, tu-bi, tinh-tan, biet-on)
   // Cấu hình mức độ cày tích lũy thành tích (Milestone Farming) sau khi làm xong nhiệm vụ ngày
   milestoneFarming: {
     enabled: true,        // Tự động cày tích lũy thành tích sau khi nhận thưởng nhiệm vụ ngày
@@ -72,6 +73,7 @@ export function loadConfig() {
   if (process.env.NAME) envConfig.name = process.env.NAME;
   if (process.env.ROOM) envConfig.room = process.env.ROOM;
   if (process.env.SAFE_MODE !== undefined) envConfig.safeMode = process.env.SAFE_MODE === 'true';
+  if (process.env.CALLIGRAPHY_WISH) envConfig.calligraphyWish = process.env.CALLIGRAPHY_WISH;
 
   return {
     ...DEFAULT_CONFIG,

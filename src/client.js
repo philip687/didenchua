@@ -3,6 +3,22 @@ import { loadConfig } from '../config.js';
 
 const WS_URL = 'wss://didenchua.online/ws';
 
+// Danh sách trọn vẹn 12 chữ thư pháp tại lều Thầy đồ cùng ước nguyện & ý nghĩa
+export const CALLIGRAPHY_WORDS = [
+  { id: 'binh-an', text: 'Bình An', wish: 'Yên ổn', meaning: 'Trong lòng yên, ngoài đời ổn. Bình an không phải là không có sóng gió, mà là biết giữ mình giữa sóng gió.' },
+  { id: 'an-khang', text: 'An Khang', wish: 'Sức khỏe', meaning: 'An là yên, khang là khỏe. Chữ này chúc thân khỏe mạnh và tâm thư thái, hai điều luôn đi cùng nhau.' },
+  { id: 'hoa-thuan', text: 'Hòa Thuận', wish: 'Gia đạo êm ấm', meaning: 'Hòa là không đối chọi, thuận là biết nhường nhau. Một nhà hòa thuận thì việc khó cũng hóa nhẹ.' },
+  { id: 'hieu', text: 'Hiếu', wish: 'Hiếu thảo', meaning: 'Hiếu là nhớ ơn và chăm lo cho cha mẹ, ông bà. Một cuộc gọi hỏi thăm cũng đã là hiếu.' },
+  { id: 'nhan', text: 'Nhẫn', wish: 'Nhẫn nại', meaning: 'Nhẫn không phải là cam chịu, mà là dừng lại một nhịp trước khi đáp lời, để không làm điều mình sẽ tiếc.' },
+  { id: 'tinh-tam', text: 'Tĩnh Tâm', wish: 'Tĩnh tâm', meaning: 'Giữ lòng lắng lại như mặt nước yên. Nước yên thì thấy rõ, lòng yên thì nghĩ thông.' },
+  { id: 'tri-tue', text: 'Trí Tuệ', wish: 'Học hành, sáng suốt', meaning: 'Trí tuệ là thấy việc đúng như nó là, biết điều nên làm và điều nên buông. Học để sáng, không chỉ để hơn.' },
+  { id: 'phuc-duc', text: 'Phúc Đức', wish: 'Phúc đức', meaning: 'Phúc là điều lành mình nhận được, đức là điều lành mình gieo. Ông bà ta nói có đức mới bền phúc.' },
+  { id: 'duyen', text: 'Duyên', wish: 'Nhân duyên', meaning: 'Duyên là sự gặp gỡ đúng lúc. Có người đến để đi cùng, có người đến để dạy mình một điều, đều là duyên.' },
+  { id: 'tu-bi', text: 'Từ Bi', wish: 'Lòng từ', meaning: 'Từ là mong người khác vui, bi là muốn người khác bớt khổ. Và đừng quên hiền với chính mình.' },
+  { id: 'tinh-tan', text: 'Tinh Tấn', wish: 'Công việc, siêng năng', meaning: 'Tinh tấn là chăm chỉ đi tới mỗi ngày một ít, không vội, không bỏ. Việc lớn nào cũng thành từ những bước nhỏ.' },
+  { id: 'biet-on', text: 'Biết Ơn', wish: 'Biết ơn', meaning: 'Biết ơn là nhận ra những điều đã có. Càng thấy mình được cho nhiều, lòng càng đủ đầy.' }
+];
+
 export class DiDenChuaClient {
   constructor(customConfig = {}) {
     this.config = { ...loadConfig(), ...customConfig };
@@ -18,6 +34,7 @@ export class DiDenChuaClient {
     this.lanterns = [];
     this.journal = null;
     this.garden = null;
+    this.calligraphy = null;
     this.heartbeatTimer = null;
     this.aborted = false;
     this.abortResolvers = new Set();
@@ -148,6 +165,10 @@ export class DiDenChuaClient {
 
       case 'garden':
         this.garden = msg;
+        break;
+
+      case 'chu':
+        this.calligraphy = msg;
         break;
 
       case 'merit':
@@ -663,9 +684,11 @@ export class DiDenChuaClient {
     }
   }
 
-  async doXinChu(wishId = 'binh-an') {
+  async doXinChu(wishId = null) {
     this.checkAborted();
-    log.temple('✍️', 'Đến lều Thầy đồ xin chữ đầu ngày…');
+    const targetWish = wishId || this.config.calligraphyWish || 'binh-an';
+    const wordInfo = CALLIGRAPHY_WORDS.find(w => w.id === targetWish) || { text: targetWish, wish: '' };
+    log.temple('✍️', `Bắt đầu xin chữ Thầy đồ: Chữ "${wordInfo.text}" (${wordInfo.wish || targetWish})…`);
     await this.humanDelay('bước đến lều Thầy đồ');
     this.checkAborted();
     // Bắt buộc phải viếng thăm lều Thầy đồ để máy chủ ghi nhận nhiệm vụ chu
@@ -673,16 +696,19 @@ export class DiDenChuaClient {
     await this.sleep(500);
     this.send({ t: 'chu-list' });
     await this.sleep(500);
-    this.send({ t: 'chu-xin', chu: wishId });
+    this.send({ t: 'chu-xin', chu: targetWish });
     await this.sleep(800);
     this.send({ t: 'chu-dem', k: 'mo' });
     this.send({ t: 'chu-dem', k: 'vao' });
-    this.send({ t: 'chu-giu', chu: wishId });
+    this.send({ t: 'chu-giu', chu: targetWish });
     // Nếu hôm nay đã từng xin chữ này rồi mà quest chưa ghi nhận, gửi thêm chữ khác dạng lưu tủ để server kích hoạt hoàn tất quest chu
-    const altWish = wishId === 'binh-an' ? 'an-khang' : 'binh-an';
+    const altWish = targetWish === 'binh-an' ? 'an-khang' : 'binh-an';
     this.send({ t: 'chu-giu', chu: altWish });
     this.claimQuest('chu');
-    log.info(`-> Đã xin chữ "${wishId}" từ Thầy đồ và cất vào Tủ chữ.`);
+    log.info(`-> Đã xin chữ "${wordInfo.text}" từ Thầy đồ và cất vào Tủ chữ.`);
+    if (wordInfo.meaning) {
+      log.temple('📜', `Ý nghĩa chữ [${wordInfo.text}]: "${wordInfo.meaning}"`);
+    }
     await this.sleep(500);
   }
 

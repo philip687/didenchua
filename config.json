@@ -15,6 +15,7 @@
   "meditateSeconds": 3600,
   "autoWaterOthers": true,
   "maxWaterOthers": 50,
+  "calligraphyWish": "binh-an",
   "milestoneFarming": {
     "enabled": true,
     "dailyBows": 18,

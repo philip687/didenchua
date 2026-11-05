@@ -135,7 +135,7 @@ export async function runAllQuests(options = {}) {
     await client.humanDelay('thong thả bước sang lều Thầy đồ');
 
     // 16. Xin chữ Thầy đồ đầu ngày -> Nhiệm vụ chu (bắt buộc ghé lều Thầy đồ)
-    await client.doXinChu('binh-an');
+    await client.doXinChu(options.wish || client.config.calligraphyWish || 'binh-an');
     await client.humanDelay('thong thả ra vườn chùa');
 
     // 17. Chăm sóc vườn sen / tưới hoa chùa -> Nhiệm vụ tuoi
@@ -273,7 +273,7 @@ export async function runAllQuests(options = {}) {
       await client.humanDelay('bước đến bàn ông đồ xin chữ');
 
       // 4. Xin chữ thư pháp đầu ngày & hoàn thành khóa tụng kinh sám hối
-      await client.doXinChu('binh-an');
+      await client.doXinChu(options.wish || client.config.calligraphyWish || 'binh-an');
       client.send({ t: 'tk-done' });
       await client.sleep(1200);
 
