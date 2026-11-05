@@ -616,10 +616,10 @@ export class DiDenChuaClient {
     const roundsTarget = (count / 108).toFixed(1);
     log.temple('📿', `Bắt đầu lần tràng hạt niệm Phật (${count} hạt ~ ${roundsTarget} chuỗi)...`);
     this.send({ t: 'emote', e: 'chuoi' });
-    // Máy chủ didenchua giới hạn tốc độ nhận hạt: tối đa ~9 hạt/giây.
-    // Dùng 18 hạt/gói (đúng 1/6 chuỗi 108 hạt) cách nhau 2.050ms (chuẩn game gốc), đảm bảo máy chủ ghi nhận 100% không bị rơi rụng
-    const batchSize = 18;
-    const intervalMs = 2050;
+    // Máy chủ didenchua giới hạn tốc độ nhận hạt bằng cơ chế Token Bucket (~5.3 hạt/giây).
+    // Gửi 9 hạt/gói cách nhau 1.750ms đảm bảo máy chủ ghi nhận 100% không bị rơi rụng
+    const batchSize = 9;
+    const intervalMs = 1750;
     let sent = 0;
     let lastEmoteTime = Date.now();
     while (sent < count) {
