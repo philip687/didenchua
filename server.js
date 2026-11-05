@@ -250,19 +250,21 @@ export const TASKS_CATALOG = [
     id: 'beads',
     group: 'milestone',
     title: 'Lăn Tràng Hạt Niệm Phật',
-    desc: 'Lăn tràng hạt niệm Phật (nhập số hạt tùy ý hoặc chọn gợi ý)',
+    desc: 'Lăn tràng hạt niệm Phật (1 chuỗi = 108 hạt, mốc danh hiệu: 100 chuỗi)',
     icon: '📿',
     reward: 'Niệm Phật',
     badge: 'Chuỗi hạt',
     hasCount: true,
     defaultCount: 108,
     countOptions: [
-      { value: 20, label: '20 hạt (Nhanh)' },
       { value: 54, label: '54 hạt (Nửa chuỗi)' },
       { value: 108, label: '108 hạt (1 chuỗi tròn 🏆)' },
       { value: 216, label: '216 hạt (2 chuỗi)' },
       { value: 540, label: '540 hạt (5 chuỗi)' },
-      { value: 1080, label: '1.080 hạt (10 chuỗi 🏆)' }
+      { value: 1080, label: '1.080 hạt (10 chuỗi)' },
+      { value: 3240, label: '3.240 hạt (30 chuỗi - Cây tre trăm đốt 🏆)' },
+      { value: 5400, label: '5.400 hạt (50 chuỗi)' },
+      { value: 10800, label: '10.800 hạt (100 chuỗi - Trăm chuỗi hạt 🏆)' }
     ]
   },
   {
@@ -706,8 +708,9 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
         }
       } else if (taskId === 'beads') {
         if (postBeads > preBeads || postMeritTotal > preMeritTotal) {
+          const postRounds = Math.floor(postBeads / 108);
           verificationStatus = 'verified';
-          verificationDetail = `Máy chủ đã ghi nhận số hạt: ${preBeads} -> ${postBeads} hạt.`;
+          verificationDetail = `Máy chủ đã ghi nhận: ${preBeads} -> ${postBeads} hạt (${postRounds}/100 chuỗi).`;
         } else {
           verificationDetail = 'Số hạt niệm chưa thay đổi trong snapshot máy chủ.';
         }
@@ -988,9 +991,9 @@ function getTaskQuestBadge(task, quests = [], journal = {}) {
     }
     if (task.id === 'beads') {
       const beads = journal?.beads;
-      const rounds = journal?.rounds;
+      const rounds = journal?.rounds || (beads ? Math.floor(beads / 108) : 0);
       return beads !== undefined && beads !== null
-        ? `<span class="badge" style="background:rgba(233,194,122,0.15); color:var(--gold);">${escapeHTML(beads)} hạt (${escapeHTML(rounds || 0)} chuỗi)</span>`
+        ? `<span class="badge" style="background:rgba(233,194,122,0.15); color:var(--gold);">${escapeHTML(rounds)}/100 chuỗi (${escapeHTML(beads)} hạt) ${rounds >= 100 ? '🏆' : ''}</span>`
         : '';
     }
     if (task.id === 'visit') {
@@ -1114,21 +1117,23 @@ function renderDashboardHTML() {
           </div>
           <div style="display:flex; align-items:center; gap:5px;">
             <span style="font-size:11px; color:var(--gold); min-width:28px;">Hạt:</span>
-            <input type="number" id="combo_beads" value="108" min="0" max="10000"
+            <input type="number" id="combo_beads" value="108" min="0" max="20000"
               style="width:58px; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:4px 6px; border-radius:6px; font-size:12px; text-align:center; font-weight:600;"
               placeholder="Số hạt"
-              title="Nhập số hạt niệm tùy ý"
+              title="Nhập số hạt niệm tùy ý (1 chuỗi = 108 hạt)"
               ${isAnyRunning ? 'disabled' : ''}>
             <select onchange="if(this.value){ document.getElementById('combo_beads').value = this.value; }"
               style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:4px 4px; border-radius:6px; font-size:11px; cursor:pointer;"
               ${isAnyRunning ? 'disabled' : ''}>
               <option value="" disabled selected>Gợi ý ▼</option>
-              <option value="20">20 hạt</option>
-              <option value="54">54 hạt</option>
-              <option value="108">108 hạt 🏆</option>
-              <option value="216">216 hạt</option>
-              <option value="540">540 hạt</option>
-              <option value="1080">1.080 hạt</option>
+              <option value="54">54 hạt (Nửa chuỗi)</option>
+              <option value="108">108 hạt (1 chuỗi 🏆)</option>
+              <option value="216">216 hạt (2 chuỗi)</option>
+              <option value="540">540 hạt (5 chuỗi)</option>
+              <option value="1080">1.080 hạt (10 chuỗi)</option>
+              <option value="3240">3.240 hạt (30 chuỗi 🏆)</option>
+              <option value="5400">5.400 hạt (50 chuỗi)</option>
+              <option value="10800">10.800 hạt (100 chuỗi 🏆)</option>
             </select>
           </div>
         </div>
@@ -1136,7 +1141,7 @@ function renderDashboardHTML() {
     } else if (t.hasCount) {
       inputControl = `
         <div style="display:flex; align-items:center; gap:5px; margin-right:4px;">
-          <input type="number" id="count_${escapeHTML(t.id)}" value="${t.defaultCount || 1}" min="1" max="10000"
+          <input type="number" id="count_${escapeHTML(t.id)}" value="${t.defaultCount || 1}" min="1" max="20000"
             style="width:58px; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 6px; border-radius:6px; font-size:12px; text-align:center; font-weight:600;"
             placeholder="Số lượng"
             title="Nhập số lượng tùy ý"
@@ -2340,7 +2345,7 @@ const server = http.createServer(async (req, res) => {
 
     if (bodyData.count !== undefined && bodyData.count !== null) {
       const c = parseInt(bodyData.count, 10);
-      if (Number.isInteger(c) && c > 0 && c <= 10000) {
+      if (Number.isInteger(c) && c > 0 && c <= 20000) {
         runOptions.count = c;
       }
     }
@@ -2354,7 +2359,7 @@ const server = http.createServer(async (req, res) => {
 
     if (bodyData.beadsCount !== undefined && bodyData.beadsCount !== null) {
       const bd = parseInt(bodyData.beadsCount, 10);
-      if (Number.isInteger(bd) && bd >= 0 && bd <= 10000) {
+      if (Number.isInteger(bd) && bd >= 0 && bd <= 20000) {
         runOptions.beadsCount = bd;
       }
     }

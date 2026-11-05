@@ -47,7 +47,7 @@ const DEFAULT_CONFIG = {
   milestoneFarming: {
     enabled: true,        // Tự động cày tích lũy thành tích sau khi nhận thưởng nhiệm vụ ngày
     dailyBows: 18,        // Số lạy cày mỗi ngày (18 lạy đưa từ 90 -> 108 để đạt danh hiệu "Trăm lạy")
-    dailyBeads: 88,       // Số hạt tràng lăn thêm mỗi ngày (tích lũy chuỗi 108 hạt và 100 chuỗi)
+    dailyBeads: 108,      // Số hạt tràng lăn thêm mỗi ngày (tích lũy chuỗi 108 hạt và 100 chuỗi)
     dailySweeps: 5,       // Số lần quét lá dọn sân chùa thêm mỗi ngày
     dailyIncense: 2,      // Số lần dâng hương thêm mỗi ngày (tích lũy mốc 30 nén)
     dailyLanterns: 1      // Số ngọn hoa đăng thả thêm mỗi ngày (tích lũy mốc 10 ngọn)

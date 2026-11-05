@@ -611,22 +611,36 @@ export class DiDenChuaClient {
     log.info(`Đã hoàn tất gửi ${count} tiếng mõ tụng kinh (chờ máy chủ ghi nhận).`);
   }
 
-  async doBeads(count = 20) {
+  async doBeads(count = 108) {
     this.checkAborted();
-    log.temple('📿', `Lăn tràng hạt niệm Phật (${count} hạt - tốc độ tối ưu)...`);
-    // Gửi từng đợt 10-15 hạt với delay ~850ms giúp server tiếp nhận trọn vẹn và nhanh gấp 10 lần
+    const roundsTarget = (count / 108).toFixed(1);
+    log.temple('📿', `Bắt đầu lần tràng hạt niệm Phật (${count} hạt ~ ${roundsTarget} chuỗi)...`);
+    this.send({ t: 'emote', e: 'chuoi' });
+    // Máy chủ didenchua giới hạn tối đa 30 hạt/gói tin, gửi 27 hạt/đợt (1/4 chuỗi 108 hạt)
+    const batchSize = 27;
     let sent = 0;
+    let lastEmoteTime = Date.now();
     while (sent < count) {
       this.checkAborted();
-      const batch = Math.min(15, count - sent);
+      const batch = Math.min(batchSize, count - sent);
       this.send({ t: 'beads', n: batch });
       sent += batch;
-      log.info(`...Nam Mô A Di Đà Phật [${sent}/${count} hạt]`);
+      const curRounds = (sent / 108).toFixed(1);
+      log.info(`...Nam Mô A Di Đà Phật [${sent}/${count} hạt] (~${curRounds} chuỗi)`);
+      if (Date.now() - lastEmoteTime >= 3000) {
+        this.send({ t: 'emote', e: 'chuoi' });
+        lastEmoteTime = Date.now();
+      }
       if (sent < count) {
-        await this.sleep(850);
+        await this.sleep(800);
       }
     }
-    log.info(`Đã hoàn tất gửi ${count} hạt tràng niệm Phật (chờ máy chủ ghi nhận).`);
+    await this.sleep(600);
+    await this.fetchJournal();
+    if (this.journal) {
+      const totalRounds = this.journal.rounds || Math.floor((this.journal.beads || 0) / 108);
+      log.success(`Máy chủ đã ghi nhận: ${this.journal.beads} hạt (${totalRounds}/100 chuỗi ${totalRounds >= 100 ? '🏆 Đạt danh hiệu Trăm chuỗi hạt' : `còn ${100 - totalRounds} chuỗi`}).`);
+    }
   }
 
   async doBell() {
