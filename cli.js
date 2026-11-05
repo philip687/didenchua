@@ -15,6 +15,7 @@ import { runMo } from './src/tasks/mo.js';
 import { runBeads } from './src/tasks/beads.js';
 import { runBell } from './src/tasks/bell.js';
 import { runMeditate } from './src/tasks/meditate.js';
+import { runQuiz } from './src/tasks/quiz.js';
 import { runClaim } from './src/tasks/claim.js';
 import { runStatus } from './src/tasks/status.js';
 import { runAllQuests } from './src/tasks/all.js';
@@ -150,6 +151,11 @@ async function main() {
     case 'meditate':
     case 'ngoi':
       await runMeditate(args[0] ? parseInt(args[0], 10) : 3600);
+      break;
+
+    case 'quiz':
+    case 'dovui':
+      await runQuiz({ mode: args[0] || 'practice' });
       break;
 
     case 'claim':

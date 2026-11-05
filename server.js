@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 import { runAllQuests } from './src/tasks/all.js';
 import { DiDenChuaClient, CALLIGRAPHY_WORDS } from './src/client.js';
 import { runMeditateWithClient } from './src/tasks/meditate.js';
+import { runQuizWithClient } from './src/tasks/quiz.js';
 import { log, setLogHook } from './src/logger.js';
 import { notifyRunResult } from './src/notify.js';
 
@@ -378,6 +379,15 @@ export const TASKS_CATALOG = [
     reward: 'Tĩnh tọa',
     badge: 'Treo máy',
     hasDuration: true
+  },
+  {
+    id: 'quiz',
+    group: 'extra',
+    title: 'Đố Vui Phật Pháp (20:00)',
+    desc: 'Giải trắc nghiệm Phật học bằng Gemini 3.5 Flash AI + Ngân hàng 166 câu chùa (Ôn tập hoặc Thi đấu 20:00)',
+    icon: '🧠',
+    reward: '+60đ & Top 1',
+    badge: 'Trí tuệ'
   }
 ];
 
@@ -655,12 +665,15 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           const secs = runOptions.meditateSeconds || 300;
           await runMeditateWithClient(client, secs);
           break;
+        case 'quiz':
+          await runQuizWithClient(client, runOptions);
+          break;
         default:
           throw new Error(`Nhiệm vụ không xác định: ${taskId}`);
       }
 
       // Tự động nhận thưởng nếu nhiệm vụ này hoàn thành quest ngày
-      if (['bell', 'vow', 'incense', 'lay-daily', 'lay', 'greet', 'lantern-daily', 'chores-daily', 'xam', 'chores', 'quet', 'farm-bows-beads', 'tung', 'tuoi', 'chu', 'garden', 'tuyhy', 'secrets', 'meditate', 'ngoi-daily'].includes(taskId)) {
+      if (['bell', 'vow', 'incense', 'lay-daily', 'lay', 'greet', 'lantern-daily', 'chores-daily', 'xam', 'chores', 'quet', 'farm-bows-beads', 'tung', 'tuoi', 'chu', 'garden', 'tuyhy', 'secrets', 'meditate', 'ngoi-daily', 'quiz'].includes(taskId)) {
         await client.sleep(1000);
         await client.claimAllQuests();
       }

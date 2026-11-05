@@ -24,6 +24,8 @@
     "chuong": "node cli.js bell",
     "meditate": "node cli.js meditate",
     "ngoi": "node cli.js meditate",
+    "quiz": "node cli.js quiz",
+    "dovui": "node cli.js dovui",
     "claim": "node cli.js claim",
     "quests": "node cli.js all",
     "all": "node cli.js all",
