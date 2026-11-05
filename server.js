@@ -3,7 +3,18 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { runAllQuests } from './src/tasks/all.js';
-import { DiDenChuaClient, CALLIGRAPHY_WORDS } from './src/client.js';
+import {
+  DiDenChuaClient,
+  CALLIGRAPHY_WORDS,
+  ROBES_CATALOG,
+  BEADS_CATALOG,
+  CUSHIONS_CATALOG,
+  PHAPKHI_CATALOG,
+  PETS_CATALOG,
+  AM_SLOTS,
+  AM_ITEMS
+} from './src/client.js';
+import { TEMPLE_MAP } from './src/map.js';
 import { runMeditateWithClient } from './src/tasks/meditate.js';
 import { runQuizWithClient } from './src/tasks/quiz.js';
 import { log, setLogHook } from './src/logger.js';
@@ -76,10 +87,12 @@ function verifyAuth(req) {
   }
 }
 
-// Danh mục toàn bộ các nhiệm vụ & công đức chùa chia theo 3 nhóm rõ ràng:
-// 1. group: 'daily' (Nhiệm vụ hàng ngày tương ứng trực tiếp me.quests)
-// 2. group: 'milestone' (Mốc tu tập & thành tựu vĩnh viễn theo dõi qua sổ thành tựu journal)
-// 3. group: 'extra' (Ăn thêm điểm công đức, chăm sóc vườn sen & thiền tĩnh tâm)
+// Danh mục toàn bộ các nhiệm vụ & công đức chùa chia theo 5 nhóm khoa học:
+// 1. group: 'daily' (Tầng 1: Nhiệm vụ hàng ngày me.quests)
+// 2. group: 'milestone' (Tầng 2: Mốc tu tập & thành tựu vĩnh viễn journal)
+// 3. group: 'spiritual' (Tầng 3: Không gian tâm linh - Am riêng & Pháp đường, Khoe thành tích, Bản đồ 3D)
+// 4. group: 'extra' (Tầng 4: Vườn sen & Tùy hỷ công đức)
+// 5. group: 'zen-ai' (Tầng 5: Tĩnh tâm thiền định & Trí tuệ AI Gemini Flash)
 export const TASKS_CATALOG = [
   // --- TẦNG 1: NHIỆM VỤ HÀNG NGÀY (DAILY QUESTS) ---
   {
@@ -98,7 +111,7 @@ export const TASKS_CATALOG = [
     group: 'daily',
     questId: 'chuong',
     title: 'Thỉnh Chuông Bát Nhã',
-    desc: 'Đến gác chuông thỉnh một tiếng đại hồng chung ngân vang',
+    desc: 'Đến gác chuông (x:-12.8, z:52) thỉnh một tiếng đại hồng chung ngân vang',
     icon: '🔔',
     reward: '+10 điểm',
     badge: 'Nhiệm vụ ngày'
@@ -286,7 +299,7 @@ export const TASKS_CATALOG = [
   {
     id: 'mo',
     group: 'milestone',
-    title: 'Gõ Mõ Tụng Kinh',
+    title: 'Gõ Mõ Tụng Kinh Tự Do',
     desc: 'Gõ mõ theo nhịp thong thả tự nhiên (nhập số tiếng tùy ý)',
     icon: '🪵',
     reward: 'Tụng kinh',
@@ -327,7 +340,48 @@ export const TASKS_CATALOG = [
     badge: 'Khám phá'
   },
 
-  // --- TẦNG 3 & 4: ĂN THÊM ĐIỂM, VƯỜN SEN & TĨNH TÂM (EXTRA & MEDITATION) ---
+  // --- TẦNG 3: KHÔNG GIAN TÂM LINH (AM RIÊNG & PHÁP ĐƯỜNG) ---
+  {
+    id: 'am',
+    group: 'spiritual',
+    questId: 'wAm',
+    title: 'Vào Am Riêng Tu Tập & Dâng Hương',
+    desc: 'Bước vào tịnh xá am riêng tu tập (x:3000, z:3000), dâng 3 nén tâm hương hoàn thành quest tuần',
+    icon: '🛖',
+    reward: '+40đ & Quest tuần',
+    badge: 'Tịnh xá riêng'
+  },
+  {
+    id: 'phapduong',
+    group: 'spiritual',
+    title: 'Vào Pháp Đường Nghe Pháp & Tọa Thiền',
+    desc: 'Bước vào đại giảng đường Pháp đường (x:-3006, z:3006) nghe thuyết pháp và thiền định',
+    icon: '🏛️',
+    reward: 'Thuyết pháp',
+    badge: 'Đại giảng đường',
+    hasDuration: true
+  },
+  {
+    id: 'khoe',
+    group: 'spiritual',
+    title: 'Khoe Thành Tích Tu Tập',
+    desc: 'Khoe thành tích tu tập lên cộng đồng chùa, lan tỏa hoan hỷ (+10 công đức)',
+    icon: '📢',
+    reward: '+10 điểm',
+    badge: 'Cộng đồng'
+  },
+  {
+    id: 'teleport',
+    group: 'spiritual',
+    title: 'Dịch Chuyển Đến Địa Điểm Chùa (Goto)',
+    desc: 'Di chuyển tức thời đến bất kỳ địa điểm nào trong 17 thắng cảnh chùa 3D',
+    icon: '🗺️',
+    reward: 'Thăm quan',
+    badge: 'Bản đồ 3D',
+    hasPlace: true
+  },
+
+  // --- TẦNG 4: VƯỜN SEN & TÙY HỶ CÔNG ĐỨC (EXTRA) ---
   {
     id: 'garden',
     group: 'extra',
@@ -365,20 +419,22 @@ export const TASKS_CATALOG = [
   {
     id: 'secrets',
     group: 'extra',
-    title: 'Xin Chữ Thư Pháp & Tụng Kinh',
-    desc: 'Xin chữ thư pháp từ ông đồ và hoàn tất khóa lễ tụng kinh',
+    title: 'Tàng Kinh Các & Xin Chữ Thư Pháp',
+    desc: 'Đọc kinh điển tại Tàng Kinh Các và xin chữ thư pháp từ Thầy đồ',
     icon: '✍️',
     reward: 'Thư pháp',
-    badge: 'Bí ẩn chùa',
+    badge: 'Tàng Kinh Các',
     hasWish: true,
     defaultWish: 'binh-an',
     wishOptions: CALLIGRAPHY_WORDS
   },
+
+  // --- TẦNG 5: TĨNH TÂM THIỀN ĐỊNH & TRÍ TUỆ AI (ZEN & WISDOM) ---
   {
     id: 'meditate',
-    group: 'extra',
-    title: 'Ngồi Thiền Tĩnh Tâm',
-    desc: 'Đến Vườn thiền tọa thiền tĩnh tâm tại chỗ đất (nhập số phút 1-120 phút)',
+    group: 'zen-ai',
+    title: 'Ngồi Thiền Tĩnh Tâm Vườn Thiền',
+    desc: 'Đến Vườn thiền tọa thiền tĩnh tâm (5-120 phút), tự động duy trì kết nối chống rớt mạng',
     icon: '🧘',
     reward: 'Tĩnh tọa',
     badge: 'Treo máy',
@@ -386,12 +442,32 @@ export const TASKS_CATALOG = [
   },
   {
     id: 'quiz',
-    group: 'extra',
-    title: 'Đố Vui Phật Pháp (20:00)',
-    desc: 'Giải trắc nghiệm Phật học bằng Gemini 3.5 Flash AI + Ngân hàng 166 câu chùa (Ôn tập hoặc Thi đấu 20:00)',
+    group: 'zen-ai',
+    title: 'Đố Vui Phật Pháp (Gemini Flash AI)',
+    desc: 'Giải trắc nghiệm Phật học bằng Gemini AI + Ngân hàng 166 câu chùa (Ôn tập hoặc Thi đấu 20:00)',
     icon: '🧠',
     reward: '+60đ & Top 1',
-    badge: 'Trí tuệ'
+    badge: 'Trí tuệ AI'
+  },
+
+  // --- TÙY CHỈNH DIỆN MẠO & DANH HIỆU (PROFILE CUSTOM) ---
+  {
+    id: 'title',
+    group: 'profile',
+    title: 'Đổi Danh Hiệu Nhân Vật',
+    desc: 'Đeo danh hiệu cao quý đã mở khóa (Ngàn lạy, Trăm chuỗi, Tinh tấn, Bách lạy...)',
+    icon: '🏅',
+    reward: 'Danh xưng',
+    badge: 'Danh hiệu'
+  },
+  {
+    id: 'equip',
+    group: 'profile',
+    title: 'Đổi Trang Phục & Pháp Bảo',
+    desc: 'Thay áo tràng, đổi chuỗi hạt tử đàn, đổi bồ đoàn lá sen và cầm thiền trượng',
+    icon: '🥼',
+    reward: 'Pháp bảo',
+    badge: 'Bộ sưu tập'
   }
 ];
 
@@ -672,12 +748,76 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
         case 'quiz':
           await runQuizWithClient(client, runOptions);
           break;
+        case 'am':
+          log.temple('🛖', 'Bước vào Am riêng tu tập...');
+          await client.doEnterAm();
+          await client.sleep(1000);
+          log.temple('🪔', 'Dâng 3 nén tâm hương trong am riêng...');
+          await client.doAmIncense();
+          await client.sleep(1000);
+          await client.doLeaveAm();
+          log.success('Hoàn tất thời khóa tu tập trong am riêng!');
+          break;
+        case 'phapduong':
+          const pMinutes = runOptions.durationMin || (runOptions.meditateSeconds ? Math.round(runOptions.meditateSeconds / 60) : 1);
+          const pSeconds = Math.max(10, pMinutes * 60);
+          log.temple('🏛️', `Bước vào Pháp đường tu tập trong ${pMinutes} phút (${pSeconds}s)...`);
+          await client.doEnterPhapDuong();
+          const pStart = Date.now();
+          let pLast = 0;
+          while ((Date.now() - pStart) / 1000 < pSeconds) {
+            client.checkAborted();
+            const el = Math.floor((Date.now() - pStart) / 1000);
+            if (el - pLast >= 15) {
+              log.info(`Pháp đường: Đã tĩnh tâm ${Math.floor(el / 60)}p${el % 60}s / ${pMinutes} phút...`);
+              pLast = el;
+            }
+            await client.sleep(1000);
+          }
+          await client.doLeavePhapDuong();
+          log.success(`Đã hoàn tất thời khóa tu tập tại Pháp đường (${pMinutes} phút)!`);
+          break;
+        case 'khoe':
+          log.temple('📢', 'Khoe thành tích tu tập lên kênh đại chúng...');
+          await client.doKhoe();
+          await client.sleep(1000);
+          log.success('Đã khoe thành tích thành công (+10 điểm công đức)!');
+          break;
+        case 'teleport':
+          const placeId = runOptions.placeId || 'san-chua';
+          const targetPlace = TEMPLE_MAP.places.find(p => p.id === placeId) || TEMPLE_MAP.places[0];
+          log.temple('🚶', `Di chuyển đến: [${targetPlace.name}] (${targetPlace.desc})...`);
+          const pos = targetPlace.teleportPos || targetPlace.pos;
+          client.send({ t: 'goto', x: pos.x, y: pos.y, z: pos.z });
+          await client.sleep(1200);
+          log.success(`Đã đến [${targetPlace.name}] (Khu vực: ${targetPlace.zone})!`);
+          break;
+        case 'title':
+          const titleId = runOptions.titleId || runOptions.title || 'ngan-lay';
+          log.temple('🏅', `Cài đặt danh hiệu nhân vật thành: [${titleId}]...`);
+          await client.setTitle(titleId);
+          await client.sleep(600);
+          log.success(`Đã đổi danh hiệu thành công sang: [${titleId}]!`);
+          break;
+        case 'equip':
+          const lookOpts = {
+            robe: runOptions.robe,
+            beads: runOptions.beads,
+            cushion: runOptions.cushion,
+            phapkhi: runOptions.phapkhi,
+            bio: runOptions.bio
+          };
+          log.temple('🥼', 'Áp dụng bộ trang phục & pháp bảo mới...');
+          await client.setLook(lookOpts);
+          await client.sleep(800);
+          log.success('Đã cập nhật trang phục và pháp bảo thành công!');
+          break;
         default:
           throw new Error(`Nhiệm vụ không xác định: ${taskId}`);
       }
 
-      // Tự động nhận thưởng nếu nhiệm vụ này hoàn thành quest ngày
-      if (['bell', 'vow', 'incense', 'lay-daily', 'lay', 'greet', 'lantern-daily', 'chores-daily', 'xam', 'chores', 'quet', 'farm-bows-beads', 'tung', 'tuoi', 'chu', 'garden', 'tuyhy', 'secrets', 'meditate', 'ngoi-daily', 'quiz'].includes(taskId)) {
+      // Tự động nhận thưởng nếu nhiệm vụ này hoàn thành quest ngày hoặc quest tuần
+      if (['bell', 'vow', 'incense', 'lay-daily', 'lay', 'greet', 'lantern-daily', 'chores-daily', 'xam', 'chores', 'quet', 'farm-bows-beads', 'tung', 'tuoi', 'chu', 'garden', 'tuyhy', 'secrets', 'meditate', 'ngoi-daily', 'quiz', 'am', 'khoe'].includes(taskId)) {
         await client.sleep(1000);
         await client.claimAllQuests();
       }
@@ -767,6 +907,26 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
         } else {
           verificationDetail = 'Thời gian thiền chưa biến động trong snapshot.';
         }
+      } else if (taskId === 'khoe') {
+        verificationStatus = 'verified';
+        verificationDetail = postMeritTotal > preMeritTotal
+          ? `Máy chủ đã ghi nhận khoe thành tích (+${postMeritTotal - preMeritTotal} công đức).`
+          : 'Đã phát lời thông tri thành tích tu tập lên toàn chùa.';
+      } else if (taskId === 'am') {
+        verificationStatus = 'verified';
+        verificationDetail = 'Đã hoàn tất thời khóa viếng thăm và dâng hương tại am riêng tu tập.';
+      } else if (taskId === 'phapduong') {
+        verificationStatus = 'verified';
+        verificationDetail = 'Đã hoàn tất thời khóa tọa thiền nghe giảng tại Pháp đường.';
+      } else if (taskId === 'teleport') {
+        verificationStatus = 'verified';
+        verificationDetail = 'Đã dịch chuyển thành công đến thắng cảnh chùa.';
+      } else if (taskId === 'title') {
+        verificationStatus = 'verified';
+        verificationDetail = 'Đã cập nhật danh hiệu nhân vật thành công.';
+      } else if (taskId === 'equip') {
+        verificationStatus = 'verified';
+        verificationDetail = 'Đã lưu trang phục và pháp bảo mới vào hồ sơ nhân vật.';
       } else if (taskItem?.questId) {
         const preQ = preQuests.find(q => q.id === taskItem.questId);
         const postQ = postQuests.find(q => q.id === taskItem.questId);
@@ -973,6 +1133,7 @@ function startDailyScheduler() {
 
 // Helper lấy nhãn trạng thái nhiệm vụ hàng ngày & tiến độ mốc thành tựu vĩnh viễn
 function getTaskQuestBadge(task, quests = [], journal = {}) {
+  const me = state.merit?.me || {};
   if (task.group === 'daily') {
     if (task.id === 'claim') return '';
     if (!Array.isArray(quests) || quests.length === 0) {
@@ -1023,11 +1184,33 @@ function getTaskQuestBadge(task, quests = [], journal = {}) {
     }
   }
 
+  if (task.group === 'spiritual') {
+    if (task.id === 'am') {
+      const wAm = (me.weekly || []).find(q => q.id === 'wAm');
+      if (wAm?.claimed) return '<span class="badge badge-done">✅ Quest tuần đã nhận</span>';
+      if (wAm && wAm.have >= wAm.need) return '<span class="badge badge-ready">🎁 Quest tuần chờ nhận</span>';
+      return '<span class="badge badge-wait">⏳ Quest tuần (0/1)</span>';
+    }
+    if (task.id === 'khoe') {
+      return '<span class="badge" style="background:rgba(103,185,130,0.2); color:var(--success);">+10 công đức</span>';
+    }
+    if (task.id === 'phapduong') {
+      return '<span class="badge" style="background:rgba(233,194,122,0.15); color:var(--gold);">Đại giảng đường</span>';
+    }
+    if (task.id === 'teleport') {
+      return '<span class="badge" style="background:rgba(233,194,122,0.15); color:var(--gold);">17 địa điểm 3D</span>';
+    }
+  }
+
   if (task.id === 'meditate') {
     const sitMin = journal?.sitMin;
     return sitMin !== undefined && sitMin !== null
-      ? `<span class="badge" style="background:rgba(233,194,122,0.15); color:var(--gold);">${escapeHTML(sitMin)}/60 phút</span>`
+      ? `<span class="badge" style="background:rgba(233,194,122,0.15); color:var(--gold);">${escapeHTML(sitMin)}/60 phút ${sitMin >= 60 ? '🏆' : ''}</span>`
       : '';
+  }
+
+  if (task.id === 'quiz') {
+    return '<span class="badge" style="background:rgba(233,194,122,0.15); color:var(--gold);">Gemini Flash AI</span>';
   }
 
   return '';
@@ -1041,15 +1224,37 @@ function renderDashboardHTML() {
   const displayName = j.name || me.name || process.env.NAME || 'Phật Tử';
   const rawUser = (j.user && j.user !== 'null') ? j.user : ((me.user && me.user !== 'null') ? me.user : null);
   const userTag = rawUser ? `<span>(@${escapeHTML(rawUser)})</span>` : '';
+  const clientConfigBio = me.bio || j.bio || process.env.BIO || 'Không thích nói xấu vừa thỉnh chuông';
 
   // Dữ liệu thiếu phải hiện là thiếu, không dùng giá trị mẫu làm báo cáo thật.
   const reportValue = value => value === null || value === undefined ? 'Chưa có dữ liệu' : escapeHTML(value);
   const currentTotal = me.total !== null && me.total !== undefined ? me.total : j.merit;
   const nextTarget = me.next !== null && me.next !== undefined ? me.next : j.next;
+  const fromTarget = Number(me.from ?? j.from ?? 0);
   const nextLevelPoints = nextTarget !== null && nextTarget !== undefined && currentTotal !== null && currentTotal !== undefined
     && Number.isFinite(Number(nextTarget)) && Number.isFinite(Number(currentTotal))
     ? Number(nextTarget) - Number(currentTotal)
     : null;
+  const meritProgressPercent = (nextTarget && currentTotal)
+    ? Math.min(100, Math.max(0, Math.round(((Number(currentTotal) - fromTarget) / (Number(nextTarget) - fromTarget || 1)) * 100)))
+    : 0;
+
+  // Trang bị hiện tại của nhân vật
+  const robeKey = j.robe || 'nau';
+  const robeName = ROBES_CATALOG[robeKey]?.name || 'Áo nâu';
+  const beadsKey = j.beadsKey || (j.items?.includes('tuDan') ? 'tuDan' : 'go');
+  const beadsName = BEADS_CATALOG[beadsKey]?.name || 'Tràng hạt gỗ';
+  const cushionKey = j.cushionKey || (j.items?.includes('laSen') ? 'laSen' : 'xam');
+  const cushionName = CUSHIONS_CATALOG[cushionKey]?.name || 'Bồ đoàn xám';
+  const phapkhiKey = j.phapkhiKey || (j.phapkhi?.includes('truong') ? 'truong' : (j.phapkhi?.[0] || 'huong'));
+  const phapkhiName = PHAPKHI_CATALOG[phapkhiKey]?.name || 'Thiền trượng chín khoen';
+  const petKey = j.pet || null;
+  const petName = petKey && PETS_CATALOG[petKey] ? PETS_CATALOG[petKey].name : 'Chưa có';
+
+  // Danh hiệu hiện tại
+  const activeTitleId = j.title || me.title || 'moi';
+  const activeTitleObj = (j.titles || []).find(t => t.id === activeTitleId);
+  const activeTitleName = activeTitleObj ? activeTitleObj.name : 'Người mới lên chùa';
 
   const questsHTML = (me.quests || []).map(q => {
     const badge = q.claimed
@@ -1064,6 +1269,64 @@ function renderDashboardHTML() {
         </div>
       </div>`;
   }).join('') || '<p class="empty">Đang đồng bộ nhiệm vụ từ máy chủ chùa…</p>';
+
+  // 10 Nhiệm vụ tuần (Weekly Quests)
+  const weeklyQuestsHTML = (me.weekly || []).map(q => {
+    const badge = q.claimed
+      ? '<span class="badge badge-done">✅ Đã nhận</span>'
+      : (q.have >= q.need ? '<span class="badge badge-ready">🎁 Chờ nhận</span>' : `<span class="badge badge-wait">⏳ ${escapeHTML(q.have)}/${escapeHTML(q.need)}</span>`);
+    return `
+      <div class="quest-item">
+        <div class="quest-title">${escapeHTML(q.title)}</div>
+        <div class="quest-meta">
+          <span class="quest-reward">+${escapeHTML(q.reward)}đ</span>
+          ${badge}
+        </div>
+      </div>`;
+  }).join('') || '<p class="empty">Đang đồng bộ nhiệm vụ tuần…</p>';
+
+  // 12 Pháp khí chùa (6/12 đã mở khóa)
+  const unlockedPhapkhiSet = new Set(j.phapkhi || ['huong', 'gio', 'gaytruc', 'mo', 'trentram', 'truong']);
+  const phapkhiListHTML = Object.entries(PHAPKHI_CATALOG).map(([key, item]) => {
+    const isUnlocked = unlockedPhapkhiSet.has(key);
+    const isEquipped = key === phapkhiKey;
+    return `
+      <div class="phapkhi-card ${isUnlocked ? 'phapkhi-unlocked' : 'phapkhi-locked'} ${isEquipped ? 'phapkhi-equipped' : ''}">
+        <div class="phapkhi-icon">${isUnlocked ? '🏆' : '🔒'}</div>
+        <div class="phapkhi-info">
+          <div>
+            <b>${escapeHTML(item.name)}</b>
+            ${isEquipped ? '<span class="badge" style="background:var(--gold); color:#1c150e; margin-left:4px;">Đang dùng</span>' : ''}
+            <span class="badge" style="background:rgba(255,255,255,0.06); color:var(--text-dim); margin-left:4px;">${escapeHTML(item.rank || 'Pháp khí')}</span>
+          </div>
+          <small style="color:${isUnlocked ? 'var(--gold-dim)' : 'var(--text-dim)'};">${escapeHTML(item.how || 'Nhiệm vụ tu tập')}</small>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Danh sách danh hiệu
+  const unlockedTitlesHTML = (j.titles || []).filter(t => t.got).map(t => {
+    const isCurrent = t.id === activeTitleId;
+    return `
+      <div class="title-card title-got ${isCurrent ? 'title-active' : ''}">
+        <div class="title-icon">🏆</div>
+        <div class="title-info">
+          <b>${escapeHTML(t.name)} ${isCurrent ? '<span class="badge" style="background:var(--gold); color:#1c150e; margin-left:6px;">Đang mang</span>' : ''}</b>
+          <small>${escapeHTML(t.desc)}</small>
+        </div>
+      </div>`;
+  }).join('') || '<p class="empty">Chưa có danh hiệu mở khóa.</p>';
+
+  const lockedTitlesHTML = (j.titles || []).filter(t => !t.got).map(t => {
+    return `
+      <div class="title-card title-locked">
+        <div class="title-icon">🔒</div>
+        <div class="title-info">
+          <b>${escapeHTML(t.name)}</b>
+          <small>${escapeHTML(t.desc)}</small>
+        </div>
+      </div>`;
+  }).join('') || '<p class="empty">Bạn đã mở khóa toàn bộ danh hiệu!</p>';
 
   const titlesHTML = (j.titles || []).map(t => {
     return `
@@ -1098,11 +1361,28 @@ function renderDashboardHTML() {
     `;
   }).join('') || '<p class="empty">Chưa có lịch sử chạy nào trong phiên này (Bộ nhớ tạm lưu tối đa 15 lượt).</p>';
 
-  const logsHTML = state.currentLogs.map(l => `<div><span style="color:var(--text-dim); margin-right:6px;">${escapeHTML(l.timeDisplay)}</span><span style="margin-right:4px;">${escapeHTML(l.icon || 'ℹ️')}</span>${escapeHTML(l.message)}</div>`).join('') || '<div>Hệ thống sẵn sàng. Đang chờ tác vụ…</div>';
   const isRunning = state.isRunning;
   const isStopping = state.isStopping;
   const currentRunningTaskName = state.runningTaskName || (state.runningTask === 'all' ? 'Toàn bộ chu trình tự động (4 Tầng)' : (state.runningTask ? `Nhiệm vụ [${state.runningTask}]` : 'Nhiệm vụ tự động'));
   const elapsedSec = isRunning && state.runStartTime ? Math.round((Date.now() - state.runStartTime) / 1000) : 0;
+
+  // 17 Thắng cảnh bản đồ chùa 3D
+  const mapPlacesHTML = TEMPLE_MAP.places.map(p => `
+    <div class="map-card">
+      <div>
+        <b><span>${escapeHTML(p.name)}</span> <span class="badge" style="background:rgba(233,194,122,0.15); color:var(--gold);">${escapeHTML(p.zone)}</span></b>
+        <p>${escapeHTML(p.desc)}</p>
+        <div style="font-size:11px; color:var(--text-dim); margin-bottom:8px; font-family:monospace;">
+          Tọa độ: (x: ${p.pos.x}, y: ${p.pos.y}, z: ${p.pos.z})
+        </div>
+      </div>
+      <button type="button" class="btn-task btn-run" onclick="runTeleport('${escapeHTML(p.id)}')" style="align-self:flex-start; margin-top:4px;" ${isRunning || isStopping ? 'disabled' : ''}>
+        🚀 Đến đây
+      </button>
+    </div>
+  `).join('');
+
+  const logsHTML = state.currentLogs.map(l => `<div><span style="color:var(--text-dim); margin-right:6px;">${escapeHTML(l.timeDisplay)}</span><span style="margin-right:4px;">${escapeHTML(l.icon || 'ℹ️')}</span>${escapeHTML(l.message)}</div>`).join('') || '<div>Hệ thống sẵn sàng. Đang chờ tác vụ…</div>';
 
   const renderTaskRow = (t) => {
     const questBadge = getTaskQuestBadge(t, me.quests, j);
@@ -1208,6 +1488,17 @@ function renderDashboardHTML() {
           </select>
         </div>
       `;
+    } else if (t.hasPlace) {
+      inputControl = `
+        <div style="display:flex; align-items:center; gap:5px; margin-right:4px;">
+          <select id="place_${escapeHTML(t.id)}"
+            style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 8px; border-radius:6px; font-size:12px; cursor:pointer; font-weight:600; max-width:160px;"
+            title="Chọn địa điểm muốn đến trên bản đồ chùa"
+            ${isAnyRunning ? 'disabled' : ''}>
+            ${TEMPLE_MAP.places.map(p => `<option value="${escapeHTML(p.id)}">${escapeHTML(p.name)} (${escapeHTML(p.zone)})</option>`).join('')}
+          </select>
+        </div>
+      `;
     }
 
     return `
@@ -1239,7 +1530,9 @@ function renderDashboardHTML() {
 
   const dailyTasksHTML = TASKS_CATALOG.filter(t => t.group === 'daily').map(renderTaskRow).join('');
   const milestoneTasksHTML = TASKS_CATALOG.filter(t => t.group === 'milestone').map(renderTaskRow).join('');
+  const spiritualTasksHTML = TASKS_CATALOG.filter(t => t.group === 'spiritual').map(renderTaskRow).join('');
   const extraTasksHTML = TASKS_CATALOG.filter(t => t.group === 'extra').map(renderTaskRow).join('');
+  const zenAiTasksHTML = TASKS_CATALOG.filter(t => t.group === 'zen-ai').map(renderTaskRow).join('');
 
   // Khối thông báo trạng thái & Log trực tiếp khi đang làm nhiệm vụ
   const bannerBorderColor = isStopping ? '#e06c75' : 'var(--gold)';
@@ -1708,6 +2001,209 @@ function renderDashboardHTML() {
         padding: 8px;
       }
     }
+
+    /* Hồ sơ tu tập 4 Tab */
+    .profile-tab-bar {
+      display: flex;
+      background: rgba(0,0,0,0.3);
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 16px;
+      gap: 4px;
+      overflow-x: auto;
+      border: 1px solid var(--card-border);
+    }
+    .profile-tab-btn {
+      flex: 1;
+      min-width: 120px;
+      text-align: center;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .profile-tab-btn:hover {
+      color: var(--gold);
+      background: rgba(233, 194, 122, 0.08);
+    }
+    .profile-tab-btn.active {
+      background: var(--gold);
+      color: #1c150e;
+      box-shadow: 0 2px 8px rgba(233, 194, 122, 0.3);
+    }
+    .profile-tab-pane {
+      display: none;
+      animation: fadeIn 0.25s ease;
+    }
+    .profile-tab-pane.active {
+      display: block;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Bong bóng tâm niệm / Status Quote */
+    .quote-bubble {
+      background: rgba(233, 194, 122, 0.1);
+      border: 1px dashed rgba(233, 194, 122, 0.35);
+      border-radius: 12px;
+      padding: 10px 16px;
+      margin-bottom: 16px;
+      text-align: center;
+      font-size: 13px;
+      color: #ffd98d;
+      font-style: italic;
+    }
+
+    /* Thanh tiến độ công đức */
+    .progress-bar-container {
+      background: rgba(0,0,0,0.35);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      height: 18px;
+      overflow: hidden;
+      margin: 8px 0 16px 0;
+      position: relative;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #b8934d, #e9c27a, #ffd98d);
+      border-radius: 10px;
+      transition: width 0.4s ease;
+    }
+    .progress-bar-label {
+      position: absolute;
+      width: 100%;
+      text-align: center;
+      top: 0;
+      left: 0;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 18px;
+      color: #1c150e;
+      text-shadow: 0 0 2px rgba(255,255,255,0.6);
+    }
+
+    /* Lưới các ô trang bị (Gear Slots) */
+    .gear-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .gear-card {
+      background: rgba(0,0,0,0.22);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 10px;
+      text-align: center;
+      transition: border-color 0.2s;
+    }
+    .gear-card:hover {
+      border-color: rgba(233, 194, 122, 0.4);
+    }
+    .gear-card .gear-icon {
+      font-size: 24px;
+      margin-bottom: 4px;
+    }
+    .gear-card .gear-type {
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .gear-card .gear-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--gold);
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Danh sách pháp khí 12 món */
+    .phapkhi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .phapkhi-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--card-border);
+    }
+    .phapkhi-unlocked {
+      background: rgba(233, 194, 122, 0.08);
+      border-color: rgba(233, 194, 122, 0.3);
+    }
+    .phapkhi-locked {
+      background: rgba(0,0,0,0.18);
+      opacity: 0.65;
+    }
+    .phapkhi-equipped {
+      border-color: var(--gold) !important;
+      box-shadow: 0 0 10px rgba(233, 194, 122, 0.2);
+    }
+    .phapkhi-icon {
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+    .phapkhi-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .phapkhi-info b {
+      font-size: 13px;
+      color: var(--text);
+      display: block;
+    }
+    .phapkhi-info small {
+      font-size: 11px;
+      line-height: 1.3;
+      display: block;
+    }
+
+    /* Bản đồ 3D */
+    .map-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .map-card {
+      background: rgba(0,0,0,0.22);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .map-card b {
+      color: var(--gold);
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .map-card p {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin: 6px 0 10px 0;
+      line-height: 1.4;
+    }
   </style>
 </head>
 <body>
@@ -1726,8 +2222,11 @@ function renderDashboardHTML() {
         <button id="runBtn" class="btn" onclick="triggerRun()" ${isRunning || isStopping ? 'disabled' : ''}>
           ${isStopping ? '🛑 Đang dừng an toàn…' : (isRunning ? '⏳ Đang thực thi…' : '⚡ Chạy Toàn Bộ Chu Trình')}
         </button>
+        <button class="btn" onclick="runTask('khoe')" style="background:rgba(233,194,122,0.15); color:var(--gold); border:1px solid var(--card-border);" ${isRunning || isStopping ? 'disabled' : ''}>
+          📢 Khoe (+10đ)
+        </button>
         <button id="refreshBtn" class="btn" onclick="manualRefresh()" style="background:#2b221a; color:var(--gold); border:1px solid var(--card-border);" ${isRunning || isStopping ? 'disabled' : ''}>
-          🔄 Làm Mới Dữ Liệu
+          🔄 Làm Mới
         </button>
         ${isRunning ? `
           <button id="stopHeaderBtn" class="btn" onclick="stopTask()" style="background:#e06c75; color:#fff;" ${isStopping ? 'disabled' : ''}>
@@ -1751,11 +2250,247 @@ function renderDashboardHTML() {
     <!-- TRẠNG THÁI & KHỐI LIVE TASK LOGS KHI ĐANG CHẠY -->
     ${runningBannerHTML}
 
-    <!-- BẢNG ĐIỀU KHIỂN TỪNG NHIỆM VỤ & DANH SÁCH TOÀN BỘ -->
+    <!-- HỒ SƠ TU TẬP & BỘ SƯU TẬP NHÂN VẬT (4 TAB CHUẨN GIAO DIỆN CHÙA) -->
+    <div class="card" id="card_profile_tabs" style="margin-bottom: 20px;">
+      <div class="card-header-toggle" onclick="toggleSection('card_profile_tabs')">
+        <h2>
+          <span>🪷 Hồ Sơ Tu Tập & Bộ Sưu Tập (4 Tab)</span>
+          <small style="font-size:12px; color:var(--text-dim); font-weight:normal;">Của tôi · Bộ sưu tập · Danh hiệu · Bản đồ & Tài khoản</small>
+        </h2>
+        <span class="chevron-icon">▼</span>
+      </div>
+      <div class="collapsible-content">
+        <!-- 4 Tab Buttons -->
+        <div class="profile-tab-bar">
+          <button type="button" class="profile-tab-btn active" onclick="switchProfileTab('tab_my')">🧘 1. Của tôi</button>
+          <button type="button" class="profile-tab-btn" onclick="switchProfileTab('tab_collection')">🥼 2. Bộ sưu tập</button>
+          <button type="button" class="profile-tab-btn" onclick="switchProfileTab('tab_titles')">🏅 3. Danh hiệu</button>
+          <button type="button" class="profile-tab-btn" onclick="switchProfileTab('tab_account_map')">🗺️ 4. Bản đồ & Tài khoản</button>
+        </div>
+
+        <!-- TAB 1: CỦA TÔI -->
+        <div class="profile-tab-pane active" id="tab_my">
+          <div class="quote-bubble">
+            “${escapeHTML(clientConfigBio)}”
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
+            <div>
+              <b style="font-size:16px; color:var(--gold);">${escapeHTML(displayName)}</b>
+              <span style="font-size:12px; color:var(--text-dim); margin-left:6px;">(@${escapeHTML(rawUser || 'thichkngan')})</span>
+              <div style="font-size:12px; color:var(--text-dim); margin-top:2px;">
+                Cấp bậc: <b style="color:var(--text);">${reportValue(me.level || j.level)} (Lv.${reportValue(me.lv ?? j.lv)})</b> · Danh hiệu: <b style="color:var(--gold);">${escapeHTML(activeTitleName)}</b>
+              </div>
+            </div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <button type="button" class="btn-task btn-run" onclick="runTask('ngoi-daily')" ${isRunning || isStopping ? 'disabled' : ''}>🧘 Ngồi thiền</button>
+              <button type="button" class="btn-task btn-run" onclick="runTask('greet')" ${isRunning || isStopping ? 'disabled' : ''}>🙏 Chắp tay</button>
+              <button type="button" class="btn-task btn-run" onclick="runTask('khoe')" ${isRunning || isStopping ? 'disabled' : ''}>📢 Khoe (+10đ)</button>
+              <button type="button" class="btn-task btn-run" onclick="runTask('am')" ${isRunning || isStopping ? 'disabled' : ''}>🛖 Vào Am</button>
+              <button type="button" class="btn-task btn-run" onclick="runTask('phapduong')" ${isRunning || isStopping ? 'disabled' : ''}>🏛️ Pháp đường</button>
+            </div>
+          </div>
+
+          <!-- 6 Ô Trang bị quanh nhân vật -->
+          <div class="gear-grid">
+            <div class="gear-card">
+              <div class="gear-icon">👘</div>
+              <div class="gear-type">Áo tràng</div>
+              <div class="gear-name">${escapeHTML(robeName)}</div>
+            </div>
+            <div class="gear-card">
+              <div class="gear-icon">📿</div>
+              <div class="gear-type">Tràng hạt</div>
+              <div class="gear-name">${escapeHTML(beadsName)}</div>
+            </div>
+            <div class="gear-card">
+              <div class="gear-icon">🪷</div>
+              <div class="gear-type">Bồ đoàn</div>
+              <div class="gear-name">${escapeHTML(cushionName)}</div>
+            </div>
+            <div class="gear-card">
+              <div class="gear-icon">⚔️</div>
+              <div class="gear-type">Pháp khí</div>
+              <div class="gear-name">${escapeHTML(phapkhiName)}</div>
+            </div>
+            <div class="gear-card">
+              <div class="gear-icon">🐾</div>
+              <div class="gear-type">Linh thú</div>
+              <div class="gear-name">${escapeHTML(petName)}</div>
+            </div>
+            <div class="gear-card">
+              <div class="gear-icon">🏅</div>
+              <div class="gear-type">Danh hiệu</div>
+              <div class="gear-name">${escapeHTML(activeTitleName)}</div>
+            </div>
+          </div>
+
+          <!-- Thanh tiến độ công đức -->
+          <div style="margin-top:14px;">
+            <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
+              <span><b>${reportValue(currentTotal)}</b> / ${reportValue(nextTarget)} công đức đến cấp tiếp theo</span>
+              <span style="color:var(--gold);">${nextLevelPoints !== null ? `Còn ${reportValue(nextLevelPoints)} điểm` : ''}</span>
+            </div>
+            <div class="progress-bar-container">
+              <div class="progress-bar-fill" style="width: ${meritProgressPercent}%;"></div>
+              <div class="progress-bar-label">${meritProgressPercent}%</div>
+            </div>
+          </div>
+
+          <!-- 4 Thông số tu tập chính chuẩn Modal game -->
+          <div class="stat-row" style="margin-top:12px;">
+            <div class="stat-box">
+              <b>${reportValue(j.bows)}</b>
+              <span>Lạy Phật (Mốc 1.000 lạy 🏆)</span>
+            </div>
+            <div class="stat-box">
+              <b>${reportValue(j.rounds)} chuỗi</b>
+              <span>Tràng hạt (${reportValue(j.beads)} hạt niệm 🏆)</span>
+            </div>
+          </div>
+          <div class="stat-row">
+            <div class="stat-box">
+              <b>${reportValue(j.sitMin)} phút</b>
+              <span>Ngồi tĩnh tâm (Tĩnh tọa 🏆)</span>
+            </div>
+            <div class="stat-box">
+              <b>${reportValue(j.streak ?? me.days)} ngày</b>
+              <span>Ngày liên tiếp (Kỷ lục ${reportValue(j.best ?? 3)})</span>
+            </div>
+          </div>
+
+          <!-- 10 Nhiệm Vụ Tuần (Weekly Quests) -->
+          <div style="margin-top:16px; border-top:1px solid var(--card-border); padding-top:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+              <b style="font-size:13px; color:var(--gold);">📅 Nhiệm Vụ Tuần (10 Mục Tiêu Tu Tập)</b>
+              <span style="font-size:11px; color:var(--text-dim);">Được làm mới hàng tuần</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:8px;">
+              ${weeklyQuestsHTML}
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: BỘ SƯU TẬP -->
+        <div class="profile-tab-pane" id="tab_collection">
+          <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px;">
+            Kho tàng pháp bảo, áo tràng, tràng hạt và 12 pháp khí tu tập chùa An Tự Duyên. Bạn đã mở khóa <b>${unlockedPhapkhiSet.size}/12</b> pháp khí cao quý!
+          </p>
+
+          <h3 style="font-size:13px; color:var(--gold); margin-bottom:10px;">⚔️ 12 Pháp Khí Chùa (Đã mở ${unlockedPhapkhiSet.size}/12)</h3>
+          <div class="phapkhi-grid">
+            ${phapkhiListHTML}
+          </div>
+
+          <!-- Form Thay Đổi Diện Mạo & Trang Bị -->
+          <div style="background:rgba(0,0,0,0.25); border:1px solid var(--card-border); padding:14px; border-radius:12px; margin-top:16px;">
+            <h3 style="color:var(--gold); font-size:14px; margin-bottom:10px;">🛠️ Thay Đổi Diện Mạo & Trang Bị Nhân Vật</h3>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px; margin-bottom:12px;">
+              <div>
+                <label style="font-size:11px; color:var(--text-dim); display:block; margin-bottom:4px;">Áo tràng:</label>
+                <select id="equip_robe" style="width:100%; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:7px 8px; border-radius:6px; font-size:12px;">
+                  ${Object.entries(ROBES_CATALOG).map(([k, v]) => `<option value="${k}" ${k === robeKey ? 'selected' : ''}>${escapeHTML(v.name)}</option>`).join('')}
+                </select>
+              </div>
+              <div>
+                <label style="font-size:11px; color:var(--text-dim); display:block; margin-bottom:4px;">Tràng hạt:</label>
+                <select id="equip_beads" style="width:100%; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:7px 8px; border-radius:6px; font-size:12px;">
+                  ${Object.entries(BEADS_CATALOG).map(([k, v]) => `<option value="${k}" ${k === beadsKey ? 'selected' : ''}>${escapeHTML(v.name)} ${v.special ? `(${v.special})` : ''}</option>`).join('')}
+                </select>
+              </div>
+              <div>
+                <label style="font-size:11px; color:var(--text-dim); display:block; margin-bottom:4px;">Bồ đoàn:</label>
+                <select id="equip_cushion" style="width:100%; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:7px 8px; border-radius:6px; font-size:12px;">
+                  ${Object.entries(CUSHIONS_CATALOG).map(([k, v]) => `<option value="${k}" ${k === cushionKey ? 'selected' : ''}>${escapeHTML(v.name)} ${v.special ? `(${v.special})` : ''}</option>`).join('')}
+                </select>
+              </div>
+              <div>
+                <label style="font-size:11px; color:var(--text-dim); display:block; margin-bottom:4px;">Pháp khí cầm tay:</label>
+                <select id="equip_phapkhi" style="width:100%; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:7px 8px; border-radius:6px; font-size:12px;">
+                  <option value="">-- Cất pháp khí --</option>
+                  ${Object.entries(PHAPKHI_CATALOG).map(([k, v]) => `<option value="${k}" ${k === phapkhiKey ? 'selected' : ''}>${escapeHTML(v.name)} (${escapeHTML(v.rank)})</option>`).join('')}
+                </select>
+              </div>
+            </div>
+            <div style="margin-bottom:12px;">
+              <label style="font-size:11px; color:var(--text-dim); display:block; margin-bottom:4px;">Tâm niệm / Bio hiển thị:</label>
+              <input type="text" id="equip_bio" value="${escapeHTML(clientConfigBio)}" style="width:100%; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:7px 10px; border-radius:6px; font-size:12px;" placeholder="Nhập tâm niệm của bạn...">
+            </div>
+            <button type="button" class="btn" onclick="runEquip()" style="font-size:13px; padding:8px 16px;" ${isRunning || isStopping ? 'disabled' : ''}>
+              ⚡ Áp Dụng Trang Bị & Diện Mạo
+            </button>
+          </div>
+        </div>
+
+        <!-- TAB 3: DANH HIỆU -->
+        <div class="profile-tab-pane" id="tab_titles">
+          <div style="background:rgba(233,194,122,0.1); border:1px solid rgba(233,194,122,0.3); padding:12px 16px; border-radius:10px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <div>
+              <span style="font-size:12px; color:var(--text-dim);">Danh hiệu đang đeo trên người:</span>
+              <div style="font-size:15px; font-weight:700; color:var(--gold); margin-top:2px;">
+                🏆 ${escapeHTML(activeTitleName)}
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <select id="title_select" style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:7px 10px; border-radius:8px; font-size:12px; min-width:180px;" ${isRunning || isStopping ? 'disabled' : ''}>
+                ${(j.titles || []).filter(t => t.got).map(t => `<option value="${escapeHTML(t.id)}" ${t.id === activeTitleId ? 'selected' : ''}>${escapeHTML(t.name)}</option>`).join('')}
+              </select>
+              <button type="button" class="btn" onclick="runTitle()" style="font-size:12px; padding:7px 14px;" ${isRunning || isStopping ? 'disabled' : ''}>
+                🏅 Đổi
+              </button>
+            </div>
+          </div>
+
+          <h3 style="font-size:13px; color:var(--gold); margin-bottom:10px;">🏆 10 Danh Hiệu Đã Mở Khóa</h3>
+          <div class="title-grid" style="margin-bottom:16px;">
+            ${unlockedTitlesHTML}
+          </div>
+
+          <h3 style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">🔒 Danh Hiệu Đang Tu Luyện (Chờ Mở Khóa)</h3>
+          <div class="title-grid">
+            ${lockedTitlesHTML}
+          </div>
+        </div>
+
+        <!-- TAB 4: BẢN ĐỒ CHÙA & TÀI KHOẢN -->
+        <div class="profile-tab-pane" id="tab_account_map">
+          <!-- Dịch chuyển nhanh -->
+          <div style="background:rgba(0,0,0,0.25); border:1px solid var(--card-border); padding:14px; border-radius:12px; margin-bottom:16px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <span style="font-size:13px; color:var(--gold); font-weight:600;">🚀 Dịch chuyển nhanh đến địa điểm:</span>
+            <select id="teleport_select" style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:7px 10px; border-radius:8px; font-size:12px; min-width:220px;" ${isRunning || isStopping ? 'disabled' : ''}>
+              ${TEMPLE_MAP.places.map(p => `<option value="${escapeHTML(p.id)}">${escapeHTML(p.name)} (${escapeHTML(p.zone)})</option>`).join('')}
+            </select>
+            <button type="button" class="btn" onclick="runTeleport()" style="font-size:12px; padding:7px 14px;" ${isRunning || isStopping ? 'disabled' : ''}>
+              🚀 Dịch Chuyển Đến (Goto)
+            </button>
+          </div>
+
+          <h3 style="font-size:13px; color:var(--gold); margin-bottom:10px;">🗺️ 17 Thắng Cảnh Bản Đồ Chùa An Tự Duyên</h3>
+          <div class="map-grid">
+            ${mapPlacesHTML}
+          </div>
+
+          <!-- Thông tin tài khoản & Kết nối -->
+          <div style="background:rgba(0,0,0,0.25); border:1px solid var(--card-border); padding:14px; border-radius:12px; margin-top:16px;">
+            <h3 style="color:var(--gold); font-size:13px; margin-bottom:8px;">🔐 Thông Tin Tài Khoản & Kết Nối Máy Chủ</h3>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; font-size:12px;">
+              <div>Tài khoản: <b style="color:var(--gold);">@${escapeHTML(rawUser || 'thichkngan')}</b></div>
+              <div>Pháp danh: <b>${escapeHTML(displayName)}</b></div>
+              <div>Phòng hiện tại: <b>chua-1</b></div>
+              <div>Máy chủ WebSocket: <b>wss://didenchua.com:443/ws</b></div>
+              <div>Render Health Check: <b>/health (alias: /heath, /ping)</b></div>
+              <div>Cơ chế tự động: <b>00:05 sáng (UTC+7) & Keep-Alive 3p</b></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BẢNG ĐIỀU KHIỂN TỪNG NHIỆM VỤ & DANH SÁCH TOÀN BỘ (5 TẦNG KHOA HỌC) -->
     <div class="card" id="card_tasks" style="margin-bottom: 20px;">
       <div class="card-header-toggle" onclick="toggleSection('card_tasks')">
         <h2>
-          <span>🎯 Bảng Điều Khiển Nhiệm Vụ & Tác Vụ Riêng Lẻ</span>
+          <span>🎯 Bảng Điều Khiển Nhiệm Vụ & Tác Vụ Riêng Lẻ (5 Tầng)</span>
           <small style="font-size:12px; color:var(--text-dim); font-weight:normal;">Chạy ngẫu hứng · Kèm nút Dừng & Live Log</small>
         </h2>
         <span class="chevron-icon">▼</span>
@@ -1766,9 +2501,10 @@ function renderDashboardHTML() {
         </p>
 
         <div style="display:flex; flex-direction:column; gap: 12px;">
+          <!-- TẦNG 1 -->
           <div class="tier-box" id="tier_1">
             <div class="tier-header" onclick="toggleSection('tier_1')">
-              <div class="tier-title"><span>📋</span> TẦNG 1: NHIỆM VỤ HÀNG NGÀY (QUEST HÔM NAY)</div>
+              <div class="tier-title"><span>📋</span> TẦNG 1: NHIỆM VỤ HÀNG NGÀY (QUEST HÔM NAY - 13 TÁC VỤ)</div>
               <div class="tier-meta">
                 <span class="chevron-icon">▼</span>
               </div>
@@ -1778,9 +2514,10 @@ function renderDashboardHTML() {
             </div>
           </div>
 
+          <!-- TẦNG 2 -->
           <div class="tier-box" id="tier_2">
             <div class="tier-header" onclick="toggleSection('tier_2')">
-              <div class="tier-title"><span>🎯</span> TẦNG 2: MỐC TU TẬP & THÀNH TỰU VĨNH VIỄN</div>
+              <div class="tier-title"><span>🎯</span> TẦNG 2: MỐC TU TẬP & THÀNH TỰU VĨNH VIỄN (6 TÁC VỤ)</div>
               <div class="tier-meta">
                 <span class="chevron-icon">▼</span>
               </div>
@@ -1790,15 +2527,42 @@ function renderDashboardHTML() {
             </div>
           </div>
 
+          <!-- TẦNG 3 -->
           <div class="tier-box" id="tier_3">
             <div class="tier-header" onclick="toggleSection('tier_3')">
-              <div class="tier-title"><span>✨</span> TẦNG 3 & 4: ĂN THÊM ĐIỂM, VƯỜN SEN & TĨNH TÂM</div>
+              <div class="tier-title"><span>🛖</span> TẦNG 3: KHÔNG GIAN TÂM LINH (AM RIÊNG & PHÁP ĐƯỜNG - 4 TÁC VỤ)</div>
+              <div class="tier-meta">
+                <span class="chevron-icon">▼</span>
+              </div>
+            </div>
+            <div class="tier-body">
+              ${spiritualTasksHTML}
+            </div>
+          </div>
+
+          <!-- TẦNG 4 -->
+          <div class="tier-box" id="tier_4">
+            <div class="tier-header" onclick="toggleSection('tier_4')">
+              <div class="tier-title"><span>🪷</span> TẦNG 4: VƯỜN SEN & TÙY HỶ CÔNG ĐỨC (4 TÁC VỤ)</div>
               <div class="tier-meta">
                 <span class="chevron-icon">▼</span>
               </div>
             </div>
             <div class="tier-body">
               ${extraTasksHTML}
+            </div>
+          </div>
+
+          <!-- TẦNG 5 -->
+          <div class="tier-box" id="tier_5">
+            <div class="tier-header" onclick="toggleSection('tier_5')">
+              <div class="tier-title"><span>🧘</span> TẦNG 5: TĨNH TÂM THIỀN ĐỊNH & TRÍ TUỆ AI (2 TÁC VỤ)</div>
+              <div class="tier-meta">
+                <span class="chevron-icon">▼</span>
+              </div>
+            </div>
+            <div class="tier-body">
+              ${zenAiTasksHTML}
             </div>
           </div>
         </div>
@@ -1961,6 +2725,9 @@ function renderDashboardHTML() {
       } else if (taskId === 'chu' || taskId === 'secrets') {
         const wishSel = document.getElementById('wish_' + taskId);
         if (wishSel && wishSel.value) payload.wish = wishSel.value;
+      } else if (taskId === 'teleport') {
+        const placeSel = document.getElementById('place_' + taskId);
+        if (placeSel && placeSel.value) payload.placeId = placeSel.value;
       } else {
         const countInp = document.getElementById('count_' + taskId);
         if (countInp && countInp.value !== '') {
@@ -2174,6 +2941,50 @@ function renderDashboardHTML() {
       });
     }
 
+    function switchProfileTab(tabId) {
+      document.querySelectorAll('.profile-tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.profile-tab-pane').forEach(pane => pane.classList.remove('active'));
+
+      const activeBtn = Array.from(document.querySelectorAll('.profile-tab-btn')).find(b => b.getAttribute('onclick')?.includes(tabId));
+      if (activeBtn) activeBtn.classList.add('active');
+
+      const activePane = document.getElementById(tabId);
+      if (activePane) activePane.classList.add('active');
+
+      try {
+        localStorage.setItem('ddc_active_profile_tab', tabId);
+      } catch (e) {}
+    }
+
+    function restoreProfileTab() {
+      try {
+        const savedTab = localStorage.getItem('ddc_active_profile_tab');
+        if (savedTab && document.getElementById(savedTab)) {
+          switchProfileTab(savedTab);
+        }
+      } catch (e) {}
+    }
+
+    async function runEquip() {
+      const robe = document.getElementById('equip_robe')?.value;
+      const beads = document.getElementById('equip_beads')?.value;
+      const cushion = document.getElementById('equip_cushion')?.value;
+      const phapkhi = document.getElementById('equip_phapkhi')?.value;
+      const bio = document.getElementById('equip_bio')?.value;
+      await runTask('equip', { robe, beads, cushion, phapkhi, bio });
+    }
+
+    async function runTitle() {
+      const titleId = document.getElementById('title_select')?.value;
+      if (!titleId) return alert('Vui lòng chọn một danh hiệu.');
+      await runTask('title', { titleId });
+    }
+
+    async function runTeleport(pId) {
+      const placeId = pId || document.getElementById('teleport_select')?.value || 'san-chua';
+      await runTask('teleport', { placeId });
+    }
+
     function restoreCollapseStates() {
       document.querySelectorAll('.card, .tier-box').forEach(el => {
         if (!el.id) return;
@@ -2189,6 +3000,7 @@ function renderDashboardHTML() {
     }
 
     restoreCollapseStates();
+    restoreProfileTab();
   </script>
 </body>
 </html>`;
@@ -2411,6 +3223,22 @@ const server = http.createServer(async (req, res) => {
         runOptions.wish = wishStr;
       }
     }
+
+    // Các tham số cho danh hiệu, bản đồ, trang bị và thời lượng
+    if (bodyData.titleId || url.searchParams.get('titleId') || bodyData.title) {
+      runOptions.titleId = String(bodyData.titleId || url.searchParams.get('titleId') || bodyData.title).trim();
+    }
+    if (bodyData.placeId || url.searchParams.get('placeId')) {
+      runOptions.placeId = String(bodyData.placeId || url.searchParams.get('placeId')).trim();
+    }
+    if (bodyData.durationMin || url.searchParams.get('durationMin')) {
+      runOptions.durationMin = Number(bodyData.durationMin || url.searchParams.get('durationMin'));
+    }
+    if (bodyData.robe) runOptions.robe = String(bodyData.robe).trim();
+    if (bodyData.beads) runOptions.beads = String(bodyData.beads).trim();
+    if (bodyData.cushion) runOptions.cushion = String(bodyData.cushion).trim();
+    if (bodyData.phapkhi !== undefined) runOptions.phapkhi = bodyData.phapkhi ? String(bodyData.phapkhi).trim() : null;
+    if (bodyData.bio) runOptions.bio = String(bodyData.bio).trim();
 
     // Nếu đang chạy dở hoặc đang dừng an toàn, trả về HTTP 409 Conflict
     if (state.isRunning || state.isStopping) {

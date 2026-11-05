@@ -39,3 +39,4 @@ if (process.argv[1]?.endsWith('phapduong.js')) {
   const mins = process.argv[2] ? parseFloat(process.argv[2]) : 1;
   runPhapDuong(mins).then(() => process.exit(0));
 }
+
