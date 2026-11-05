@@ -101,10 +101,18 @@ export const TASKS_CATALOG = [
     group: 'daily',
     questId: 'huong',
     title: 'Dâng Hương Chánh Điện',
-    desc: 'Thắp nén tâm hương thành kính tại lư hương chánh điện',
+    desc: 'Thắp nén tâm hương thành kính tại lư hương chánh điện (nhập số nén)',
     icon: '🪔',
     reward: '+10 điểm',
-    badge: 'Nhiệm vụ ngày'
+    badge: 'Nhiệm vụ ngày',
+    hasCount: true,
+    defaultCount: 1,
+    countOptions: [
+      { value: 1, label: '1 nén' },
+      { value: 3, label: '3 nén' },
+      { value: 5, label: '5 nén' },
+      { value: 10, label: '10 nén' }
+    ]
   },
   {
     id: 'lay-daily',
@@ -161,10 +169,17 @@ export const TASKS_CATALOG = [
     group: 'daily',
     questId: 'den',
     title: 'Thả Hoa Đăng Sen',
-    desc: 'Thả một ngọn hoa đăng sen cầu nguyện trôi trên hồ chùa',
+    desc: 'Thả hoa đăng sen cầu nguyện trôi trên hồ chùa (nhập số ngọn)',
     icon: '🏮',
     reward: '+10 điểm',
-    badge: 'Nhiệm vụ ngày'
+    badge: 'Nhiệm vụ ngày',
+    hasCount: true,
+    defaultCount: 1,
+    countOptions: [
+      { value: 1, label: '1 ngọn' },
+      { value: 3, label: '3 ngọn' },
+      { value: 5, label: '5 ngọn' }
+    ]
   },
   {
     id: 'chores-daily',
@@ -202,7 +217,7 @@ export const TASKS_CATALOG = [
     id: 'lay',
     group: 'milestone',
     title: 'Lạy Phật Sám Hối',
-    desc: 'Trang nghiêm cúi lạy Phật sám hối (chọn số lượng: 18, 36, 108, 300, 1000 lạy)',
+    desc: 'Trang nghiêm cúi lạy Phật sám hối (nhập số lạy tùy ý hoặc chọn gợi ý)',
     icon: '🙇',
     reward: 'Mốc lạy',
     badge: 'Thành tựu',
@@ -210,6 +225,7 @@ export const TASKS_CATALOG = [
     defaultCount: 18,
     countOptions: [
       { value: 18, label: '18 lạy (Khởi tâm)' },
+      { value: 27, label: '27 lạy (Quest ngày)' },
       { value: 36, label: '36 lạy (Tinh tấn)' },
       { value: 108, label: '108 lạy (Trăm lạy 🏆)' },
       { value: 300, label: '300 lạy' },
@@ -220,7 +236,7 @@ export const TASKS_CATALOG = [
     id: 'beads',
     group: 'milestone',
     title: 'Lăn Tràng Hạt Niệm Phật',
-    desc: 'Lăn tràng hạt niệm Phật (chọn số hạt: 20, 54, 108, 216, 540, 1080 hạt)',
+    desc: 'Lăn tràng hạt niệm Phật (nhập số hạt tùy ý hoặc chọn gợi ý)',
     icon: '📿',
     reward: 'Niệm Phật',
     badge: 'Chuỗi hạt',
@@ -239,7 +255,7 @@ export const TASKS_CATALOG = [
     id: 'farm-bows-beads',
     group: 'milestone',
     title: 'Cày Tự Động: Chuỗi Hạt & Lạy Phật',
-    desc: 'Chạy tự động kết hợp cả Lạy Phật và Lăn Tràng Hạt (set số lượng tùy ý)',
+    desc: 'Chạy tự động kết hợp cả Lạy Phật và Lăn Tràng Hạt (nhập số lượng tùy ý)',
     icon: '📿',
     reward: 'Thành tựu',
     badge: 'Cày tự động',
@@ -249,7 +265,7 @@ export const TASKS_CATALOG = [
     id: 'mo',
     group: 'milestone',
     title: 'Gõ Mõ Tụng Kinh',
-    desc: 'Gõ mõ theo nhịp thong thả tự nhiên',
+    desc: 'Gõ mõ theo nhịp thong thả tự nhiên (nhập số tiếng tùy ý)',
     icon: '🪵',
     reward: 'Tụng kinh',
     badge: 'Tu tập',
@@ -258,14 +274,15 @@ export const TASKS_CATALOG = [
     countOptions: [
       { value: 15, label: '15 tiếng' },
       { value: 30, label: '30 tiếng' },
-      { value: 60, label: '60 tiếng' }
+      { value: 60, label: '60 tiếng' },
+      { value: 108, label: '108 tiếng (Khóa lễ)' }
     ]
   },
   {
     id: 'quet',
     group: 'milestone',
     title: 'Quét Lá Sân Chùa (Cày Sân)',
-    desc: 'Công quả quét dọn lá rụng nhiều lượt giữ gìn khuôn viên thanh tịnh',
+    desc: 'Công quả quét dọn lá rụng nhiều lượt giữ gìn khuôn viên thanh tịnh (nhập số lần)',
     icon: '🧹',
     reward: 'Công quả',
     badge: 'Công quả',
@@ -274,7 +291,8 @@ export const TASKS_CATALOG = [
     countOptions: [
       { value: 1, label: '1 lần' },
       { value: 5, label: '5 lần' },
-      { value: 10, label: '10 lần' }
+      { value: 10, label: '10 lần' },
+      { value: 20, label: '20 lần' }
     ]
   },
   {
@@ -301,10 +319,17 @@ export const TASKS_CATALOG = [
     id: 'tuyhy',
     group: 'extra',
     title: 'Tùy Hỷ Hoa Đăng Hồ Sen',
-    desc: 'Tùy hỷ công đức những ngọn hoa đăng lung linh trên hồ sen',
+    desc: 'Tùy hỷ công đức những ngọn hoa đăng lung linh trên hồ sen (nhập số ngọn)',
     icon: '🏮',
     reward: '+Tùy hỷ',
-    badge: 'Ăn thêm điểm'
+    badge: 'Ăn thêm điểm',
+    hasCount: true,
+    defaultCount: 5,
+    countOptions: [
+      { value: 3, label: '3 ngọn' },
+      { value: 5, label: '5 ngọn' },
+      { value: 10, label: '10 ngọn' }
+    ]
   },
   {
     id: 'qa-incense',
@@ -328,7 +353,7 @@ export const TASKS_CATALOG = [
     id: 'meditate',
     group: 'extra',
     title: 'Ngồi Thiền Tĩnh Tâm',
-    desc: 'Đến Vườn thiền tọa thiền tĩnh tâm tại chỗ đất (tùy chọn 5p / 30p / 60p)',
+    desc: 'Đến Vườn thiền tọa thiền tĩnh tâm tại chỗ đất (nhập số phút 1-120 phút)',
     icon: '🧘',
     reward: 'Tĩnh tọa',
     badge: 'Treo máy',
@@ -540,7 +565,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           await client.doGreet();
           break;
         case 'lantern-daily':
-          await client.doLantern(runOptions.text || 'Cầu cho muôn người bình an, vạn sự hanh thông', 'vang', 1);
+          await client.doLantern(runOptions.text || 'Cầu cho muôn người bình an, vạn sự hanh thông', 'vang', runOptions.count || 1);
           break;
         case 'chores-daily':
           await client.doQuetLa(1);
@@ -588,7 +613,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           await client.doGarden({ autoWaterOthers: true });
           break;
         case 'tuyhy':
-          await client.doTuyHy(5);
+          await client.doTuyHy(runOptions.count || 5);
           break;
         case 'qa-incense':
           await client.doQaIncense();
@@ -1045,46 +1070,82 @@ function renderDashboardHTML() {
     let inputControl = '';
     if (t.isCombo) {
       inputControl = `
-        <div style="display:flex; flex-direction:column; gap:4px; margin-right:4px;">
-          <div style="display:flex; align-items:center; gap:6px;">
-            <span style="font-size:11px; color:var(--gold); width:28px;">Lạy:</span>
-            <select id="combo_bows" style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:4px 6px; border-radius:6px; font-size:12px; cursor:pointer;" ${isAnyRunning ? 'disabled' : ''}>
-              <option value="18" selected>18 lạy</option>
+        <div style="display:flex; flex-direction:column; gap:5px; margin-right:4px;">
+          <div style="display:flex; align-items:center; gap:5px;">
+            <span style="font-size:11px; color:var(--gold); min-width:28px;">Lạy:</span>
+            <input type="number" id="combo_bows" value="18" min="0" max="2000"
+              style="width:58px; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:4px 6px; border-radius:6px; font-size:12px; text-align:center; font-weight:600;"
+              placeholder="Số lạy"
+              title="Nhập số lạy tùy ý"
+              ${isAnyRunning ? 'disabled' : ''}>
+            <select onchange="if(this.value){ document.getElementById('combo_bows').value = this.value; }"
+              style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:4px 4px; border-radius:6px; font-size:11px; cursor:pointer;"
+              ${isAnyRunning ? 'disabled' : ''}>
+              <option value="" disabled selected>Gợi ý ▼</option>
+              <option value="18">18 lạy</option>
+              <option value="27">27 lạy</option>
               <option value="36">36 lạy</option>
-              <option value="108">108 lạy (Trăm lạy 🏆)</option>
+              <option value="108">108 lạy 🏆</option>
               <option value="300">300 lạy</option>
-              <option value="1000">1.000 lạy (Ngàn lạy 🏆)</option>
+              <option value="1000">1.000 lạy</option>
             </select>
           </div>
-          <div style="display:flex; align-items:center; gap:6px;">
-            <span style="font-size:11px; color:var(--gold); width:28px;">Hạt:</span>
-            <select id="combo_beads" style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:4px 6px; border-radius:6px; font-size:12px; cursor:pointer;" ${isAnyRunning ? 'disabled' : ''}>
+          <div style="display:flex; align-items:center; gap:5px;">
+            <span style="font-size:11px; color:var(--gold); min-width:28px;">Hạt:</span>
+            <input type="number" id="combo_beads" value="108" min="0" max="10000"
+              style="width:58px; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:4px 6px; border-radius:6px; font-size:12px; text-align:center; font-weight:600;"
+              placeholder="Số hạt"
+              title="Nhập số hạt niệm tùy ý"
+              ${isAnyRunning ? 'disabled' : ''}>
+            <select onchange="if(this.value){ document.getElementById('combo_beads').value = this.value; }"
+              style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:4px 4px; border-radius:6px; font-size:11px; cursor:pointer;"
+              ${isAnyRunning ? 'disabled' : ''}>
+              <option value="" disabled selected>Gợi ý ▼</option>
+              <option value="20">20 hạt</option>
               <option value="54">54 hạt</option>
-              <option value="108" selected>108 hạt (1 chuỗi tròn 🏆)</option>
-              <option value="216">216 hạt (2 chuỗi)</option>
-              <option value="540">540 hạt (5 chuỗi)</option>
-              <option value="1080">1.080 hạt (10 chuỗi 🏆)</option>
+              <option value="108">108 hạt 🏆</option>
+              <option value="216">216 hạt</option>
+              <option value="540">540 hạt</option>
+              <option value="1080">1.080 hạt</option>
             </select>
           </div>
         </div>
       `;
     } else if (t.hasCount) {
       inputControl = `
-        <div style="display:flex; align-items:center; gap:4px; margin-right:4px;">
-          <select id="count_${escapeHTML(t.id)}" onchange="handleCountChange('${escapeHTML(t.id)}')" style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 8px; border-radius:6px; font-size:12px; cursor:pointer;" ${isAnyRunning ? 'disabled' : ''}>
-            ${(t.countOptions || []).map(opt => `<option value="${opt.value}" ${opt.value === t.defaultCount ? 'selected' : ''}>${escapeHTML(opt.label)}</option>`).join('')}
-            <option value="custom">Số khác…</option>
+        <div style="display:flex; align-items:center; gap:5px; margin-right:4px;">
+          <input type="number" id="count_${escapeHTML(t.id)}" value="${t.defaultCount || 1}" min="1" max="10000"
+            style="width:58px; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 6px; border-radius:6px; font-size:12px; text-align:center; font-weight:600;"
+            placeholder="Số lượng"
+            title="Nhập số lượng tùy ý"
+            ${isAnyRunning ? 'disabled' : ''}>
+          <select onchange="if(this.value){ document.getElementById('count_${escapeHTML(t.id)}').value = this.value; }"
+            style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 6px; border-radius:6px; font-size:12px; cursor:pointer; max-width:125px;"
+            ${isAnyRunning ? 'disabled' : ''}>
+            <option value="" disabled selected>Gợi ý ▼</option>
+            ${(t.countOptions || []).map(opt => `<option value="${opt.value}">${escapeHTML(opt.label)}</option>`).join('')}
           </select>
-          <input type="number" id="custom_${escapeHTML(t.id)}" min="1" max="1080" placeholder="Số" style="display:none; width:60px; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 6px; border-radius:6px; font-size:12px;" ${isAnyRunning ? 'disabled' : ''}>
         </div>
       `;
     } else if (t.hasDuration) {
       inputControl = `
-        <select id="duration_${escapeHTML(t.id)}" style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 8px; border-radius:6px; font-size:12px; cursor:pointer; margin-right:4px;" ${isAnyRunning ? 'disabled' : ''}>
-          <option value="300">5 phút</option>
-          <option value="1800">30 phút</option>
-          <option value="3600" selected>60 phút</option>
-        </select>
+        <div style="display:flex; align-items:center; gap:5px; margin-right:4px;">
+          <input type="number" id="duration_min_${escapeHTML(t.id)}" value="5" min="1" max="120"
+            style="width:50px; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 6px; border-radius:6px; font-size:12px; text-align:center; font-weight:600;"
+            placeholder="Phút"
+            title="Nhập số phút ngồi thiền"
+            ${isAnyRunning ? 'disabled' : ''}>
+          <span style="font-size:11px; color:var(--text-dim); margin-right:2px;">phút</span>
+          <select onchange="if(this.value){ document.getElementById('duration_min_${escapeHTML(t.id)}').value = this.value; }"
+            style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 6px; border-radius:6px; font-size:12px; cursor:pointer;"
+            ${isAnyRunning ? 'disabled' : ''}>
+            <option value="" disabled selected>Gợi ý ▼</option>
+            <option value="5">5 phút</option>
+            <option value="15">15 phút</option>
+            <option value="30">30 phút</option>
+            <option value="60">60 phút</option>
+          </select>
+        </div>
       `;
     }
 
@@ -1328,6 +1389,12 @@ function renderDashboardHTML() {
       gap: 6px;
       flex-shrink: 0;
     }
+    .task-actions input[type="number"]:focus,
+    .task-actions select:focus {
+      border-color: var(--gold) !important;
+      outline: none;
+      box-shadow: 0 0 6px rgba(233, 194, 122, 0.3);
+    }
 
     /* Giao diện đóng mở (Collapse & Expand) cho Mobile & Desktop */
     .card-header-toggle {
@@ -1560,6 +1627,8 @@ function renderDashboardHTML() {
         margin-top: 6px;
         border-top: 1px dashed rgba(255,255,255,0.08);
         padding-top: 8px;
+        flex-wrap: wrap;
+        gap: 8px;
       }
       .task-actions select, .task-actions input {
         font-size: 13px;
@@ -1809,40 +1878,29 @@ function renderDashboardHTML() {
   </div>
 
   <script>
-    function handleCountChange(taskId) {
-      const sel = document.getElementById('count_' + taskId);
-      const inp = document.getElementById('custom_' + taskId);
-      if (!sel || !inp) return;
-      if (sel.value === 'custom') {
-        inp.style.display = 'inline-block';
-        inp.focus();
-      } else {
-        inp.style.display = 'none';
-      }
-    }
-
     async function runTask(taskId, customOptions = {}) {
       const csrfMeta = document.querySelector('meta[name="csrf-token"]');
       const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
 
       const payload = { task: taskId, ...customOptions };
       if (taskId === 'meditate') {
-        const medSel = document.getElementById('duration_meditate') || document.getElementById('meditateSelect');
-        if (medSel) payload.meditate = Number(medSel.value);
+        const medInp = document.getElementById('duration_min_meditate');
+        if (medInp && medInp.value) {
+          const mins = parseInt(medInp.value, 10) || 5;
+          payload.meditate = mins * 60;
+        } else {
+          const medSel = document.getElementById('meditateSelect');
+          if (medSel) payload.meditate = Number(medSel.value);
+        }
       } else if (taskId === 'farm-bows-beads') {
-        const bowsSel = document.getElementById('combo_bows');
-        const beadsSel = document.getElementById('combo_beads');
-        if (bowsSel) payload.bowsCount = Number(bowsSel.value);
-        if (beadsSel) payload.beadsCount = Number(beadsSel.value);
+        const bowsInp = document.getElementById('combo_bows');
+        const beadsInp = document.getElementById('combo_beads');
+        if (bowsInp && bowsInp.value !== '') payload.bowsCount = Number(bowsInp.value);
+        if (beadsInp && beadsInp.value !== '') payload.beadsCount = Number(beadsInp.value);
       } else {
-        const countSel = document.getElementById('count_' + taskId);
-        const customInp = document.getElementById('custom_' + taskId);
-        if (countSel) {
-          if (countSel.value === 'custom' && customInp && customInp.value) {
-            payload.count = Number(customInp.value);
-          } else {
-            payload.count = Number(countSel.value);
-          }
+        const countInp = document.getElementById('count_' + taskId);
+        if (countInp && countInp.value !== '') {
+          payload.count = Number(countInp.value);
         }
       }
 
@@ -2246,21 +2304,21 @@ const server = http.createServer(async (req, res) => {
 
     if (bodyData.count !== undefined && bodyData.count !== null) {
       const c = parseInt(bodyData.count, 10);
-      if (Number.isInteger(c) && c > 0 && c <= 1080) {
+      if (Number.isInteger(c) && c > 0 && c <= 10000) {
         runOptions.count = c;
       }
     }
 
     if (bodyData.bowsCount !== undefined && bodyData.bowsCount !== null) {
       const b = parseInt(bodyData.bowsCount, 10);
-      if (Number.isInteger(b) && b > 0 && b <= 1000) {
+      if (Number.isInteger(b) && b >= 0 && b <= 2000) {
         runOptions.bowsCount = b;
       }
     }
 
     if (bodyData.beadsCount !== undefined && bodyData.beadsCount !== null) {
       const bd = parseInt(bodyData.beadsCount, 10);
-      if (Number.isInteger(bd) && bd > 0 && bd <= 1080) {
+      if (Number.isInteger(bd) && bd >= 0 && bd <= 10000) {
         runOptions.beadsCount = bd;
       }
     }
