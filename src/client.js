@@ -226,13 +226,13 @@ export class DiDenChuaClient {
   async humanDelay(reason = 'khoan thai chuyển bước') {
     this.checkAborted();
     if (!this.config.safeMode) {
-      await this.sleep(1000);
+      await this.sleep(300);
       return;
     }
-    const min = (this.config.minDelaySec || 3.5) * 1000;
-    const max = (this.config.maxDelaySec || 7.0) * 1000;
+    const min = (this.config.minDelaySec || 1.0) * 1000;
+    const max = (this.config.maxDelaySec || 2.0) * 1000;
     const delay = Math.floor(min + Math.random() * (max - min));
-    log.info(`⏳ ${reason} (chờ ${(delay / 1000).toFixed(1)}s tránh server chặn)...`);
+    log.info(`⏳ ${reason} (chờ ${(delay / 1000).toFixed(1)}s)...`);
     await this.sleep(delay);
   }
 
@@ -263,9 +263,9 @@ export class DiDenChuaClient {
       this.checkAborted();
       log.info(`[${i}/${count}] -> Thắp nén tâm hương thành kính...`);
       this.send({ t: 'incense' });
-      await this.humanDelay('thành tâm chấp tay khấn nguyện');
+      await this.sleep(400);
       this.claimQuest('huong');
-      await this.sleep(1000);
+      if (i < count) await this.sleep(600);
     }
     log.info(`Đã gửi hoàn tất yêu cầu dâng ${count} nén tâm hương (chờ máy chủ ghi nhận).`);
   }
@@ -283,9 +283,9 @@ export class DiDenChuaClient {
       this.checkAborted();
       log.info(`[${i}/${count}] -> Thả ngọn hoa đăng sen màu [${color}]: "${text}"`);
       this.send({ t: 'lantern', color, text });
-      await this.humanDelay('dõi theo ngọn hoa đăng trôi theo làn nước');
+      await this.sleep(400);
       this.claimQuest('den');
-      await this.sleep(1000);
+      if (i < count) await this.sleep(600);
     }
     log.info(`Đã gửi hoàn tất yêu cầu thả ${count} ngọn hoa đăng sen (chờ máy chủ ghi nhận).`);
   }
@@ -304,9 +304,9 @@ export class DiDenChuaClient {
       log.temple('🙏', `Chắp tay chào phật tử [${name}]…`);
       this.send({ t: 'greet', to: target });
       this.send({ t: 'emote', e: 'chap' });
-      await this.humanDelay('cung kính cúi đầu');
+      await this.sleep(400);
       this.claimQuest('chao');
-      await this.sleep(1000);
+      await this.sleep(500);
     } else {
       log.warn('Không tìm thấy ai trong phòng để chắp tay chào.');
     }
@@ -325,9 +325,8 @@ export class DiDenChuaClient {
       this.checkAborted();
       log.info(`[${i}/${count}] -> Gió thổi lá bay, chổi quét sạch bong (động tác quét lá)...`);
       this.send({ t: 'emote', e: 'quet' });
-      await this.humanDelay(`chăm chỉ gom từng đám lá rụng quanh sân [lần ${i}/${count}]`);
       this.send({ t: 'viec', k: 'quet' });
-      await this.sleep(1000);
+      if (i < count) await this.sleep(600);
     }
     log.info(`Đã gửi hoàn tất yêu cầu ${count} lần quét lá sân chùa (chờ máy chủ ghi nhận).`);
   }
@@ -335,13 +334,16 @@ export class DiDenChuaClient {
   async doLay(count = 108) {
     this.checkAborted();
     log.temple('🙏', `Bắt đầu lạy Phật sám hối (${count} lạy trang nghiêm)…`);
-    for (let i = 1; i <= count; i++) {
+    // Máy chủ quy định: mỗi gói { t: 'emote', e: 'lay' } tự động cộng 3 lạy ($n.bows += 3).
+    // Cooldown máy chủ chuẩn xác là 5.000ms. Để lạy 'count' lạy, cần Math.ceil(count / 3) lần gửi.
+    const emotesNeeded = Math.ceil(count / 3);
+    for (let i = 1; i <= emotesNeeded; i++) {
       this.checkAborted();
-      log.info(`...[${i}/${count} lạy] Thành kính cúi lạy Phật đài...`);
+      const currentBows = Math.min(i * 3, count);
+      log.info(`...[${currentBows}/${count} lạy] Thành kính cúi lạy Phật đài...`);
       this.send({ t: 'emote', e: 'lay' });
-      if (i < count) {
-        const bowDelay = Math.floor(3500 + Math.random() * 2000);
-        await this.sleep(bowDelay);
+      if (i < emotesNeeded) {
+        await this.sleep(5050);
       }
     }
     log.info(`Đã hoàn tất gửi ${count} lạy sám hối trước Phật đài.`);
@@ -352,19 +354,21 @@ export class DiDenChuaClient {
     const zones = [
       'Chánh điện', 'Bảo tháp', 'Giếng Ngọc', 'Tượng Di Lặc',
       'Hồ sen · Cầu Duyên', 'Vườn Linh Thú', 'Vườn hoa', 'Vườn thiền',
-      'Hành lang', 'Sân chùa'
+      'Hành lang La Hán', 'Sân chùa', 'Cổng tam quan', 'Đường thần đạo',
+      'Gác chuông', 'Tháp nghỉ chân'
     ];
-    log.temple('🚶', `Bắt đầu đi thăm khắp ${zones.length} khu vực trong chùa (cày danh hiệu "Thăm khắp chùa")…`);
+    log.temple('🚶', `Bắt đầu viếng thăm khắp các khu vực trong chùa (cày danh hiệu "Thăm khắp chùa")…`);
     for (let i = 0; i < zones.length; i++) {
       this.checkAborted();
       const z = zones[i];
-      await this.humanDelay(`thong thả bước chân sang khu [${z}] (${i + 1}/${zones.length})`);
-      this.checkAborted();
       this.send({ t: 'visit', zone: z });
-      log.info(`-> Đã gửi yêu cầu viếng thăm: [${z}]`);
-      await this.sleep(1000);
+      log.info(`-> [${i + 1}/${zones.length}] Đã gửi yêu cầu viếng thăm: [${z}]`);
+      if (i < zones.length - 1) {
+        await this.sleep(200);
+      }
     }
-    log.success('Đã gửi yêu cầu thăm khắp 10 khu vực trong chùa (chờ máy chủ đồng bộ).');
+    await this.sleep(400);
+    log.success('Đã hoàn tất gửi yêu cầu viếng thăm đầy đủ các khu vực trong chùa (10/10 khu).');
   }
 
   async fetchJournal() {
@@ -412,19 +416,20 @@ export class DiDenChuaClient {
 
   async doChores() {
     this.checkAborted();
-    log.temple('🧹', 'Làm việc chùa / Công quả tích phúc (chế độ khoan thai):');
+    log.temple('🧹', 'Làm việc chùa / Công quả tích phúc:');
     await this.doQuetLa();
 
     this.checkAborted();
     await this.humanDelay('thong thả bước ra cầu hồ sen');
     log.info('-> Phóng sinh / Cho đàn cá ở hồ sen ăn...');
     this.send({ t: 'viec', k: 'ca' });
+    await this.sleep(400);
 
     this.checkAborted();
     await this.humanDelay('bước vào chánh điện châm dầu đèn');
     log.info('-> Thắp đèn dầu chánh điện...');
     this.send({ t: 'lamp' });
-    await this.sleep(1000);
+    await this.sleep(400);
   }
 
   async doPet() {
@@ -434,13 +439,14 @@ export class DiDenChuaClient {
     this.checkAborted();
     log.info('-> Cho mèo ăn bánh...');
     this.send({ t: 'pet-feed' });
+    await this.sleep(400);
 
     this.checkAborted();
     await this.humanDelay('nhẹ nhàng xoa đầu vuốt ve mèo');
     this.checkAborted();
     log.info('-> Xoa đầu mèo...');
     this.send({ t: 'pet-pat' });
-    await this.sleep(1000);
+    await this.sleep(400);
   }
 
   async doGarden(options = {}) {
@@ -459,7 +465,7 @@ export class DiDenChuaClient {
     let waitCount = 0;
     while (!this.garden && waitCount < 15) {
       this.checkAborted();
-      await this.sleep(300);
+      await this.sleep(200);
       waitCount++;
     }
 
@@ -467,7 +473,7 @@ export class DiDenChuaClient {
       log.warn('Không nhận được dữ liệu vườn hoa từ máy chủ, gửi lệnh tưới thông thường.');
       this.checkAborted();
       this.send({ t: 'water', pid: this.myPid });
-      await this.sleep(1000);
+      await this.sleep(500);
       return;
     }
 
@@ -478,23 +484,23 @@ export class DiDenChuaClient {
       this.checkAborted();
       log.temple('🌱', `Luống hoa của bạn đang trống. Tiến hành gieo hạt giống [${plantSeed}]...`);
       this.send({ t: 'plant', k: plantSeed });
-      await this.sleep(1500);
+      await this.sleep(600);
     } else {
       // Nếu hoa đã nở (stage === 3) -> hái hoa và dâng Chánh điện
       if (mine.stage === 3) {
         this.checkAborted();
         log.temple('🌸', `Hoa [${mine.k}] trong luống của bạn đã nở trọn vẹn! Tiến hành hái hoa...`);
         this.send({ t: 'pick' });
-        await this.sleep(1500);
+        await this.sleep(600);
         this.checkAborted();
         log.temple('💐', 'Thành tâm dâng hoa tươi lên Phật đài Chánh điện (+công đức dâng hoa)...');
         this.send({ t: 'offer-flowers' });
-        await this.sleep(1500);
+        await this.sleep(600);
         // Gieo tiếp hạt giống mới
         this.checkAborted();
         log.temple('🌱', `Gieo tiếp đợt hạt giống mới [${plantSeed}]...`);
         this.send({ t: 'plant', k: plantSeed });
-        await this.sleep(1500);
+        await this.sleep(600);
       }
 
       // Tưới luống hoa của mình nếu chưa tưới
@@ -502,7 +508,7 @@ export class DiDenChuaClient {
         this.checkAborted();
         log.info('-> Múc gáo nước mát tưới luống hoa của bản thân...');
         this.send({ t: 'water', pid: this.myPid });
-        await this.sleep(1500);
+        await this.sleep(600);
       } else {
         log.info(`-> Luống hoa của bạn hôm nay đã được tưới (${mine.grown}/${mine.need} ngày lớn).`);
       }
@@ -514,7 +520,7 @@ export class DiDenChuaClient {
       this.checkAborted();
       log.temple('💐', `Phát hiện ${flowersInHand} bông hoa tươi trong tay, tiến hành dâng hoa lên Phật đài...`);
       this.send({ t: 'offer-flowers' });
-      await this.sleep(1200);
+      await this.sleep(600);
     }
 
     // 3. TỰ ĐỘNG TƯỚI NƯỚC GIÚP BẠN ĐỒNG TU (+2 CÔNG ĐỨC MỖI LUỐNG)
@@ -533,7 +539,7 @@ export class DiDenChuaClient {
           const bedOwner = bed.name || bed.pid;
           log.info(`[${i + 1}/${toWater.length}] Tưới nước giúp luống hoa của [${bedOwner}]...`);
           this.send({ t: 'water', pid: bed.pid });
-          const waterDelay = Math.floor(2500 + Math.random() * 1500);
+          const waterDelay = Math.floor(350 + Math.random() * 150);
           await this.sleep(waterDelay);
         }
         log.success(`Đã tưới nước giúp ${toWater.length} luống hoa! Tích lũy thêm ước tính +${toWater.length * 2} công đức.`);
@@ -545,18 +551,16 @@ export class DiDenChuaClient {
 
   async doMo(count = 30) {
     this.checkAborted();
-    log.temple('🪵', `Bắt đầu gõ mõ tụng kinh (${count} tiếng - tốc độ thong thả tự nhiên)...`);
-    // Gõ mõ theo nhịp thong thả: mỗi nhịp 1-3 tiếng, giãn cách 2-4 giây
+    log.temple('🪵', `Bắt đầu gõ mõ tụng kinh (${count} tiếng - tốc độ tối ưu)...`);
     let sent = 0;
     while (sent < count) {
       this.checkAborted();
-      const batch = Math.min(Math.floor(2 + Math.random() * 2), count - sent);
+      const batch = Math.min(10, count - sent);
       this.send({ t: 'mo', n: batch });
       sent += batch;
       log.info(`...cốc cốc [${sent}/${count} tiếng mõ]`);
       if (sent < count) {
-        const knockDelay = Math.floor(2200 + Math.random() * 1500);
-        await this.sleep(knockDelay);
+        await this.sleep(800);
       }
     }
     log.info(`Đã hoàn tất gửi ${count} tiếng mõ tụng kinh (chờ máy chủ ghi nhận).`);
@@ -564,17 +568,17 @@ export class DiDenChuaClient {
 
   async doBeads(count = 20) {
     this.checkAborted();
-    log.temple('📿', `Lăn tràng hạt niệm Phật (${count} hạt - tốc độ trang nghiêm)...`);
+    log.temple('📿', `Lăn tràng hạt niệm Phật (${count} hạt - tốc độ tối ưu)...`);
+    // Gửi từng đợt 10-15 hạt với delay ~850ms giúp server tiếp nhận trọn vẹn và nhanh gấp 10 lần
     let sent = 0;
     while (sent < count) {
       this.checkAborted();
-      const batch = Math.min(Math.floor(2 + Math.random() * 2), count - sent);
+      const batch = Math.min(15, count - sent);
       this.send({ t: 'beads', n: batch });
       sent += batch;
       log.info(`...Nam Mô A Di Đà Phật [${sent}/${count} hạt]`);
       if (sent < count) {
-        const beadDelay = Math.floor(1800 + Math.random() * 1200);
-        await this.sleep(beadDelay);
+        await this.sleep(850);
       }
     }
     log.info(`Đã hoàn tất gửi ${count} hạt tràng niệm Phật (chờ máy chủ ghi nhận).`);
@@ -586,7 +590,7 @@ export class DiDenChuaClient {
     this.checkAborted();
     log.temple('🔔', 'Thỉnh một tiếng đại hồng chung ngân vang…');
     this.send({ t: 'bell' });
-    await this.humanDelay('lắng lòng nghe tiếng chuông ngân');
+    await this.sleep(500);
   }
 
   async doXam() {
@@ -598,7 +602,7 @@ export class DiDenChuaClient {
     this.send({ t: 'xam', n: randomXam });
     log.info(`-> Đã gieo quẻ xăm số [${randomXam}] cầu bình an cát tường.`);
     this.claimQuest('xam');
-    await this.sleep(1200);
+    await this.sleep(500);
   }
 
   async doVow(text = 'Cầu cho muôn người bình an, thân tâm thường an lạc, vạn sự hanh thông') {
@@ -608,7 +612,7 @@ export class DiDenChuaClient {
     this.checkAborted();
     this.send({ t: 'vow', text });
     log.info('-> Đã gửi lời nguyện chung tới cả chùa (hoàn thành nhiệm vụ lời nguyện).');
-    await this.sleep(1200);
+    await this.sleep(500);
   }
 
   async doQaIncense() {
@@ -618,7 +622,7 @@ export class DiDenChuaClient {
     this.checkAborted();
     this.send({ t: 'qa-incense' });
     log.info('-> Đã gửi yêu cầu dâng nén tâm hương cúng dường Bồ Tát Quan Âm.');
-    await this.sleep(1200);
+    await this.sleep(500);
   }
 
   async doTuyHy(maxCount = 5) {
@@ -631,7 +635,7 @@ export class DiDenChuaClient {
       this.checkAborted();
       this.send({ t: 'tuyhy', lantern: lantern.id });
       log.info(`-> Tùy hỷ hoa đăng: "${lantern.text}"`);
-      await this.sleep(800);
+      await this.sleep(400);
     }
   }
 

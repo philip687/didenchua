@@ -16,9 +16,9 @@ const DEFAULT_CONFIG = {
   beads: 'go',       // go, bode, tramhuong, hophach, ngoc, manao
   cushion: 'xam',    // xam, nau, vang, do, sen
   room: 'chua-1',
-  safeMode: true,    // Chế độ mô phỏng người thật, giãn cách an toàn chống bị chặn
-  minDelaySec: 3.5,  // Giãn cách tối thiểu giữa các hành động (giây)
-  maxDelaySec: 7.0,  // Giãn cách tối đa giữa các hành động (giây)
+  safeMode: true,    // Chế độ mô phỏng an toàn
+  minDelaySec: 1.0,  // Giãn cách tối thiểu giữa các hành động (giây) - Đã tối ưu tốc độ
+  maxDelaySec: 2.0,  // Giãn cách tối đa giữa các hành động (giây) - Đã tối ưu tốc độ
   chromePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   meditateSeconds: 3600, // Thời gian treo máy thiền mặc định (3600s = 60 phút cho phần tự động để cày Top 1 Bảng Vàng)
   autoWaterOthers: true, // Tự động tưới nước giúp các luống hoa của bạn đồng tu (+2 công đức/luống)
