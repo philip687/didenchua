@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node --test test/auto.test.js",
+    "test": "node --test test/*.test.js",
     "start": "node server.js",
     "web": "node server.js",
     "bot": "node cli.js all",

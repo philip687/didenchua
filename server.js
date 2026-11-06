@@ -2,6 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { runAllQuests } from './src/tasks/all.js';
 import {
   DiDenChuaClient,
@@ -237,6 +238,46 @@ export const TASKS_CATALOG = [
     title: 'Làm Việc Chùa & Quét Sân',
     desc: 'Quét lá sân chùa, cho cá ăn, thắp đèn dầu, vuốt ve mèo chùa',
     icon: '🧹',
+    reward: '+10 điểm',
+    badge: 'Nhiệm vụ ngày'
+  },
+  {
+    id: 'checkin',
+    group: 'daily',
+    questId: 'checkin',
+    title: 'Điểm Danh Hàng Ngày',
+    desc: 'Điểm danh đầu ngày tại cổng chùa nhận phước lành và quà điểm danh',
+    icon: '📅',
+    reward: '+10 điểm',
+    badge: 'Nhiệm vụ ngày'
+  },
+  {
+    id: 'ca',
+    group: 'daily',
+    questId: 'ca',
+    title: 'Cho Cá Hồ Sen Ăn',
+    desc: 'Cho đàn cá vàng hồ sen ăn và phóng sinh tạo phước duyên',
+    icon: '🐟',
+    reward: '+10 điểm',
+    badge: 'Nhiệm vụ ngày'
+  },
+  {
+    id: 'dendau',
+    group: 'daily',
+    questId: 'dendau',
+    title: 'Thắp Đèn Dầu Chánh Điện',
+    desc: 'Châm dầu và thắp sáng ngọn đèn nơi chánh điện (Khung giờ: 16:30 - 21:30 UTC+7)',
+    icon: '🕯️',
+    reward: '+10 điểm',
+    badge: '16:30-21:30'
+  },
+  {
+    id: 'cat',
+    group: 'daily',
+    questId: 'cat',
+    title: 'Chăm Sóc Mèo Chùa',
+    desc: 'Âu yếm, vuốt ve chăm sóc chú mèo ngoan của chùa',
+    icon: '🐱',
     reward: '+10 điểm',
     badge: 'Nhiệm vụ ngày'
   },
@@ -800,6 +841,31 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
         case 'lantern-daily':
           await client.doLantern(runOptions.text || 'Cầu cho muôn người bình an, vạn sự hanh thông', 'vang', runOptions.count || 1);
           break;
+        case 'checkin':
+          log.temple('📅', 'Tiến hành điểm danh ngày mới...');
+          await client.doCheckin();
+          log.success('Đã hoàn tất điểm danh hôm nay!');
+          break;
+        case 'ca':
+        case 'viec-ca':
+          log.temple('🐟', 'Cho đàn cá ở hồ sen ăn & phóng sinh...');
+          client.send({ t: 'viec', k: 'ca' });
+          await client.sleep(1200);
+          log.success('Đã cho đàn cá hồ sen ăn thành công!');
+          break;
+        case 'dendau':
+        case 'lamp':
+          log.temple('🕯️', 'Thắp đèn dầu chánh điện...');
+          client.send({ t: 'lamp' });
+          await client.sleep(1200);
+          log.success('Đã thắp đèn dầu chánh điện!');
+          break;
+        case 'cat':
+        case 'pet':
+          log.temple('🐱', 'Chăm sóc và vuốt ve mèo chùa...');
+          await client.doPet();
+          log.success('Đã chăm sóc mèo chùa chu đáo!');
+          break;
         case 'chores-daily':
           await client.doQuetLa(1);
           client.send({ t: 'viec', k: 'ca' });
@@ -817,6 +883,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           await client.doMo(runOptions.count || 15);
           break;
         case 'beads':
+        case 'chuoi':
           const beadsCount = runOptions.count || 108;
           await client.doBeads(beadsCount);
           break;
@@ -867,6 +934,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           await runQuizWithClient(client, runOptions);
           break;
         case 'am':
+        case 'wAm':
           log.temple('🛖', 'Bước vào Am riêng tu tập...');
           await client.doEnterAm();
           await client.sleep(1000);
@@ -1358,8 +1426,191 @@ function getTaskQuestBadge(task, quests = [], journal = {}) {
   return '';
 }
 
+// Từ điển thông tin chi tiết nhiệm vụ ngày & tuần (Icons, tiêu đề đầy đủ, gợi ý hành động, mốc thời gian)
+export const QUEST_METADATA = {
+  checkin: {
+    icon: '📅',
+    title: 'Điểm danh hàng ngày',
+    desc: 'Đến cổng chùa điểm danh đầu ngày nhận phước lành',
+    tip: 'Tự động mở đầu ngày tu tập',
+    taskId: 'checkin'
+  },
+  huong: {
+    icon: '🪔',
+    title: 'Dâng hương Tam Bảo',
+    desc: 'Thắp nén tâm hương thành kính trước Phật đài chánh điện',
+    tip: 'Dâng 1 nén hương thanh tịnh',
+    taskId: 'incense'
+  },
+  den: {
+    icon: '🏮',
+    title: 'Thả hoa đăng cầu an',
+    desc: 'Thả hoa đăng sen trôi trên hồ nước cầu nguyện bình an',
+    tip: 'Thả hoa đăng trên hồ sen',
+    taskId: 'lantern-daily'
+  },
+  chao: {
+    icon: '🤝',
+    title: 'Chắp tay chào đồng tu',
+    desc: 'Chắp tay trang nghiêm niệm Phật chào bạn đồng tu tại chùa',
+    tip: 'Chào bạn đồng tu đang viếng chùa',
+    taskId: 'greet'
+  },
+  lay: {
+    icon: '🙇',
+    title: 'Lạy Phật trang nghiêm',
+    desc: 'Cúi đầu đảnh lễ Đức Phật sám hối nghiệp chướng',
+    tip: 'Lạy Phật theo số lượng yêu cầu của ngày',
+    taskId: 'lay-daily'
+  },
+  quet: {
+    icon: '🧹',
+    title: 'Quét lá dọn sân chùa',
+    desc: 'Cầm chổi quét sạch lá rụng thanh tịnh khuôn viên chùa',
+    tip: 'Công quả quét sân giữ chùa sạch đẹp',
+    taskId: 'quet'
+  },
+  ca: {
+    icon: '🐟',
+    title: 'Cho cá hồ sen ăn',
+    desc: 'Thả thức ăn và phóng sinh đàn cá bơi lội hồ sen',
+    tip: 'Cho đàn cá hồ sen ăn tích phước',
+    taskId: 'ca'
+  },
+  dendau: {
+    icon: '🕯️',
+    title: 'Thắp đèn dầu chánh điện',
+    desc: 'Châm dầu và thắp sáng ngọn đèn dầu nơi gian chánh điện',
+    tip: '⏰ Khung giờ linh thiêng: 16:30 – 21:30 (UTC+7)',
+    taskId: 'dendau'
+  },
+  cat: {
+    icon: '🐱',
+    title: 'Chăm sóc mèo chùa',
+    desc: 'Vuốt ve, chăm sóc chú mèo ngoan của chùa',
+    tip: 'Chăm sóc chú mèo nhỏ chốn thiền môn',
+    taskId: 'cat'
+  },
+  wAm: {
+    icon: '🛖',
+    title: 'Am riêng tu tập & Dâng hương',
+    desc: 'Vào am thất riêng tĩnh tọa tu tập và dâng 3 nén tâm hương',
+    tip: 'Tu tập nơi tịnh thất (+40 điểm công đức)',
+    taskId: 'am'
+  },
+  am: {
+    icon: '🛖',
+    title: 'Am riêng tu tập & Dâng hương',
+    desc: 'Vào am thất riêng tĩnh tọa tu tập và dâng 3 nén tâm hương',
+    tip: 'Tu tập nơi tịnh thất (+40 điểm công đức)',
+    taskId: 'am'
+  },
+  ngoi: {
+    icon: '🧘',
+    title: 'Ngồi tĩnh tọa thiền định',
+    desc: 'Ngồi xếp bằng tĩnh tâm tại Vườn thiền (5 phút)',
+    tip: 'Giữ tâm an định không dao động trong 5 phút',
+    taskId: 'ngoi-daily'
+  },
+  tung: {
+    icon: '🪵',
+    title: 'Gõ mõ tụng kinh',
+    desc: 'Đến chánh điện gõ mõ tụng thời kinh sám hối',
+    tip: 'Gõ mõ tụng kinh trang nghiêm',
+    taskId: 'tung'
+  },
+  mo: {
+    icon: '🪵',
+    title: 'Gõ mõ tụng kinh',
+    desc: 'Đến chánh điện gõ mõ tụng thời kinh sám hối',
+    tip: 'Gõ mõ tụng kinh trang nghiêm',
+    taskId: 'tung'
+  },
+  chuoi: {
+    icon: '📿',
+    title: 'Lăn tràng hạt niệm Phật',
+    desc: 'Lăn tràng hạt lần từng hạt niệm Phật A Di Đà',
+    tip: 'Lần tràng hạt thanh tịnh tâm ý',
+    taskId: 'beads'
+  },
+  chu: {
+    icon: '✍️',
+    title: 'Xin chữ Thầy đồ',
+    desc: 'Ghé gian lều Thầy đồ xin chữ thư pháp may mắn đầu ngày',
+    tip: 'Xin chữ bình an hoặc cát tường',
+    taskId: 'chu'
+  },
+  chuong: {
+    icon: '🔔',
+    title: 'Thỉnh chuông Bát Nhã',
+    desc: 'Đến gác chuông thỉnh một tiếng đại hồng chung ngân vang',
+    tip: 'Thỉnh tiếng chuông thức tỉnh nhân tâm',
+    taskId: 'bell'
+  },
+  bell: {
+    icon: '🔔',
+    title: 'Thỉnh chuông Bát Nhã',
+    desc: 'Đến gác chuông thỉnh một tiếng đại hồng chung ngân vang',
+    tip: 'Thỉnh tiếng chuông thức tỉnh nhân tâm',
+    taskId: 'bell'
+  },
+  tuoi: {
+    icon: '🪷',
+    title: 'Tưới hoa vườn chùa',
+    desc: 'Tưới nước chăm sóc các luống hoa dâng Phật trong vườn',
+    tip: 'Tưới hoa dâng cúng Tam Bảo',
+    taskId: 'tuoi'
+  },
+  khoe: {
+    icon: '📢',
+    title: 'Khoe danh hiệu tu tập',
+    desc: 'Khoe danh hiệu hoặc thành tựu tu tập lên kênh đại chúng',
+    tip: 'Chia sẻ niềm vui tu tập cùng đại chúng',
+    taskId: 'khoe'
+  },
+  xam: {
+    icon: '📜',
+    title: 'Gieo quẻ xăm may mắn',
+    desc: 'Lắc ống xăm may mắn đầu ngày cầu điềm lành cát tường',
+    tip: 'Gieo quẻ xăm đầu ngày',
+    taskId: 'xam'
+  },
+  tron: {
+    icon: '🌟',
+    title: 'Trọn vẹn ngày tu',
+    desc: 'Hoàn thành tất cả thời khóa tu tập trong ngày',
+    tip: 'Nhận phước đức viên mãn',
+    taskId: 'claim'
+  },
+  viec: {
+    icon: '🧹',
+    title: 'Làm việc công quả',
+    desc: 'Quét dọn sân chùa, làm việc công quả tích lũy phước đức',
+    tip: 'Công quả chùa cảnh thanh tịnh',
+    taskId: 'chores-daily'
+  },
+  vow: {
+    icon: '🙏',
+    title: 'Gửi lời nguyện chung',
+    desc: 'Gửi một lời nguyện cầu bình an, an lạc tới cả chùa',
+    tip: 'Thành tâm hướng về đại chúng',
+    taskId: 'vow'
+  },
+  nguyen: {
+    icon: '🙏',
+    title: 'Gửi lời nguyện chung',
+    desc: 'Gửi một lời nguyện cầu bình an, an lạc tới cả chùa',
+    tip: 'Thành tâm hướng về đại chúng',
+    taskId: 'vow'
+  }
+};
+
 // Tạo mã HTML Dashboard an toàn chống XSS (Priority 2 & SYSTEM_LOG_REPORT)
-function renderDashboardHTML() {
+export function renderDashboardHTML() {
+  const isRunning = state.isRunning;
+  const isStopping = state.isStopping;
+  const isAnyRunning = isRunning || isStopping;
+
   const me = state.merit?.me || {};
   const j = state.journal || {};
   const journal = j;
@@ -1398,28 +1649,107 @@ function renderDashboardHTML() {
   const activeTitleObj = (j.titles || []).find(t => t.id === activeTitleId);
   const activeTitleName = activeTitleObj ? activeTitleObj.name : 'Người mới lên chùa';
 
-  const questsHTML = (me.quests || []).map(q => {
-    const badge = q.claimed
-      ? '<span class="badge badge-done">✅ Đã nhận</span>'
-      : (q.have >= q.need ? '<span class="badge badge-ready">🎁 Chờ nhận</span>' : `<span class="badge badge-wait">⏳ ${escapeHTML(q.have)}/${escapeHTML(q.need)}</span>`);
+  // Nhiệm vụ hàng ngày (me.quests) với đầy đủ biểu tượng, tên, mô tả, mẹo thời gian, thanh tiến độ và nút bấm hành động trực tiếp
+  const quests = me.quests || [];
+  const totalQuests = quests.length;
+  const claimedQuests = quests.filter(q => q.claimed).length;
+  const readyQuests = quests.filter(q => !q.claimed && (q.have || 0) >= (q.need || 1)).length;
+  const totalRewardPossible = quests.reduce((acc, q) => acc + (Number(q.reward) || 0), 0);
+  const earnedReward = quests.filter(q => q.claimed).reduce((acc, q) => acc + (Number(q.reward) || 0), 0);
+  const overallPercent = totalQuests > 0 ? Math.round((claimedQuests / totalQuests) * 100) : 0;
+
+  const questsSummaryHTML = totalQuests > 0 ? `
+    <div class="quests-summary-card">
+      <div class="quests-summary-top">
+        <div>
+          <span class="metric-label">Tiến độ hôm nay</span>
+          <b class="metric-val">${claimedQuests} / ${totalQuests} hoàn thành (${overallPercent}%)</b>
+        </div>
+        <div style="text-align:right;">
+          <span class="metric-label">Công đức nhiệm vụ</span>
+          <b class="metric-val" style="color:var(--gold);">+${earnedReward} / ${totalRewardPossible} điểm</b>
+        </div>
+      </div>
+      <div class="quest-progress-track">
+        <div class="quest-progress-fill ${overallPercent === 100 ? 'fill-done' : 'fill-pending'}" style="width: ${overallPercent}%;"></div>
+      </div>
+      ${readyQuests > 0 ? `
+        <div class="quests-claim-banner">
+          <span>🎉 Có <b>${readyQuests}</b> nhiệm vụ đã xong chưa nhận thưởng!</span>
+          <button class="btn-task btn-quick-claim" onclick="runTask('claim')" ${isAnyRunning ? 'disabled' : ''}>🎁 Nhận Tất Cả Quà</button>
+        </div>
+      ` : ''}
+    </div>
+  ` : '';
+
+  const questsListHTML = quests.map(q => {
+    const meta = QUEST_METADATA[q.id] || {};
+    const title = q.name || q.title || meta.title || q.id;
+    const icon = meta.icon || '📋';
+    const desc = meta.desc || '';
+    const tip = meta.tip || '';
+    const taskId = meta.taskId || q.id;
+    const have = Number(q.have) || 0;
+    const need = Math.max(1, Number(q.need) || 1);
+    const percent = Math.min(100, Math.round((have / need) * 100));
+
+    let actionBtn = '';
+    let statusClass = 'quest-pending';
+    let fillClass = 'fill-pending';
+
+    if (q.claimed) {
+      statusClass = 'quest-done';
+      fillClass = 'fill-done';
+      actionBtn = `<span class="badge badge-done">✅ Đã hoàn thành</span>`;
+    } else if (have >= need) {
+      statusClass = 'quest-ready';
+      fillClass = 'fill-ready';
+      actionBtn = `<button class="btn-task btn-quick-claim" onclick="runTask('claim')" ${isAnyRunning ? 'disabled' : ''} title="Nhận phần thưởng công đức">🎁 Nhận (+${escapeHTML(q.reward)}đ)</button>`;
+    } else {
+      actionBtn = `<button class="btn-task btn-quick-run" onclick="runTask('${escapeHTML(taskId)}')" ${isAnyRunning ? 'disabled' : ''} title="Làm nhiệm vụ này ngay">⚡ Làm ngay</button>`;
+    }
+
     return `
-      <div class="quest-item">
-        <div class="quest-title">${escapeHTML(q.title)}</div>
-        <div class="quest-meta">
-          <span class="quest-reward">+${escapeHTML(q.reward)} điểm</span>
-          ${badge}
+      <div class="quest-card ${statusClass}">
+        <div class="quest-main-row">
+          <div class="quest-left">
+            <div class="quest-icon">${icon}</div>
+            <div class="quest-info">
+              <div class="quest-title-row">
+                <span class="quest-name">${escapeHTML(title)}</span>
+                <span class="quest-reward-pill">+${escapeHTML(q.reward)} điểm</span>
+              </div>
+              ${desc ? `<div class="quest-desc">${escapeHTML(desc)}</div>` : ''}
+              ${tip ? `<div class="quest-tip">${escapeHTML(tip)}</div>` : ''}
+            </div>
+          </div>
+          <div class="quest-action-col">
+            ${actionBtn}
+          </div>
+        </div>
+        <div class="quest-progress-container">
+          <div class="quest-progress-label">
+            <span>Tiến độ: <b>${escapeHTML(have)} / ${escapeHTML(need)}</b></span>
+            <span>${percent}%</span>
+          </div>
+          <div class="quest-progress-track">
+            <div class="quest-progress-fill ${fillClass}" style="width: ${percent}%;"></div>
+          </div>
         </div>
       </div>`;
   }).join('') || '<p class="empty">Đang đồng bộ nhiệm vụ từ máy chủ chùa…</p>';
+
+  const questsHTML = questsSummaryHTML + questsListHTML;
 
   // 10 Nhiệm vụ tuần (Weekly Quests)
   const weeklyQuestsHTML = (me.weekly || []).map(q => {
     const badge = q.claimed
       ? '<span class="badge badge-done">✅ Đã nhận</span>'
       : (q.have >= q.need ? '<span class="badge badge-ready">🎁 Chờ nhận</span>' : `<span class="badge badge-wait">⏳ ${escapeHTML(q.have)}/${escapeHTML(q.need)}</span>`);
+    const title = q.name || q.title || q.id;
     return `
       <div class="quest-item">
-        <div class="quest-title">${escapeHTML(q.title)}</div>
+        <div class="quest-title">${escapeHTML(title)}</div>
         <div class="quest-meta">
           <span class="quest-reward">+${escapeHTML(q.reward)}đ</span>
           ${badge}
@@ -1503,8 +1833,6 @@ function renderDashboardHTML() {
     `;
   }).join('') || '<p class="empty">Chưa có lịch sử chạy nào trong phiên này (Bộ nhớ tạm lưu tối đa 15 lượt).</p>';
 
-  const isRunning = state.isRunning;
-  const isStopping = state.isStopping;
   const currentRunningTaskName = state.runningTaskName || (state.runningTask === 'all' ? 'Toàn bộ chu trình tự động (4 Tầng)' : (state.runningTask ? `Nhiệm vụ [${state.runningTask}]` : 'Nhiệm vụ tự động'));
   const elapsedSec = isRunning && state.runStartTime ? Math.round((Date.now() - state.runStartTime) / 1000) : 0;
 
@@ -1775,6 +2103,188 @@ function renderDashboardHTML() {
     .badge-done { background: rgba(103,185,130,0.2); color: var(--success); }
     .badge-ready { background: rgba(233,194,122,0.25); color: var(--gold); }
     .badge-wait { background: rgba(255,255,255,0.1); color: var(--text-dim); }
+
+    /* Quests Card Styling */
+    .quests-summary-card {
+      background: rgba(233, 194, 122, 0.05);
+      border: 1px solid rgba(233, 194, 122, 0.2);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+    }
+    .quests-summary-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .metric-label {
+      font-size: 11px;
+      color: var(--text-dim);
+      display: block;
+      margin-bottom: 2px;
+    }
+    .metric-val {
+      font-size: 13px;
+      color: var(--text);
+    }
+    .quest-progress-track {
+      height: 6px;
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 10px;
+      overflow: hidden;
+      width: 100%;
+    }
+    .quest-progress-fill {
+      height: 100%;
+      border-radius: 10px;
+      transition: width 0.3s ease;
+    }
+    .fill-done {
+      background: var(--success);
+    }
+    .fill-ready {
+      background: var(--gold);
+    }
+    .fill-pending {
+      background: linear-gradient(90deg, var(--gold-dim), var(--gold));
+    }
+    .quests-claim-banner {
+      background: rgba(233, 194, 122, 0.12);
+      border: 1px solid rgba(233, 194, 122, 0.3);
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin-top: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .quest-card {
+      background: rgba(0, 0, 0, 0.22);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      transition: all 0.2s ease;
+    }
+    .quest-card:hover {
+      border-color: rgba(233, 194, 122, 0.3);
+    }
+    .quest-card.quest-done {
+      border-left: 3px solid var(--success);
+      opacity: 0.88;
+    }
+    .quest-card.quest-ready {
+      border-left: 3px solid var(--gold);
+      background: rgba(233, 194, 122, 0.05);
+    }
+    .quest-card.quest-pending {
+      border-left: 3px solid rgba(255, 255, 255, 0.15);
+    }
+    .quest-main-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .quest-left {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      flex: 1;
+    }
+    .quest-icon {
+      font-size: 22px;
+      line-height: 1.2;
+      min-width: 26px;
+      text-align: center;
+    }
+    .quest-info {
+      flex: 1;
+    }
+    .quest-title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .quest-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .quest-reward-pill {
+      font-size: 11px;
+      color: var(--gold);
+      background: rgba(233, 194, 122, 0.12);
+      padding: 2px 7px;
+      border-radius: 6px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .quest-desc {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 3px;
+      line-height: 1.4;
+    }
+    .quest-tip {
+      font-size: 11px;
+      color: #e5c07b;
+      margin-top: 2px;
+      font-weight: 500;
+    }
+    .quest-action-col {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .btn-quick-claim {
+      background: var(--gold);
+      color: #1c150e;
+      font-weight: 700;
+      border: 1px solid var(--gold);
+      padding: 5px 11px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+    .btn-quick-claim:hover:not(:disabled) {
+      background: #ffe099;
+      transform: translateY(-1px);
+    }
+    .btn-quick-run {
+      background: rgba(233, 194, 122, 0.12);
+      border: 1px solid rgba(233, 194, 122, 0.35);
+      color: var(--gold);
+      font-weight: 600;
+      padding: 5px 11px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+    .btn-quick-run:hover:not(:disabled) {
+      background: var(--gold);
+      color: #1c150e;
+      transform: translateY(-1px);
+    }
+    .quest-progress-container {
+      margin-top: 6px;
+    }
+    .quest-progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-bottom: 4px;
+    }
     .title-grid { display: grid; grid-template-columns: 1fr; gap: 8px; max-height: 280px; overflow-y: auto; padding-right: 4px; }
     .title-card { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--card-border); }
     .title-got { background: rgba(233,194,122,0.1); border-color: rgba(233,194,122,0.3); }
@@ -2141,6 +2651,14 @@ function renderDashboardHTML() {
       }
       .tier-body {
         padding: 8px;
+      }
+      .quest-main-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+      .quest-action-col {
+        align-self: flex-end;
       }
     }
 
@@ -3327,7 +3845,7 @@ const server = http.createServer(async (req, res) => {
 
     const runOptions = {};
     const task = String(bodyData.task || url.searchParams.get('task') || 'all').trim();
-    const validTaskIds = ['all', ...TASKS_CATALOG.map(t => t.id)];
+    const validTaskIds = ['all', 'wAm', 'chuoi', 'viec-ca', 'lamp', 'pet', ...TASKS_CATALOG.map(t => t.id)];
     if (!validTaskIds.includes(task)) {
       res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ ok: false, error: `Tác vụ không hợp lệ: "${task}".` }));
@@ -3446,12 +3964,21 @@ const server = http.createServer(async (req, res) => {
   res.end('Không tìm thấy đường dẫn.');
 });
 
-server.listen(PORT, HOST, async () => {
-  log.temple('🚀', `Server Dashboard đang lắng nghe tại: http://${HOST}:${PORT}`);
-  log.info(`Sẵn sàng phục vụ Render Cloud Web Service trên cổng ${PORT}`);
+export { server, state, loadCachedState, saveCachedState };
 
-  // Nạp dữ liệu từ file cache bộ nhớ (không kết nối game, chống tranh session khi khởi động)
-  loadCachedState();
-  // Khởi động lịch trình 00:05 sáng
-  startDailyScheduler();
-});
+const isDirectRun = Boolean(
+  process.argv[1] &&
+  (process.argv[1].endsWith('/server.js') || process.argv[1].endsWith('\\server.js') || process.argv[1] === 'server.js' || fileURLToPath(import.meta.url) === process.argv[1])
+);
+
+if (isDirectRun && process.env.NODE_ENV !== 'test') {
+  server.listen(PORT, HOST, async () => {
+    log.temple('🚀', `Server Dashboard đang lắng nghe tại: http://${HOST}:${PORT}`);
+    log.info(`Sẵn sàng phục vụ Render Cloud Web Service trên cổng ${PORT}`);
+
+    // Nạp dữ liệu từ file cache bộ nhớ (không kết nối game, chống tranh session khi khởi động)
+    loadCachedState();
+    // Khởi động lịch trình 00:05 sáng
+    startDailyScheduler();
+  });
+}
