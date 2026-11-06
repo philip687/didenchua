@@ -1,11 +1,11 @@
 import { DiDenChuaClient } from '../client.js';
 import { log } from '../logger.js';
 
-export async function runBeads(count = 20) {
+export async function runBeads(count = 20, options = {}) {
   const client = new DiDenChuaClient();
   try {
     await client.connect();
-    await client.doBeads(count);
+    await client.doBeads(count, options);
     client.printStatus();
   } catch (err) {
     log.error('Lỗi khi lăn tràng hạt:', err.message);

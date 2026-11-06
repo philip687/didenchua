@@ -124,3 +124,93 @@ test('CHECKPOINT_HARVEST: doMeditate handles single short session (<= 5 min) gra
   const claimPackets = sentPackets.filter(p => p.t === 'claim' && p.q === 'ngoi');
   assert.equal(claimPackets.length, 1, 'Must claim ngoi once');
 });
+
+test('CHECKPOINT_HARVEST: doBeads automatically claims daily/weekly quest and journals at checkpoints', async () => {
+  const client = new DiDenChuaClient({ turbo: true });
+  const sentPackets = [];
+
+  client.send = (pkt) => { sentPackets.push(pkt); };
+  client.sleep = async () => {};
+
+  // Active daily quest needing 54 beads, weekly needing 108 beads (with 54 already done)
+  client.merit = {
+    me: {
+      quests: [
+        { id: 'chuoi', name: 'Lăn tràng hạt', need: 54, have: 0, claimed: false, reward: 15 }
+      ],
+      weekly: [
+        { id: 'wChuoi', name: 'Tràng hạt tuần', need: 108, have: 54, claimed: false, reward: 100 }
+      ]
+    }
+  };
+
+  // Perform 108 beads (two chunks of 54)
+  await client.doBeads(108, { chunkSize: 54, intervalMs: 0 });
+
+  // 1. Initial emote chuoi
+  assert.ok(sentPackets.some(p => p.t === 'emote' && p.e === 'chuoi'), 'Must send chuoi emote');
+
+  // 2. Bead packets: 108 / 9 = 12 packets of 9 beads
+  const beadPackets = sentPackets.filter(p => p.t === 'beads');
+  const totalBeads = beadPackets.reduce((sum, p) => sum + (p.n || 0), 0);
+  assert.equal(totalBeads, 108, 'Must send exactly 108 beads');
+
+  // 3. Daily quest claim packet
+  const claimDaily = sentPackets.filter(p => p.t === 'claim' && p.q === 'chuoi');
+  assert.ok(claimDaily.length >= 1, 'Must claim daily quest "chuoi" at 54 beads');
+  assert.equal(client.merit.me.quests[0].claimed, true, 'Daily chuoi quest must be marked claimed');
+
+  // 4. Weekly quest claim packet
+  const claimWeekly = sentPackets.filter(p => p.t === 'claim' && p.q === 'wChuoi');
+  assert.ok(claimWeekly.length >= 1, 'Must claim weekly quest "wChuoi" at 108 beads');
+  assert.equal(client.merit.me.weekly[0].claimed, true, 'Weekly wChuoi quest must be marked claimed');
+
+  // 5. Journal sync packet
+  const journalPackets = sentPackets.filter(p => p.t === 'journal');
+  assert.ok(journalPackets.length >= 2, 'Must request journal at checkpoints');
+});
+
+test('CHECKPOINT_HARVEST: doMo automatically claims daily/weekly quest and journals at checkpoints', async () => {
+  const client = new DiDenChuaClient({ turbo: true });
+  const sentPackets = [];
+
+  client.send = (pkt) => { sentPackets.push(pkt); };
+  client.sleep = async () => {};
+
+  // Active daily quest needing 54 strikes, weekly needing 108 strikes (with 54 already done)
+  client.merit = {
+    me: {
+      quests: [
+        { id: 'tung', name: 'Gõ mõ tụng kinh', need: 54, have: 0, claimed: false, reward: 30 }
+      ],
+      weekly: [
+        { id: 'wTung', name: 'Tụng kinh tuần', need: 108, have: 54, claimed: false, reward: 150 }
+      ]
+    }
+  };
+
+  // Perform 108 strikes (two chunks of 54)
+  await client.doMo(108, { chunkSize: 54, intervalMs: 0 });
+
+  // 1. Visit Chánh điện
+  assert.ok(sentPackets.some(p => p.t === 'visit' && p.zone === 'Chánh điện'), 'Must visit Chánh điện');
+
+  // 2. Mo packets: total strikes must be 108
+  const moPackets = sentPackets.filter(p => p.t === 'mo');
+  const totalMo = moPackets.reduce((sum, p) => sum + (p.n || 0), 0);
+  assert.equal(totalMo, 108, 'Must send exactly 108 mo strikes');
+
+  // 3. Daily quest claim
+  const claimDaily = sentPackets.filter(p => p.t === 'claim' && p.q === 'tung');
+  assert.ok(claimDaily.length >= 1, 'Must claim daily quest "tung" at 54 strikes');
+  assert.equal(client.merit.me.quests[0].claimed, true, 'Daily tung quest must be marked claimed');
+
+  // 4. Weekly quest claim
+  const claimWeekly = sentPackets.filter(p => p.t === 'claim' && p.q === 'wTung');
+  assert.ok(claimWeekly.length >= 1, 'Must claim weekly quest "wTung" at 108 strikes');
+  assert.equal(client.merit.me.weekly[0].claimed, true, 'Weekly wTung quest must be marked claimed');
+
+  // 5. Journal sync
+  const journalPackets = sentPackets.filter(p => p.t === 'journal');
+  assert.ok(journalPackets.length >= 2, 'Must request journal at checkpoints');
+});

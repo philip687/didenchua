@@ -885,7 +885,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           const activeTung = (client.merit?.me?.quests || []).find(q => q.id === 'tung');
           const defaultNeed = activeTung && !activeTung.claimed ? Math.max(1, activeTung.need - (activeTung.have || 0)) : 108;
           const needTung = (runOptions.count && runOptions.count > 0) ? runOptions.count : defaultNeed;
-          await client.doMo(needTung);
+          await client.doMo(needTung, runOptions);
           break;
         }
         case 'tuoi':
@@ -947,12 +947,12 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           await client.doPet();
           break;
         case 'mo':
-          await client.doMo(runOptions.count || 108);
+          await client.doMo(runOptions.count || 108, runOptions);
           break;
         case 'beads':
         case 'chuoi':
           const beadsCount = runOptions.count || 108;
-          await client.doBeads(beadsCount);
+          await client.doBeads(beadsCount, runOptions);
           break;
         case 'farm-bows-beads':
           const farmBows = runOptions.bowsCount ?? runOptions.count ?? 18;
@@ -965,7 +965,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           }
           if (farmBeads > 0) {
             log.temple('📿', `[2/2] Tiến hành lăn thêm ${farmBeads} hạt tràng niệm Phật...`);
-            await client.doBeads(farmBeads);
+            await client.doBeads(farmBeads, runOptions);
             await client.humanDelay('thong thả nghỉ tay niệm Phật');
           }
           log.success(`Đã hoàn tất cày tự động: ${farmBows} lạy Phật và ${farmBeads} hạt tràng niệm Phật!`);

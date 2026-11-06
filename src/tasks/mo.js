@@ -1,11 +1,11 @@
 import { DiDenChuaClient } from '../client.js';
 import { log } from '../logger.js';
 
-export async function runMo(count = 108) {
+export async function runMo(count = 108, options = {}) {
   const client = new DiDenChuaClient();
   try {
     await client.connect();
-    await client.doMo(count);
+    await client.doMo(count, options);
     client.printStatus();
   } catch (err) {
     log.error('Lỗi khi gõ mõ:', err.message);

@@ -936,52 +936,148 @@ export class DiDenChuaClient {
     }
   }
 
-  async doMo(count = 30) {
+  async doMo(count = 30, options = {}) {
     this.checkAborted();
-    log.temple('🪵', `Bắt đầu gõ mõ tụng kinh (${count} tiếng - tốc độ tối ưu)...`);
+    log.temple('🪵', `Bắt đầu gõ mõ tụng kinh (${count} tiếng - chốt an toàn từng chặng)...`);
     // Đảm bảo đứng tại Chánh điện để máy chủ ghi nhận nhiệm vụ gõ mõ tụng kinh (tung)
     this.send({ t: 'visit', zone: 'Chánh điện' });
     await this.sleep(this.isTurbo() ? 80 : 250);
     const batchSize = this.isTurbo() ? 20 : 10;
-    const intervalMs = this.isTurbo() ? 250 : 400;
+    const intervalMs = options.intervalMs ?? (this.isTurbo() ? 250 : 400);
+    const checkpointMoInterval = options.chunkSize || (count > 108 ? 108 : 54);
+
+    const activeTung = (this.merit?.me?.quests || []).find(q => q.id === 'tung');
+    const dailyQuestNeed = (activeTung && !activeTung.claimed) ? (activeTung.need || 108) : 108;
+
     let sent = 0;
-    while (sent < count) {
-      this.checkAborted();
-      const batch = Math.min(batchSize, count - sent);
-      this.send({ t: 'mo', n: batch });
-      sent += batch;
-      log.info(`...cốc cốc [${sent}/${count} tiếng mõ]`);
-      if (sent < count) {
-        await this.sleep(intervalMs);
+    try {
+      while (sent < count) {
+        this.checkAborted();
+        const batch = Math.min(batchSize, count - sent);
+        this.send({ t: 'mo', n: batch });
+        sent += batch;
+        log.info(`...cốc cốc [${sent}/${count} tiếng mõ]`);
+
+        // Điểm kiểm tra chốt chặng an toàn (Checkpoint Harvest):
+        const isDailyQuestReached = (sent >= dailyQuestNeed) && activeTung && !activeTung.claimed;
+        const isIntervalReached = (sent % checkpointMoInterval === 0 || (sent % 54 === 0 && count > 54));
+        const isFinalStrike = (sent >= count);
+
+        if (isDailyQuestReached || isIntervalReached || isFinalStrike) {
+          let claimedAny = false;
+          if (activeTung && !activeTung.claimed && sent >= (activeTung.need || 108)) {
+            this.send({ t: 'claim', q: activeTung.id });
+            activeTung.claimed = true;
+            claimedAny = true;
+            log.success(`🪵 [Chốt an toàn chặng: ${sent}/${count} tiếng mõ] -> Thu thập ngay phần thưởng nhiệm vụ Gõ mõ tụng kinh (+${activeTung.reward || 30}đ công đức)!`);
+          }
+
+          const wTung = (this.merit?.me?.weekly || []).find(q => q.id === 'wTung');
+          if (wTung && !wTung.claimed && (wTung.have || 0) + sent >= (wTung.need || 108)) {
+            this.send({ t: 'claim', q: wTung.id });
+            wTung.claimed = true;
+            claimedAny = true;
+            log.success(`🪵 [Chốt an toàn chặng: ${sent}/${count} tiếng mõ] -> Thu thập ngay nhiệm vụ tuần Gõ mõ tụng kinh!`);
+          }
+
+          if (!claimedAny && !isFinalStrike) {
+            log.temple('🪵', `[Chốt an toàn chặng: ${sent}/${count} tiếng mõ] Đã đồng bộ số tiếng mõ vào máy chủ chùa. Tiếp tục gõ mõ...`);
+          }
+
+          this.send({ t: 'journal' });
+        }
+
+        if (sent < count) {
+          await this.sleep(intervalMs);
+        }
+      }
+    } finally {
+      if (sent > 0 && sent < count) {
+        log.warn(`Tiến trình gõ mõ dừng tại ${sent}/${count} tiếng. Đang chốt an toàn và thu thập công đức phần đã gõ...`);
+        if (activeTung && !activeTung.claimed && sent >= (activeTung.need || 108)) {
+          this.send({ t: 'claim', q: activeTung.id });
+          activeTung.claimed = true;
+        }
+        this.send({ t: 'journal' });
       }
     }
     log.info(`Đã hoàn tất gửi ${count} tiếng mõ tụng kinh (chờ máy chủ ghi nhận).`);
   }
 
-  async doBeads(count = 108) {
+  async doBeads(count = 108, options = {}) {
     this.checkAborted();
     const roundsTarget = (count / 108).toFixed(1);
-    log.temple('📿', `Bắt đầu lần tràng hạt niệm Phật (${count} hạt ~ ${roundsTarget} chuỗi)...`);
+    log.temple('📿', `Bắt đầu lần tràng hạt niệm Phật (${count} hạt ~ ${roundsTarget} chuỗi - chốt an toàn từng chặng)…`);
     this.send({ t: 'emote', e: 'chuoi' });
     // Máy chủ didenchua giới hạn tốc độ nhận hạt bằng cơ chế Token Bucket (~5.3 hạt/giây).
     // Gửi 9 hạt/gói cách nhau 1.750ms đảm bảo máy chủ ghi nhận 100% không bị rơi rụng
     const batchSize = 9;
-    const intervalMs = 1750;
+    const intervalMs = options.intervalMs ?? 1750;
+    // Chu kỳ chốt chặng: mặc định mỗi 54 hạt (nửa chuỗi) hoặc 108 hạt (1 chuỗi tròn)
+    const checkpointBeadsInterval = options.chunkSize || (count > 108 ? 108 : 54);
+
+    const activeChuoi = (this.merit?.me?.quests || []).find(q => q.id === 'chuoi' || q.id === 'beads' || q.id.startsWith('chuoi'));
+    const dailyQuestNeed = (activeChuoi && !activeChuoi.claimed) ? (activeChuoi.need || 54) : 54;
+
     let sent = 0;
     let lastEmoteTime = Date.now();
-    while (sent < count) {
-      this.checkAborted();
-      const batch = Math.min(batchSize, count - sent);
-      this.send({ t: 'beads', n: batch });
-      sent += batch;
-      const curRounds = (sent / 108).toFixed(1);
-      log.info(`...Nam Mô A Di Đà Phật [${sent}/${count} hạt] (~${curRounds} chuỗi)`);
-      if (Date.now() - lastEmoteTime >= 4000) {
-        this.send({ t: 'emote', e: 'chuoi' });
-        lastEmoteTime = Date.now();
+    try {
+      while (sent < count) {
+        this.checkAborted();
+        const batch = Math.min(batchSize, count - sent);
+        this.send({ t: 'beads', n: batch });
+        sent += batch;
+        const curRounds = (sent / 108).toFixed(1);
+        log.info(`...Nam Mô A Di Đà Phật [${sent}/${count} hạt] (~${curRounds} chuỗi)`);
+        if (Date.now() - lastEmoteTime >= 4000) {
+          this.send({ t: 'emote', e: 'chuoi' });
+          lastEmoteTime = Date.now();
+        }
+
+        // Điểm kiểm tra chốt chặng an toàn (Checkpoint Harvest):
+        const isDailyQuestReached = (sent >= dailyQuestNeed) && activeChuoi && !activeChuoi.claimed;
+        const isIntervalReached = (sent % checkpointBeadsInterval === 0 || (sent % 54 === 0 && count > 54));
+        const isFinalBead = (sent >= count);
+
+        if (isDailyQuestReached || isIntervalReached || isFinalBead) {
+          let claimedAny = false;
+          // Thu thập nhiệm vụ ngày ngay lập tức nếu đã đủ
+          if (activeChuoi && !activeChuoi.claimed && sent >= (activeChuoi.need || 20)) {
+            this.send({ t: 'claim', q: activeChuoi.id });
+            activeChuoi.claimed = true;
+            claimedAny = true;
+            log.success(`📿 [Chốt an toàn chặng: ${sent}/${count} hạt] -> Thu thập ngay phần thưởng nhiệm vụ Lăn tràng hạt (+${activeChuoi.reward || 15}đ công đức)!`);
+          }
+
+          // Kiểm tra và thu thập nhiệm vụ tuần nếu đủ
+          const wChuoi = (this.merit?.me?.weekly || []).find(q => q.id === 'wChuoi' || q.id === 'wBeads');
+          if (wChuoi && !wChuoi.claimed && (wChuoi.have || 0) + sent >= (wChuoi.need || 108)) {
+            this.send({ t: 'claim', q: wChuoi.id });
+            wChuoi.claimed = true;
+            claimedAny = true;
+            log.success(`📿 [Chốt an toàn chặng: ${sent}/${count} hạt] -> Thu thập ngay nhiệm vụ tuần Lăn tràng hạt (+${wChuoi.reward || 100}đ công đức)!`);
+          }
+
+          if (!claimedAny && !isFinalBead) {
+            log.temple('📿', `[Chốt an toàn chặng: ${sent}/${count} hạt (~${curRounds} chuỗi)] Đã đồng bộ số hạt niệm vào sổ tu tập chùa. Tiếp tục lần tràng hạt...`);
+          }
+
+          this.send({ t: 'journal' });
+        }
+
+        if (sent < count) {
+          await this.sleep(intervalMs);
+        }
       }
-      if (sent < count) {
-        await this.sleep(intervalMs);
+    } finally {
+      // Trong trường hợp tiến trình bị dừng giữa chừng: tự động chốt an toàn phần đã niệm
+      if (sent > 0 && sent < count) {
+        log.warn(`Tiến trình tràng hạt dừng tại ${sent}/${count} hạt (~${(sent/108).toFixed(1)} chuỗi). Đang chốt an toàn và thu thập công đức phần đã niệm...`);
+        if (activeChuoi && !activeChuoi.claimed && sent >= (activeChuoi.need || 20)) {
+          this.send({ t: 'claim', q: activeChuoi.id });
+          activeChuoi.claimed = true;
+        }
+        this.send({ t: 'journal' });
       }
     }
     await this.sleep(this.isTurbo() ? 250 : 800);
