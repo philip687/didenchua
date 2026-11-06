@@ -51,6 +51,11 @@ export const log = {
   merit: (msg, ...args) => {
     console.log(`${COLORS.dim}[${timestamp()}]${COLORS.reset} ${COLORS.yellow}✨ [CÔNG ĐỨC]${COLORS.reset} ${msg}`, ...args);
     notifyHook('merit', '✨', msg);
+  },
+  debug: (msg, ...args) => {
+    if (process.env.DEBUG) {
+      console.log(`${COLORS.dim}[${timestamp()}] [DEBUG] ${msg}${COLORS.reset}`, ...args);
+    }
   }
 };
 

@@ -814,8 +814,10 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
     let prevTitles = new Set();
     let initJ = null;
 
+    const clientOpts = (runOptions.turbo || runOptions.fast) ? { turbo: true } : {};
+
     if (taskId === 'all') {
-      const initClient = new DiDenChuaClient();
+      const initClient = new DiDenChuaClient(clientOpts);
       await initClient.connect(8000);
       initJ = await initClient.fetchJournal();
       prevTitles = new Set((initJ?.titles || []).filter(t => t.got).map(t => t.name));
@@ -828,7 +830,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
         ...runOptions
       });
     } else {
-      const client = new DiDenChuaClient();
+      const client = new DiDenChuaClient(clientOpts);
       state.activeClient = client;
       await client.connect(8000);
       log.temple('⚡', `[${runId}] Bắt đầu thực thi nhiệm vụ riêng lẻ: [${taskTitle}]...`);
@@ -1057,7 +1059,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
 
       // Tự động nhận thưởng nếu nhiệm vụ này hoàn thành quest ngày hoặc quest tuần
       if (['bell', 'vow', 'incense', 'lay-daily', 'lay', 'greet', 'lantern-daily', 'chores-daily', 'xam', 'chores', 'quet', 'farm-bows-beads', 'tung', 'tuoi', 'chu', 'garden', 'tuyhy', 'secrets', 'tangkinh', 'chu-all', 'meditate', 'ngoi-daily', 'quiz', 'am', 'khoe', 'checkin', 'ca', 'dendau', 'cat', 'wAm', 'chuoi'].includes(taskId)) {
-        await client.sleep(1000);
+        await client.sleep(client.isTurbo() ? 80 : 300);
         await client.claimAllQuests();
       }
 
@@ -3010,6 +3012,10 @@ export function renderDashboardHTML() {
         <p>Cấp bậc: <b>${reportValue(me.level || j.level)} (Lv.${reportValue(me.lv ?? j.lv)})</b> · Chuỗi lên chùa: <b>${reportValue(me.days ?? j.days)} ngày liên tục</b></p>
       </div>
       <div class="actions">
+        <label style="display:inline-flex; align-items:center; gap:6px; background:#221a14; border:1px solid #4a3828; padding:8px 12px; border-radius:10px; cursor:pointer; font-size:13px; color:#ffd54f; user-select:none;" title="Chế độ Siêu Tốc: Tối ưu hoá nhịp gửi gói tin, nén tối đa các khoảng dừng vô ích, hoàn thành nhiệm vụ chỉ trong vài giây">
+          <input type="checkbox" id="turboModeToggle" style="cursor:pointer; accent-color:#ffd54f; width:16px; height:16px;" ${isRunning || isStopping ? 'disabled' : ''} />
+          <span style="font-weight:600;">⚡ Siêu Tốc (Turbo)</span>
+        </label>
         <select id="meditateSelect" style="background:#2b221a; color:var(--gold); border:1px solid var(--card-border); padding:9px 12px; border-radius:10px; font-size:13px; outline:none; cursor:pointer;" ${isRunning || isStopping ? 'disabled' : ''}>
           <option value="3600" selected>🧘 Thiền 60 phút (Cày Top 1)</option>
           <option value="1800">🧘 Thiền 30 phút (Cày Top)</option>
@@ -3539,7 +3545,9 @@ export function renderDashboardHTML() {
       const csrfMeta = document.querySelector('meta[name="csrf-token"]');
       const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
 
-      const payload = { task: taskId, ...customOptions };
+      const turboToggle = document.getElementById('turboModeToggle');
+      const isTurbo = turboToggle ? turboToggle.checked : (localStorage.getItem('didenchua_turbo') === '1');
+      const payload = { task: taskId, turbo: isTurbo, fast: isTurbo, ...customOptions };
       if (taskId === 'meditate' || taskId === 'ngoi-daily') {
         const medInp = document.getElementById('duration_min_' + taskId);
         if (medInp && medInp.value) {
@@ -3853,6 +3861,14 @@ export function renderDashboardHTML() {
       });
     }
 
+    const turboToggle = document.getElementById('turboModeToggle');
+    if (turboToggle) {
+      turboToggle.checked = localStorage.getItem('didenchua_turbo') === '1';
+      turboToggle.addEventListener('change', () => {
+        localStorage.setItem('didenchua_turbo', turboToggle.checked ? '1' : '0');
+      });
+    }
+
     restoreCollapseStates();
     restoreProfileTab();
   </script>
@@ -4099,6 +4115,14 @@ const server = http.createServer(async (req, res) => {
     if (bodyData.cushion) runOptions.cushion = String(bodyData.cushion).trim();
     if (bodyData.phapkhi !== undefined) runOptions.phapkhi = bodyData.phapkhi ? String(bodyData.phapkhi).trim() : null;
     if (bodyData.bio) runOptions.bio = String(bodyData.bio).trim();
+
+    // Chế độ siêu tốc (Turbo / Fast)
+    if (bodyData.turbo !== undefined || url.searchParams.has('turbo')) {
+      runOptions.turbo = bodyData.turbo === true || bodyData.turbo === 'true' || url.searchParams.get('turbo') === 'true';
+    }
+    if (bodyData.fast !== undefined || url.searchParams.has('fast')) {
+      runOptions.fast = bodyData.fast === true || bodyData.fast === 'true' || url.searchParams.get('fast') === 'true';
+    }
 
     // Nếu đang chạy dở hoặc đang dừng an toàn, trả về HTTP 409 Conflict
     if (state.isRunning || state.isStopping) {

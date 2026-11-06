@@ -37,7 +37,8 @@ export async function runAllQuests(options = {}) {
   const meditateSeconds = options.meditateSeconds ?? null;
   const autoWaterOthers = options.autoWaterOthers ?? null;
 
-  const client = new DiDenChuaClient();
+  const isTurbo = Boolean(options.turbo || options.fast);
+  const client = new DiDenChuaClient(isTurbo ? { turbo: true } : {});
   if (typeof options.onClient === 'function') {
     options.onClient(client);
   }
@@ -57,7 +58,7 @@ export async function runAllQuests(options = {}) {
 
     // Chờ nhận snapshot nhiệm vụ ngày từ máy chủ nếu chưa kịp tải
     if (!client.merit?.me?.quests) {
-      await client.sleep(600);
+      await client.sleep(client.isTurbo() ? 100 : 400);
     }
     const todayQuests = client.merit?.me?.quests || [];
 
@@ -280,7 +281,7 @@ export async function runAllQuests(options = {}) {
       // 4. Xin chữ thư pháp đầu ngày & hoàn thành khóa tụng kinh sám hối
       await client.doXinChu(options.wish || client.config.calligraphyWish || 'binh-an');
       client.send({ t: 'tk-done' });
-      await client.sleep(1200);
+      await client.sleep(client.isTurbo() ? 80 : 300);
 
       // Chốt nhận lại phần thưởng nếu có quest phát sinh từ hoạt động ăn điểm
       const extraClaims = await client.claimAllQuests();
@@ -326,14 +327,14 @@ export async function runAllQuests(options = {}) {
         log.warn('Chu trình đã chạy nhưng tầng treo máy chưa được máy chủ xác nhận.');
       }
       // Chốt khóa nhận thưởng toàn bộ nhiệm vụ cuối chu kỳ (bao gồm quest 'tron' - Xong cả 6 nhiệm vụ)
-      await client.sleep(1000);
+      await client.sleep(client.isTurbo() ? 80 : 300);
       const finalClaims = await client.claimAllQuests();
       unverifiedCount += finalClaims.unverified?.length || 0;
       client.printStatus();
       client.printJournal();
     } else {
       log.info('⏩ Đã bỏ qua nhiệm vụ treo máy (Tầng 4) theo tùy chọn chạy nhanh.');
-      await client.sleep(1000);
+      await client.sleep(client.isTurbo() ? 80 : 300);
       const finalClaims = await client.claimAllQuests();
       unverifiedCount += finalClaims.unverified?.length || 0;
       client.printJournal();

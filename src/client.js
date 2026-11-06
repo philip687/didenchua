@@ -164,6 +164,10 @@ export class DiDenChuaClient {
     this.recentToasts = [];
   }
 
+  isTurbo() {
+    return Boolean(this.config.turbo || this.config.fast);
+  }
+
   async connect(timeoutMs = 15000) {
     return new Promise((resolve, reject) => {
       if (this.aborted) {
@@ -438,8 +442,16 @@ export class DiDenChuaClient {
 
   async humanDelay(reason = 'khoan thai chuyển bước') {
     this.checkAborted();
+    if (this.isTurbo()) {
+      const turboDelay = Math.floor(40 + Math.random() * 40);
+      if (typeof log?.debug === 'function') {
+        log.debug(`⚡ [Turbo] ${reason} (${turboDelay}ms)`);
+      }
+      await this.sleep(turboDelay);
+      return;
+    }
     if (!this.config.safeMode) {
-      await this.sleep(300);
+      await this.sleep(150);
       return;
     }
     const min = (this.config.minDelaySec || 1.0) * 1000;
@@ -476,9 +488,9 @@ export class DiDenChuaClient {
       this.checkAborted();
       log.info(`[${i}/${count}] -> Thắp nén tâm hương thành kính...`);
       this.send({ t: 'incense' });
-      await this.sleep(400);
+      await this.sleep(this.isTurbo() ? 80 : 250);
       this.claimQuest('huong');
-      if (i < count) await this.sleep(600);
+      if (i < count) await this.sleep(this.isTurbo() ? 80 : 350);
     }
     log.info(`Đã gửi hoàn tất yêu cầu dâng ${count} nén tâm hương (chờ máy chủ ghi nhận).`);
   }
@@ -496,9 +508,9 @@ export class DiDenChuaClient {
       this.checkAborted();
       log.info(`[${i}/${count}] -> Thả ngọn hoa đăng sen màu [${color}]: "${text}"`);
       this.send({ t: 'lantern', color, text });
-      await this.sleep(400);
+      await this.sleep(this.isTurbo() ? 80 : 250);
       this.claimQuest('den');
-      if (i < count) await this.sleep(600);
+      if (i < count) await this.sleep(this.isTurbo() ? 80 : 350);
     }
     log.info(`Đã gửi hoàn tất yêu cầu thả ${count} ngọn hoa đăng sen (chờ máy chủ ghi nhận).`);
   }
@@ -517,9 +529,9 @@ export class DiDenChuaClient {
       log.temple('🙏', `Chắp tay chào phật tử [${name}]…`);
       this.send({ t: 'greet', to: target });
       this.send({ t: 'emote', e: 'chap' });
-      await this.sleep(400);
+      await this.sleep(this.isTurbo() ? 80 : 250);
       this.claimQuest('chao');
-      await this.sleep(500);
+      await this.sleep(this.isTurbo() ? 80 : 300);
     } else {
       log.warn('Không tìm thấy ai trong phòng để chắp tay chào.');
     }
@@ -539,7 +551,7 @@ export class DiDenChuaClient {
       log.info(`[${i}/${count}] -> Gió thổi lá bay, chổi quét sạch bong (động tác quét lá)...`);
       this.send({ t: 'emote', e: 'quet' });
       this.send({ t: 'viec', k: 'quet' });
-      if (i < count) await this.sleep(600);
+      if (i < count) await this.sleep(this.isTurbo() ? 80 : 350);
     }
     log.info(`Đã gửi hoàn tất yêu cầu ${count} lần quét lá sân chùa (chờ máy chủ ghi nhận).`);
   }
@@ -580,10 +592,10 @@ export class DiDenChuaClient {
       this.send({ t: 'visit', zone: z });
       log.info(`-> [${i + 1}/${zones.length}] Đã gửi yêu cầu viếng thăm: [${z}]`);
       if (i < zones.length - 1) {
-        await this.sleep(200);
+        await this.sleep(this.isTurbo() ? 60 : 150);
       }
     }
-    await this.sleep(400);
+    await this.sleep(this.isTurbo() ? 80 : 250);
     log.success('Đã hoàn tất gửi yêu cầu viếng thăm đầy đủ các khu vực trong chùa (10/10 khu).');
   }
 
@@ -745,13 +757,13 @@ export class DiDenChuaClient {
     await this.humanDelay('thong thả bước ra cầu hồ sen');
     log.info('-> Phóng sinh / Cho đàn cá ở hồ sen ăn...');
     this.send({ t: 'viec', k: 'ca' });
-    await this.sleep(400);
+    await this.sleep(this.isTurbo() ? 80 : 250);
 
     this.checkAborted();
     await this.humanDelay('bước vào chánh điện châm dầu đèn');
     log.info('-> Thắp đèn dầu chánh điện...');
     this.send({ t: 'lamp' });
-    await this.sleep(400);
+    await this.sleep(this.isTurbo() ? 80 : 250);
   }
 
   async doPet() {
@@ -761,14 +773,14 @@ export class DiDenChuaClient {
     this.checkAborted();
     log.info('-> Cho mèo ăn bánh...');
     this.send({ t: 'pet-feed' });
-    await this.sleep(400);
+    await this.sleep(this.isTurbo() ? 80 : 250);
 
     this.checkAborted();
     await this.humanDelay('nhẹ nhàng xoa đầu vuốt ve mèo');
     this.checkAborted();
     log.info('-> Xoa đầu mèo...');
     this.send({ t: 'pet-pat' });
-    await this.sleep(400);
+    await this.sleep(this.isTurbo() ? 80 : 250);
   }
 
   async doGarden(options = {}) {
@@ -787,7 +799,7 @@ export class DiDenChuaClient {
     let waitCount = 0;
     while (!this.garden && waitCount < 15) {
       this.checkAborted();
-      await this.sleep(200);
+      await this.sleep(this.isTurbo() ? 80 : 200);
       waitCount++;
     }
 
@@ -795,7 +807,7 @@ export class DiDenChuaClient {
       log.warn('Không nhận được dữ liệu vườn hoa từ máy chủ, gửi lệnh tưới thông thường.');
       this.checkAborted();
       this.send({ t: 'water', pid: this.myPid });
-      await this.sleep(500);
+      await this.sleep(this.isTurbo() ? 80 : 300);
       return;
     }
 
@@ -806,23 +818,23 @@ export class DiDenChuaClient {
       this.checkAborted();
       log.temple('🌱', `Luống hoa của bạn đang trống. Tiến hành gieo hạt giống [${plantSeed}]...`);
       this.send({ t: 'plant', k: plantSeed });
-      await this.sleep(600);
+      await this.sleep(this.isTurbo() ? 80 : 300);
     } else {
       // Nếu hoa đã nở (stage === 3) -> hái hoa và dâng Chánh điện
       if (mine.stage === 3) {
         this.checkAborted();
         log.temple('🌸', `Hoa [${mine.k}] trong luống của bạn đã nở trọn vẹn! Tiến hành hái hoa...`);
         this.send({ t: 'pick' });
-        await this.sleep(600);
+        await this.sleep(this.isTurbo() ? 80 : 300);
         this.checkAborted();
         log.temple('💐', 'Thành tâm dâng hoa tươi lên Phật đài Chánh điện (+công đức dâng hoa)...');
         this.send({ t: 'offer-flowers' });
-        await this.sleep(600);
+        await this.sleep(this.isTurbo() ? 80 : 300);
         // Gieo tiếp hạt giống mới
         this.checkAborted();
         log.temple('🌱', `Gieo tiếp đợt hạt giống mới [${plantSeed}]...`);
         this.send({ t: 'plant', k: plantSeed });
-        await this.sleep(600);
+        await this.sleep(this.isTurbo() ? 80 : 300);
       }
 
       // Tưới luống hoa của mình nếu chưa tưới
@@ -830,7 +842,7 @@ export class DiDenChuaClient {
         this.checkAborted();
         log.info('-> Múc gáo nước mát tưới luống hoa của bản thân...');
         this.send({ t: 'water', pid: this.myPid });
-        await this.sleep(600);
+        await this.sleep(this.isTurbo() ? 80 : 300);
       } else {
         log.info(`-> Luống hoa của bạn hôm nay đã được tưới (${mine.grown}/${mine.need} ngày lớn).`);
       }
@@ -842,7 +854,7 @@ export class DiDenChuaClient {
       this.checkAborted();
       log.temple('💐', `Phát hiện ${flowersInHand} bông hoa tươi trong tay, tiến hành dâng hoa lên Phật đài...`);
       this.send({ t: 'offer-flowers' });
-      await this.sleep(600);
+      await this.sleep(this.isTurbo() ? 80 : 300);
     }
 
     // 3. TỰ ĐỘNG TƯỚI NƯỚC GIÚP BẠN ĐỒNG TU (+2 CÔNG ĐỨC MỖI LUỐNG)
@@ -861,7 +873,7 @@ export class DiDenChuaClient {
           const bedOwner = bed.name || bed.pid;
           log.info(`[${i + 1}/${toWater.length}] Tưới nước giúp luống hoa của [${bedOwner}]...`);
           this.send({ t: 'water', pid: bed.pid });
-          const waterDelay = Math.floor(350 + Math.random() * 150);
+          const waterDelay = this.isTurbo() ? Math.floor(60 + Math.random() * 40) : Math.floor(250 + Math.random() * 100);
           await this.sleep(waterDelay);
         }
         log.success(`Đã tưới nước giúp ${toWater.length} luống hoa! Tích lũy thêm ước tính +${toWater.length * 2} công đức.`);
@@ -876,16 +888,18 @@ export class DiDenChuaClient {
     log.temple('🪵', `Bắt đầu gõ mõ tụng kinh (${count} tiếng - tốc độ tối ưu)...`);
     // Đảm bảo đứng tại Chánh điện để máy chủ ghi nhận nhiệm vụ gõ mõ tụng kinh (tung)
     this.send({ t: 'visit', zone: 'Chánh điện' });
-    await this.sleep(300);
+    await this.sleep(this.isTurbo() ? 80 : 250);
+    const batchSize = this.isTurbo() ? 20 : 10;
+    const intervalMs = this.isTurbo() ? 250 : 400;
     let sent = 0;
     while (sent < count) {
       this.checkAborted();
-      const batch = Math.min(10, count - sent);
+      const batch = Math.min(batchSize, count - sent);
       this.send({ t: 'mo', n: batch });
       sent += batch;
       log.info(`...cốc cốc [${sent}/${count} tiếng mõ]`);
       if (sent < count) {
-        await this.sleep(800);
+        await this.sleep(intervalMs);
       }
     }
     log.info(`Đã hoàn tất gửi ${count} tiếng mõ tụng kinh (chờ máy chủ ghi nhận).`);
@@ -917,7 +931,7 @@ export class DiDenChuaClient {
         await this.sleep(intervalMs);
       }
     }
-    await this.sleep(1000);
+    await this.sleep(this.isTurbo() ? 250 : 800);
     await this.fetchJournal();
     if (this.journal) {
       const totalRounds = this.journal.rounds || Math.floor((this.journal.beads || 0) / 108);
@@ -942,7 +956,7 @@ export class DiDenChuaClient {
       ry: -1.57,
       s: 0
     });
-    await this.sleep(400);
+    await this.sleep(this.isTurbo() ? 80 : 250);
 
     // 2. Thỉnh từng tiếng chuông ngân vang
     const total = Math.max(1, count);
@@ -951,12 +965,12 @@ export class DiDenChuaClient {
       this.send({ t: 'bell' });
       log.info(`-> Thỉnh tiếng chuông [${i}/${total}]... (Nguyện tiếng chuông này vang khắp pháp giới)`);
       if (i < total) {
-        await this.sleep(1800);
+        await this.sleep(this.isTurbo() ? 300 : 1800);
       }
     }
 
     // 3. Tự động nhận thưởng nhiệm vụ ngày thỉnh chuông
-    await this.sleep(400);
+    await this.sleep(this.isTurbo() ? 80 : 250);
     this.claimQuest('chuong');
   }
 
@@ -969,7 +983,7 @@ export class DiDenChuaClient {
     this.send({ t: 'xam', n: randomXam });
     log.info(`-> Đã gieo quẻ xăm số [${randomXam}] cầu bình an cát tường.`);
     this.claimQuest('xam');
-    await this.sleep(500);
+    await this.sleep(this.isTurbo() ? 80 : 250);
   }
 
   async doEnterAm() {
@@ -980,10 +994,10 @@ export class DiDenChuaClient {
 
     this.send({ t: 'visit', zone: 'Am riêng' });
     this.send({ t: 'am' });
-    await this.sleep(400);
+    await this.sleep(this.isTurbo() ? 80 : 250);
     this.send({ t: 'am-in' });
     this.inAm = true;
-    await this.sleep(500);
+    await this.sleep(this.isTurbo() ? 80 : 250);
 
     // Tự động nhận thưởng nhiệm vụ tuần vào am riêng nếu có
     this.claimQuest('wAm');
@@ -996,7 +1010,7 @@ export class DiDenChuaClient {
     await this.humanDelay('thành tâm châm hương trước ban thờ');
     this.checkAborted();
     this.send({ t: 'am-incense' });
-    await this.sleep(600);
+    await this.sleep(this.isTurbo() ? 80 : 300);
     log.success('-> Đã dâng ba nén hương trong Am riêng!');
   }
 
@@ -1004,7 +1018,7 @@ export class DiDenChuaClient {
     this.checkAborted();
     log.temple('🎨', `Bày trí Am riêng: Đặt món [${item || 'để trống'}] vào vị trí [${slot}]...`);
     this.send({ t: 'am-set', slot, item: item || '' });
-    await this.sleep(400);
+    await this.sleep(this.isTurbo() ? 80 : 250);
     log.success(`-> Đã lưu bài trí Am riêng cho vị trí [${slot}]!`);
   }
 
@@ -1013,7 +1027,7 @@ export class DiDenChuaClient {
     log.temple('🚪', 'Rời khỏi Am riêng, trở lại sân chùa...');
     this.send({ t: 'am-out' });
     this.inAm = false;
-    await this.sleep(400);
+    await this.sleep(this.isTurbo() ? 80 : 250);
     log.success('-> Đã trở lại khuôn viên chùa.');
   }
 
@@ -1024,10 +1038,10 @@ export class DiDenChuaClient {
     this.checkAborted();
 
     this.send({ t: 'visit', zone: 'Pháp đường' });
-    await this.sleep(300);
+    await this.sleep(this.isTurbo() ? 80 : 200);
     this.send({ t: 'phap-in' });
     this.inPhapDuong = true;
-    await this.sleep(500);
+    await this.sleep(this.isTurbo() ? 80 : 250);
     log.success('-> Đã vào Pháp đường (Xin giữ im lặng · an tọa lắng nghe giáo lý hoặc tĩnh tâm).');
   }
 
@@ -1036,7 +1050,7 @@ export class DiDenChuaClient {
     log.temple('🚪', 'Rời Pháp đường, trở về khuôn viên chùa...');
     this.send({ t: 'phap-out' });
     this.inPhapDuong = false;
-    await this.sleep(400);
+    await this.sleep(this.isTurbo() ? 80 : 250);
     log.success('-> Đã trở lại sân chùa.');
   }
 
@@ -1047,7 +1061,7 @@ export class DiDenChuaClient {
     this.checkAborted();
     this.send({ t: 'vow', text });
     log.info('-> Đã gửi lời nguyện chung tới cả chùa (hoàn thành nhiệm vụ lời nguyện).');
-    await this.sleep(500);
+    await this.sleep(this.isTurbo() ? 80 : 250);
   }
 
   async doQaIncense() {
@@ -1057,7 +1071,7 @@ export class DiDenChuaClient {
     this.checkAborted();
     this.send({ t: 'qa-incense' });
     log.info('-> Đã gửi yêu cầu dâng nén tâm hương cúng dường Bồ Tát Quan Âm.');
-    await this.sleep(500);
+    await this.sleep(this.isTurbo() ? 80 : 250);
   }
 
   async doTuyHy(maxCount = 5) {
@@ -1070,7 +1084,7 @@ export class DiDenChuaClient {
       this.checkAborted();
       this.send({ t: 'tuyhy', lantern: lantern.id });
       log.info(`-> Tùy hỷ hoa đăng: "${lantern.text}"`);
-      await this.sleep(400);
+      await this.sleep(this.isTurbo() ? 60 : 200);
     }
   }
 
@@ -1082,9 +1096,9 @@ export class DiDenChuaClient {
 
     // 1. Bắt buộc phải viếng thăm lều Thầy đồ để máy chủ ghi nhận nhiệm vụ chu
     this.send({ t: 'visit', zone: 'Thầy đồ' });
-    await this.sleep(500);
+    await this.sleep(this.isTurbo() ? 80 : 250);
     this.send({ t: 'chu-list' });
-    await this.sleep(600);
+    await this.sleep(this.isTurbo() ? 80 : 250);
 
     // 2. Lần lượt xin trọn vẹn từng chữ trong 12 chữ và cất vào Tủ chữ
     let idx = 0;
@@ -1093,19 +1107,19 @@ export class DiDenChuaClient {
       idx++;
       log.temple('✍️', `[${idx}/${CALLIGRAPHY_WORDS.length}] Thầy đồ phóng bút chữ "${word.text}" (Ước nguyện: ${word.wish})...`);
       this.send({ t: 'chu-xin', chu: word.id });
-      await this.sleep(500);
+      await this.sleep(this.isTurbo() ? 90 : 200);
 
       this.send({ t: 'chu-dem', k: 'mo' });
       this.send({ t: 'chu-dem', k: 'vao' });
       this.send({ t: 'chu-giu', chu: word.id });
 
       log.info(`   -> Đã cất chữ "${word.text}" vào Tủ chữ. Ý nghĩa: "${word.meaning}"`);
-      await this.sleep(400);
+      await this.sleep(this.isTurbo() ? 80 : 150);
     }
 
     // 3. Hoàn tất & nhận thưởng quest chu
     this.claimQuest('chu');
-    await this.sleep(500);
+    await this.sleep(this.isTurbo() ? 80 : 200);
     log.success(`🎉 HOÀN TẤT: Đã xin đủ toàn bộ 12/12 chữ thư pháp cát tường từ Thầy đồ và lưu trữ vào Tủ chữ!`);
   }
 
@@ -1121,11 +1135,11 @@ export class DiDenChuaClient {
     this.checkAborted();
     // Bắt buộc phải viếng thăm lều Thầy đồ để máy chủ ghi nhận nhiệm vụ chu
     this.send({ t: 'visit', zone: 'Thầy đồ' });
-    await this.sleep(500);
+    await this.sleep(this.isTurbo() ? 80 : 250);
     this.send({ t: 'chu-list' });
-    await this.sleep(500);
+    await this.sleep(this.isTurbo() ? 80 : 250);
     this.send({ t: 'chu-xin', chu: targetWish });
-    await this.sleep(800);
+    await this.sleep(this.isTurbo() ? 90 : 300);
     this.send({ t: 'chu-dem', k: 'mo' });
     this.send({ t: 'chu-dem', k: 'vao' });
     this.send({ t: 'chu-giu', chu: targetWish });
@@ -1137,7 +1151,7 @@ export class DiDenChuaClient {
     if (wordInfo.meaning) {
       log.temple('📜', `Ý nghĩa chữ [${wordInfo.text}]: "${wordInfo.meaning}"`);
     }
-    await this.sleep(500);
+    await this.sleep(this.isTurbo() ? 80 : 250);
   }
 
   async doTangKinhCac(sutraId = 'all') {
@@ -1149,7 +1163,7 @@ export class DiDenChuaClient {
     // 1. Viếng thăm Tàng Kinh Các & Sân chùa
     this.send({ t: 'visit', zone: 'Sân chùa' });
     this.send({ t: 'visit', zone: 'Tàng Kinh Các' });
-    await this.sleep(400);
+    await this.sleep(this.isTurbo() ? 80 : 250);
 
     // 2. Lắng nghe / Đọc kinh điển
     if (!sutraId || sutraId === 'all' || sutraId === 'tat-ca' || sutraId === 'full') {
@@ -1159,21 +1173,21 @@ export class DiDenChuaClient {
         idx++;
         log.temple('📖', `[${idx}/${BUDDHIST_SUTRAS.length}] Lắng nghe kinh điển "${sutra.title}" (${sutra.duration}) — ${sutra.desc}…`);
         this.send({ t: 'tk-read', id: sutra.id });
-        await this.sleep(500);
+        await this.sleep(this.isTurbo() ? 90 : 200);
       }
     } else {
       const sutra = BUDDHIST_SUTRAS.find(s => s.id === sutraId) || { id: sutraId, title: sutraId, duration: '', desc: '' };
       log.temple('📖', `Lắng nghe kinh điển "${sutra.title}" (${sutra.duration}) — ${sutra.desc}…`);
       this.send({ t: 'tk-read', id: sutra.id });
-      await this.sleep(500);
+      await this.sleep(this.isTurbo() ? 90 : 200);
     }
 
     // 3. Hoàn tất khóa lễ tụng kinh sám hối / thời khóa
     this.send({ t: 'tk-done' });
-    await this.sleep(400);
+    await this.sleep(this.isTurbo() ? 80 : 200);
     this.claimQuest('wDoc');
     this.claimQuest('tk');
-    await this.sleep(300);
+    await this.sleep(this.isTurbo() ? 80 : 200);
     log.success('🎉 HOÀN TẤT: Đã lắng nghe trọn vẹn kinh điển tại Tàng Kinh Các và hoàn tất thời khóa!');
   }
 
@@ -1182,7 +1196,7 @@ export class DiDenChuaClient {
     log.temple('✨', '=== BẮT ĐẦU CHU TRÌNH TÀNG KINH CÁC & XIN CHỮ THƯ PHÁP ===');
     // 1. Viếng Tàng Kinh Các & nghe hết kinh điển
     await this.doTangKinhCac('all');
-    await this.sleep(500);
+    await this.sleep(this.isTurbo() ? 60 : 200);
     // 2. Sang lều Thầy đồ xin chữ thư pháp (mặc định xin trọn bộ 12 chữ)
     const targetWish = wishId || this.config.calligraphyWish || 'all';
     await this.doXinChu(targetWish);
@@ -1315,17 +1329,30 @@ export class DiDenChuaClient {
     const claimed = [];
     const unverified = [];
 
+    const claimSleep = this.isTurbo() ? 80 : 200;
     for (const q of toClaim) {
       log.info(`-> Gửi yêu cầu nhận thưởng: "${q.title}" (+${q.reward} công đức)...`);
       this.send({ t: 'claim', q: q.id });
-      await this.sleep(700);
+      await this.sleep(claimSleep);
     }
 
-    // Chờ máy chủ cập nhật gói merit mới (tối đa 2.5s)
-    let waitCount = 0;
-    while (waitCount < 5) {
-      await this.sleep(500);
-      waitCount++;
+    // Chờ máy chủ cập nhật gói merit mới (chủ động thoát sớm ngay khi tất cả đã được ghi nhận)
+    const maxSteps = this.isTurbo() ? 10 : 20;
+    const stepInterval = this.isTurbo() ? 50 : 100;
+    for (let step = 0; step < maxSteps; step++) {
+      await this.sleep(stepInterval);
+      const checkGroups = [
+        ...(this.merit?.me?.quests || []),
+        ...(this.merit?.me?.weekly || []),
+        ...(this.merit?.me?.newbie || [])
+      ];
+      const allDone = toClaim.every(target => {
+        const found = checkGroups.find(item => item.id === target.id);
+        return found && found.claimed;
+      });
+      if (allDone) {
+        break;
+      }
     }
 
     const updatedGroups = [
@@ -1354,7 +1381,7 @@ export class DiDenChuaClient {
     for (const q of chainedToClaim) {
       log.info(`-> Gửi yêu cầu nhận thưởng chuỗi nhiệm vụ: "${q.title}" (+${q.reward} công đức)...`);
       this.send({ t: 'claim', q: q.id });
-      await this.sleep(700);
+      await this.sleep(this.isTurbo() ? 80 : 250);
 
       // Chained claims need the same server confirmation as the first batch;
       // sending a claim is not evidence that the reward was accepted.

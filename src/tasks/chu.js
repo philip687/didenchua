@@ -1,8 +1,9 @@
 import { DiDenChuaClient } from '../client.js';
 import { log } from '../logger.js';
 
-export async function runXinChu(wish = 'all') {
-  const client = new DiDenChuaClient();
+export async function runXinChu(wish = 'all', options = {}) {
+  const isTurbo = Boolean(options.turbo || options.fast || process.argv.includes('--turbo') || process.argv.includes('--fast'));
+  const client = new DiDenChuaClient(isTurbo ? { turbo: true } : {});
   try {
     await client.connect();
     if (wish === 'all' || wish === 'tat-ca' || wish === 'full' || wish === 'tron-bo') {

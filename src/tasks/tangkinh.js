@@ -1,8 +1,9 @@
 import { DiDenChuaClient } from '../client.js';
 import { log } from '../logger.js';
 
-export async function runTangKinh(sutraId = 'all') {
-  const client = new DiDenChuaClient();
+export async function runTangKinh(sutraId = 'all', options = {}) {
+  const isTurbo = Boolean(options.turbo || options.fast || process.argv.includes('--turbo') || process.argv.includes('--fast'));
+  const client = new DiDenChuaClient(isTurbo ? { turbo: true } : {});
   try {
     await client.connect();
     await client.doTangKinhCac(sutraId);
@@ -19,3 +20,4 @@ if (process.argv[1]?.endsWith('tangkinh.js') || process.argv[1]?.endsWith('kinh.
   const sutraId = process.argv[2] || 'all';
   runTangKinh(sutraId).then(() => process.exit(0));
 }
+

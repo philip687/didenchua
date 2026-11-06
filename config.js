@@ -36,6 +36,7 @@ const DEFAULT_CONFIG = {
   cushion: 'xam',    // xam, nau, vang, do, sen
   room: 'chua-1',
   safeMode: true,    // Chế độ mô phỏng an toàn
+  turbo: false,      // Chế độ siêu tốc (nén tối đa các khoảng dừng vô ích, hoàn thành cực nhanh)
   minDelaySec: 1.0,  // Giãn cách tối thiểu giữa các hành động (giây) - Đã tối ưu tốc độ
   maxDelaySec: 2.0,  // Giãn cách tối đa giữa các hành động (giây) - Đã tối ưu tốc độ
   chromePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -73,6 +74,8 @@ export function loadConfig() {
   if (process.env.NAME) envConfig.name = process.env.NAME;
   if (process.env.ROOM) envConfig.room = process.env.ROOM;
   if (process.env.SAFE_MODE !== undefined) envConfig.safeMode = process.env.SAFE_MODE === 'true';
+  if (process.env.TURBO !== undefined) envConfig.turbo = process.env.TURBO === 'true';
+  if (process.env.FAST !== undefined) envConfig.fast = process.env.FAST === 'true';
   if (process.env.CALLIGRAPHY_WISH) envConfig.calligraphyWish = process.env.CALLIGRAPHY_WISH;
 
   return {

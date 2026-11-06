@@ -504,6 +504,7 @@ Cấu hình được quản lý tập trung tại [`config.json`](file:///Users/
   "cushion": "xam",
   "room": "chua-1",
   "safeMode": true,
+  "turbo": false,
   "minDelaySec": 1.0,
   "maxDelaySec": 2.0,
   "meditateSeconds": 3600,
@@ -524,6 +525,14 @@ Cấu hình được quản lý tập trung tại [`config.json`](file:///Users/
 ### 🛡️ Cơ Chế An Toàn (Safe Human Mode)
 - **`safeMode: true`**: Tự động chèn các khoảng nghỉ ngẫu nhiên (`minDelaySec` - `maxDelaySec`) giữa các bước để mô phỏng hành vi tự nhiên của Phật tử đi dạo trong chùa.
 - **Nhịp tụng kinh & gõ mõ**: Thay vì gửi dồn dập, bot gõ 1-3 tiếng mõ rồi nghỉ ngắn 2.2s - 3.7s theo đúng nhịp điệu trang nghiêm.
+
+### ⚡ Chế Độ Siêu Tốc (Turbo Mode - Tối Ưu Tốc Độ Thực Thi)
+- **Rút ngắn từ ~40s xuống 3 - 5 giây**: Dành cho người dùng muốn hoàn thành ngay lập tức mà không muốn chờ đợi lâu.
+- **Cách kích hoạt**:
+  - **Trên Web Report/Dashboard**: Tích chọn checkbox `⚡ Siêu Tốc (Turbo)` ở thanh điều khiển trên cùng (tự động ghi nhớ qua `localStorage`).
+  - **Qua CLI**: Thêm cờ `--turbo` hoặc `--fast`, ví dụ `npm run turbo` hoặc `node cli.js all --turbo`.
+  - **Cấu hình tĩnh**: Đặt `"turbo": true` trong `config.json` hoặc biến môi trường `TURBO=true`.
+- **Cơ chế kỹ thuật**: Nén `humanDelay` xuống 40 - 80ms, chuyển vòng lặp nhận thưởng `claimAllQuests()` sang cơ chế phản ứng tức thì (Reactive Acknowledgment) thoát ngay khi máy chủ xác nhận, tối ưu gửi 12 chữ thư pháp và 6 bài kinh Tàng Kinh Các chỉ mất ~2 giây mà không bị nghẽn WebSocket.
 
 ---
 

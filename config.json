@@ -10,6 +10,7 @@
   "room": "chua-1",
   "chromePath": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   "safeMode": true,
+  "turbo": false,
   "minDelaySec": 1,
   "maxDelaySec": 2,
   "meditateSeconds": 3600,

@@ -11,8 +11,9 @@ import { log } from '../logger.js';
  * 6. Viếng thăm trọn vẹn 10 khu vực trong chùa để mở danh hiệu 🏆 "Thăm khắp chùa" (t: "visit")
  * 7. Hoàn thành khóa tụng kinh sám hối (t: "tk-done")
  */
-export async function runAllSecrets() {
-  const client = new DiDenChuaClient();
+export async function runAllSecrets(options = {}) {
+  const isTurbo = Boolean(options.turbo || options.fast || process.argv.includes('--turbo') || process.argv.includes('--fast'));
+  const client = new DiDenChuaClient(isTurbo ? { turbo: true } : {});
 
   log.temple('✨', '=== BẮT ĐẦU TỰ ĐỘNG THỰC HIỆN TOÀN BỘ NHIỆM VỤ ẨN TRÊN CHÙA ===');
   console.log('----------------------------------------------------------------------');
@@ -25,7 +26,7 @@ export async function runAllSecrets() {
     await client.humanDelay('tiến lại gần tôn tượng Bồ Tát Quan Âm');
     client.send({ t: 'qa-incense' });
     log.success('Đã dâng nén tâm hương cúng dường Bồ Tát Quan Âm!');
-    await client.sleep(1500);
+    await client.sleep(client.isTurbo() ? 80 : 300);
 
     // 2. Gieo quẻ xăm may mắn
     log.temple('📜', '2. Gieo quẻ xăm may mắn đầu ngày…');
@@ -33,7 +34,7 @@ export async function runAllSecrets() {
     const randomXam = Math.floor(Math.random() * 100) + 1;
     client.send({ t: 'xam', n: randomXam });
     log.success(`Đã gieo quẻ xăm số [${randomXam}] cầu bình an cát tường!`);
-    await client.sleep(1500);
+    await client.sleep(client.isTurbo() ? 80 : 300);
 
     // 3. Chăm sóc Vườn Hoa Chùa (Gieo hạt giống & Tưới nước)
     log.temple('🌱', '3. Chăm sóc Vườn Hoa Chùa (Trồng hoa dâng Phật)…');
@@ -41,11 +42,11 @@ export async function runAllSecrets() {
     await client.humanDelay('đi dạo ra luống hoa của mình');
     // Gieo hạt cúc nếu luống trống
     client.send({ t: 'plant', k: 'cuc' });
-    await client.sleep(1200);
+    await client.sleep(client.isTurbo() ? 80 : 300);
     // Tưới nước cho luống hoa
     client.send({ t: 'water', pid: '' });
     log.success('Đã chăm sóc và tưới nước cho luống hoa Cúc vàng!');
-    await client.sleep(1500);
+    await client.sleep(client.isTurbo() ? 80 : 300);
 
     // 4. Tùy hỷ hoa đăng người khác trên hồ sen
     log.temple('🏮', '4. Tùy hỷ hoa đăng của các phật tử khác trên hồ…');
@@ -57,16 +58,16 @@ export async function runAllSecrets() {
         client.send({ t: 'tuyhy', lantern: lantern.id });
         log.info(`-> Tùy hỷ hoa đăng: "${lantern.text}" (+phước lành tùy hỷ)`);
         tuyhyCount++;
-        await client.sleep(800);
+        await client.sleep(client.isTurbo() ? 60 : 200);
       }
     }
     log.success(`Đã tùy hỷ công đức cho các ngọn hoa đăng trên hồ sen!`);
-    await client.sleep(1500);
+    await client.sleep(client.isTurbo() ? 80 : 300);
 
     // 5. Thư pháp / Xin chữ Thầy đồ
     log.temple('🖌️', '5. Xin chữ thư pháp đầu ngày từ Thầy đồ…');
     await client.doXinChu('all');
-    await client.sleep(1000);
+    await client.sleep(client.isTurbo() ? 80 : 250);
 
     // 6. Đi thăm đủ 10 khu vực trong chùa (Mở khóa danh hiệu "Thăm khắp chùa")
     log.temple('🚶', '6. Khám phá 10 khu vực trong chùa…');
@@ -77,15 +78,15 @@ export async function runAllSecrets() {
     ];
     for (const z of zones) {
       client.send({ t: 'visit', zone: z });
-      await client.sleep(300);
+      await client.sleep(client.isTurbo() ? 60 : 150);
     }
     log.success('Đã viếng thăm toàn bộ 10 khu vực trong chùa (🏆 Đạt danh hiệu "Thăm khắp chùa")!');
-    await client.sleep(1500);
+    await client.sleep(client.isTurbo() ? 80 : 300);
 
     // 7. Viếng Tàng Kinh Các & Lắng nghe trọn bộ kinh điển
     log.temple('📖', '7. Viếng Tàng Kinh Các & Lắng nghe trọn bộ kinh điển…');
     await client.doTangKinhCac('all');
-    await client.sleep(1000);
+    await client.sleep(client.isTurbo() ? 80 : 250);
 
     // 8. Tự động nhận tất cả phần thưởng
     await client.claimAllQuests();

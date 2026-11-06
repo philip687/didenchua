@@ -151,9 +151,16 @@ Mở file `config.json` để tùy chỉnh thông tin hoặc liên kết với n
 ```
 
 ### 🛡️ Cơ chế Chống Chặn & Giãn Cách Tự Nhiên (Safe Human Mode):
-- **`safeMode: true`**: Tự động chèn các khoảng nghỉ ngẫu nhiên (`3.5s` - `7.0s`) giữa các hành vi để mô phỏng y hệt người dùng đang thong thả đi dạo, ngắm cảnh và thắp hương trong chùa 3D.
+- **`safeMode: true`**: Tự động chèn các khoảng nghỉ ngẫu nhiên (`1.0s` - `2.0s`) giữa các hành vi để mô phỏng y hệt người dùng đang thong thả đi dạo, ngắm cảnh và thắp hương trong chùa 3D.
 - **Gõ mõ / Lăn tràng hạt**: Thay vì bắn liên tục, bot gõ nhịp nhàng 1-3 tiếng mõ rồi nghỉ 2.2s - 3.7s, tái hiện đúng nhịp điệu tụng kinh trang nghiêm.
 - **Tùy chỉnh tốc độ**: Nếu muốn an toàn tuyệt đối hoặc chạy chậm rãi hơn nữa, bạn có thể tăng `minDelaySec` và `maxDelaySec` lên (ví dụ: `5.0` và `10.0`).
+
+### ⚡ Chế độ Siêu Tốc (Turbo Mode - Hoàn Thành Trong Vài Giây):
+Nếu không muốn chờ đợi lâu, bạn có thể kích hoạt Chế độ Siêu Tốc để rút ngắn thời gian thực thi toàn bộ chu trình từ 40s xuống chỉ còn **3 - 5 giây**:
+- **Trên Web Dashboard**: Chỉ cần tích chọn ô **⚡ Siêu Tốc (Turbo)** ở thanh điều khiển trên cùng. Tùy chọn này tự động lưu vào trình duyệt (`localStorage`) cho các lần sau.
+- **Qua lệnh CLI**: Chạy `npm run turbo` hoặc thêm cờ `--turbo` / `--fast` (ví dụ: `node cli.js all --turbo`).
+- **Cấu hình cố định**: Bật `"turbo": true` trong `config.json` hoặc truyền biến môi trường `TURBO=true`.
+- **Cơ chế tối ưu**: Nén toàn bộ `humanDelay` xuống 40 - 80ms, phản ứng tức thì khi server phản hồi nhận thưởng (Reactive Claim Check), gửi chuỗi 12 chữ thư pháp và 6 bài kinh Tàng Kinh Các chỉ trong 2 giây mà vẫn đảm bảo 100% gói tin được máy chủ ghi nhận.
 
 ---
 

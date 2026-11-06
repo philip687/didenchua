@@ -74,7 +74,8 @@ QUY TRÌNH CHUẨN HÓA 3 GIAI ĐOẠN (HÀNH ĐỘNG -> CÀY THÀNH TÍCH -> TR
   npm run quests        : (Tương đương npm run all)
   npm run cicd          : Chạy combo tối ưu cho CI/CD
   Tùy chọn nâng cao:
-    --fast hoặc --skip-hang        : Bỏ qua giai đoạn treo 5 phút để hoàn thành nhanh
+    --turbo hoặc --fast            : Kích hoạt chế độ siêu tốc, nén tối đa các khoảng dừng vô ích (hoàn tất trong vài giây)
+    --skip-hang                    : Bỏ qua giai đoạn treo 5 phút để hoàn thành nhanh
     --skip-milestones hoặc --no-farm: Bỏ qua giai đoạn cày thành tích, chỉ làm nhiệm vụ ngày
     --only-actions                 : Chỉ chạy các hành động kiếm điểm ngày, bỏ cả cày và treo
   npm run daemon        : Chạy ngầm 24/7, tự động canh 0h sáng hàng ngày để làm nhiệm vụ
@@ -232,12 +233,15 @@ async function main() {
     case 'quests':
     case 'ci':
     case 'cicd': {
-      const isFast = args.includes('--fast') || args.includes('--skip-hang');
+      const isFast = args.includes('--fast') || args.includes('--skip-hang') || args.includes('--turbo');
+      const isTurbo = args.includes('--turbo') || args.includes('--fast');
       const skipMilestones = args.includes('--skip-milestones') || args.includes('--no-farm') || args.includes('--only-actions');
       const onlyActions = args.includes('--only-actions');
       await runAllQuests({
         skipHang: isFast || onlyActions,
-        skipMilestones
+        skipMilestones,
+        turbo: isTurbo,
+        fast: isFast
       });
       break;
     }

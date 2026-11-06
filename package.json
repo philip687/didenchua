@@ -30,6 +30,8 @@
     "claim": "node cli.js claim",
     "quests": "node cli.js all",
     "all": "node cli.js all",
+    "fast": "node cli.js all --fast",
+    "turbo": "node cli.js all --turbo",
     "browser": "node cli.js browser",
     "view": "node cli.js browser",
     "daemon": "node cli.js daemon",
