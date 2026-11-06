@@ -364,21 +364,21 @@ export const TASKS_CATALOG = [
     id: 'beads',
     group: 'milestone',
     title: 'Lăn Tràng Hạt Niệm Phật',
-    desc: 'Lăn tràng hạt niệm Phật (1 chuỗi = 108 hạt, mốc danh hiệu: 100 chuỗi)',
+    desc: 'Lăn tràng hạt niệm Phật (1 chuỗi = 108 hạt, 100 chuỗi = 10.800 hạt mở danh hiệu Trăm chuỗi hạt 🏆)',
     icon: '📿',
     reward: 'Niệm Phật',
     badge: 'Chuỗi hạt',
     hasCount: true,
     defaultCount: 108,
     countOptions: [
-      { value: 54, label: '54 hạt (Nửa chuỗi)' },
-      { value: 108, label: '108 hạt (1 chuỗi tròn 🏆)' },
-      { value: 216, label: '216 hạt (2 chuỗi)' },
-      { value: 540, label: '540 hạt (5 chuỗi)' },
-      { value: 1080, label: '1.080 hạt (10 chuỗi)' },
-      { value: 3240, label: '3.240 hạt (30 chuỗi - Cây tre trăm đốt 🏆)' },
-      { value: 5400, label: '5.400 hạt (50 chuỗi)' },
-      { value: 10800, label: '10.800 hạt (100 chuỗi - Trăm chuỗi hạt 🏆)' }
+      { value: 54, label: 'Nửa chuỗi (54 hạt)' },
+      { value: 108, label: '1 chuỗi (108 hạt tròn 🏆)' },
+      { value: 216, label: '2 chuỗi (216 hạt)' },
+      { value: 540, label: '5 chuỗi (540 hạt)' },
+      { value: 1080, label: '10 chuỗi (1.080 hạt)' },
+      { value: 3240, label: '30 chuỗi (3.240 hạt - Cây tre trăm đốt 🏆)' },
+      { value: 5400, label: '50 chuỗi (5.400 hạt)' },
+      { value: 10800, label: '100 chuỗi (10.800 hạt - Trăm chuỗi hạt 🏆)' }
     ]
   },
   {
@@ -1073,7 +1073,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
       }
 
       // Tự động nhận thưởng nếu nhiệm vụ này hoàn thành quest ngày hoặc quest tuần
-      if (['bell', 'vow', 'incense', 'lay-daily', 'lay', 'greet', 'lantern-daily', 'chores-daily', 'xam', 'chores', 'quet', 'farm-bows-beads', 'tung', 'tuoi', 'chu', 'garden', 'tuyhy', 'secrets', 'tangkinh', 'chu-all', 'meditate', 'ngoi-daily', 'quiz', 'am', 'khoe', 'checkin', 'ca', 'dendau', 'cat', 'wAm', 'chuoi'].includes(taskId)) {
+      if (['bell', 'vow', 'incense', 'lay-daily', 'lay', 'greet', 'lantern-daily', 'chores-daily', 'xam', 'chores', 'quet', 'farm-bows-beads', 'tung', 'tuoi', 'chu', 'garden', 'tuyhy', 'secrets', 'tangkinh', 'chu-all', 'meditate', 'ngoi-daily', 'quiz', 'am', 'khoe', 'checkin', 'ca', 'dendau', 'cat', 'wAm', 'chuoi', 'beads'].includes(taskId)) {
         await client.sleep(client.isTurbo() ? 80 : 300);
         await client.claimAllQuests();
       }
@@ -2047,15 +2047,15 @@ export function renderDashboardHTML() {
               style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:4px 4px; border-radius:6px; font-size:11px; cursor:pointer;"
               ${isAnyRunning ? 'disabled' : ''}>
               <option value="" disabled selected>Gợi ý ▼</option>
-              ${(journal?.beads || 0) < 10800 ? `<option value="${10800 - (journal?.beads || 0)}">Cày đủ 100 chuỗi (còn ${10800 - (journal?.beads || 0)} hạt 🏆)</option>` : ''}
-              <option value="54">54 hạt (Nửa chuỗi)</option>
-              <option value="108">108 hạt (1 chuỗi 🏆)</option>
-              <option value="216">216 hạt (2 chuỗi)</option>
-              <option value="540">540 hạt (5 chuỗi)</option>
-              <option value="1080">1.080 hạt (10 chuỗi)</option>
-              <option value="3240">3.240 hạt (30 chuỗi 🏆)</option>
-              <option value="5400">5.400 hạt (50 chuỗi)</option>
-              <option value="10800">10.800 hạt (100 chuỗi 🏆)</option>
+              ${(journal?.beads || 0) < 10800 ? `<option value="${10800 - (journal?.beads || 0)}">Cày đủ 100 chuỗi (còn ${Math.ceil((10800 - (journal?.beads || 0)) / 108)} chuỗi = ${10800 - (journal?.beads || 0)} hạt 🏆)</option>` : ''}
+              <option value="54">Nửa chuỗi (54 hạt)</option>
+              <option value="108">1 chuỗi (108 hạt 🏆)</option>
+              <option value="216">2 chuỗi (216 hạt)</option>
+              <option value="540">5 chuỗi (540 hạt)</option>
+              <option value="1080">10 chuỗi (1.080 hạt)</option>
+              <option value="3240">30 chuỗi (3.240 hạt 🏆)</option>
+              <option value="5400">50 chuỗi (5.400 hạt)</option>
+              <option value="10800">100 chuỗi (10.800 hạt 🏆)</option>
             </select>
           </div>
         </div>
@@ -2063,7 +2063,9 @@ export function renderDashboardHTML() {
     } else if (t.hasCount) {
       let smartOption = '';
       if (t.id === 'beads' && (journal?.beads || 0) < 10800) {
-        smartOption = `<option value="${10800 - (journal?.beads || 0)}">Cày đủ 100 chuỗi (còn ${Math.ceil((10800 - (journal?.beads || 0)) / 108)} chuỗi = ${10800 - (journal?.beads || 0)} hạt 🏆)</option>`;
+        const remaining = 10800 - (journal?.beads || 0);
+        const remRounds = Math.ceil(remaining / 108);
+        smartOption = `<option value="${remaining}">Cày đủ mốc 100 chuỗi (còn ${remRounds} chuỗi = ${remaining} hạt 🏆)</option>`;
       } else if (t.id === 'tung') {
         const tungQ = (me?.quests || []).find(q => q.id === 'tung');
         if (tungQ && !tungQ.claimed && Number(tungQ.have || 0) < Number(tungQ.need || 108)) {
@@ -2075,12 +2077,12 @@ export function renderDashboardHTML() {
       inputControl = `
         <div style="display:flex; align-items:center; gap:5px; margin-right:4px;">
           <input type="number" id="count_${escapeHTML(t.id)}" value="${t.defaultCount || 1}" min="1" max="20000"
-            style="width:58px; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 6px; border-radius:6px; font-size:12px; text-align:center; font-weight:600;"
-            placeholder="Số lượng"
-            title="Nhập số lượng tùy ý"
+            style="width:72px; min-width:72px; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 6px; border-radius:6px; font-size:12px; text-align:center; font-weight:600;"
+            placeholder="${t.id === 'beads' ? 'Số hạt' : 'Số lượng'}"
+            title="${t.id === 'beads' ? 'Nhập số hạt niệm (1 chuỗi = 108 hạt, 100 chuỗi = 10.800 hạt)' : 'Nhập số lượng tùy ý'}"
             ${isAnyRunning ? 'disabled' : ''}>
           <select onchange="if(this.value){ document.getElementById('count_${escapeHTML(t.id)}').value = this.value; }"
-            style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 6px; border-radius:6px; font-size:12px; cursor:pointer; max-width:145px;"
+            style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 6px; border-radius:6px; font-size:12px; cursor:pointer; max-width:210px;"
             ${isAnyRunning ? 'disabled' : ''}>
             <option value="" disabled selected>Gợi ý ▼</option>
             ${smartOption}

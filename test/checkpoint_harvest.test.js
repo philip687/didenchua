@@ -129,6 +129,8 @@ test('CHECKPOINT_HARVEST: doBeads automatically claims daily/weekly quest and jo
   const client = new DiDenChuaClient({ turbo: true });
   const sentPackets = [];
 
+  client.connected = true;
+  client.ws = { readyState: 1 };
   client.send = (pkt) => { sentPackets.push(pkt); };
   client.sleep = async () => {};
 

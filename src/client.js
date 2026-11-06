@@ -1020,18 +1020,50 @@ export class DiDenChuaClient {
     const dailyQuestNeed = (activeChuoi && !activeChuoi.claimed) ? (activeChuoi.need || 54) : 54;
 
     let sent = 0;
+    let lastHeartbeat = Date.now();
     let lastEmoteTime = Date.now();
     try {
       while (sent < count) {
         this.checkAborted();
+
+        // 1. Tự động kiểm tra và phục hồi kết nối nếu mạng gián đoạn trong phiên tu tập dài
+        if (!this.connected || this.ws?.readyState !== WebSocket.OPEN) {
+          log.warn(`Phát hiện mất kết nối với chùa tại hạt thứ ${sent}/${count}. Đang tự động kết nối lại...`);
+          try {
+            await this.connect(8000);
+            this.send({ t: 'emote', e: 'chuoi' });
+            await this.sleep(this.isTurbo() ? 80 : 400);
+            lastHeartbeat = Date.now();
+            lastEmoteTime = Date.now();
+            log.success(`Đã kết nối lại thành công! Tiếp tục lần tràng hạt niệm Phật (đã niệm ${sent}/${count} hạt ~ ${(sent / 108).toFixed(1)} chuỗi).`);
+          } catch (reconnErr) {
+            log.warn(`Chưa kết nối lại được (${reconnErr.message}), thử lại sau 2 giây...`);
+            await this.sleep(2000);
+            continue;
+          }
+        }
+
         const batch = Math.min(batchSize, count - sent);
         this.send({ t: 'beads', n: batch });
         sent += batch;
         const curRounds = (sent / 108).toFixed(1);
-        log.info(`...Nam Mô A Di Đà Phật [${sent}/${count} hạt] (~${curRounds} chuỗi)`);
-        if (Date.now() - lastEmoteTime >= 4000) {
+
+        // Log định kỳ tránh làm nghẽn buffer EventSource của giao diện khi cày số lượng lớn (100 chuỗi)
+        if (count <= 108 || sent % 108 === 0 || sent >= count || (count <= 540 && sent % 54 === 0)) {
+          log.info(`...Nam Mô A Di Đà Phật [${sent}/${count} hạt] (~${curRounds}/${roundsTarget} chuỗi)`);
+        }
+
+        // Duy trì nhịp tim kết nối (Heartbeat) mỗi 15 giây
+        const now = Date.now();
+        if (now - lastHeartbeat >= 15000) {
+          this.send({ t: 'hb' });
+          lastHeartbeat = now;
+        }
+
+        // Chỉ gửi lại emote chuỗi khi tròn mỗi 1 chuỗi 108 hạt và đã cách lần trước >= 5 giây (tránh phạt 1008)
+        if (sent % 108 === 0 && sent < count && now - lastEmoteTime >= 5050) {
           this.send({ t: 'emote', e: 'chuoi' });
-          lastEmoteTime = Date.now();
+          lastEmoteTime = now;
         }
 
         // Điểm kiểm tra chốt chặng an toàn (Checkpoint Harvest):
@@ -1059,7 +1091,7 @@ export class DiDenChuaClient {
           }
 
           if (!claimedAny && !isFinalBead) {
-            log.temple('📿', `[Chốt an toàn chặng: ${sent}/${count} hạt (~${curRounds} chuỗi)] Đã đồng bộ số hạt niệm vào sổ tu tập chùa. Tiếp tục lần tràng hạt...`);
+            log.temple('📿', `[Chốt an toàn chặng: ${sent}/${count} hạt (~${curRounds}/${roundsTarget} chuỗi)] Đã đồng bộ số hạt niệm vào sổ tu tập chùa. Tiếp tục lần tràng hạt...`);
           }
 
           this.send({ t: 'journal' });
