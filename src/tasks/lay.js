@@ -1,11 +1,11 @@
 import { DiDenChuaClient } from '../client.js';
 import { log } from '../logger.js';
 
-export async function runLay(count = 108) {
+export async function runLay(count = 108, options = {}) {
   const client = new DiDenChuaClient();
   try {
     await client.connect();
-    await client.doLay(count);
+    await client.doLay(count, options);
     client.printStatus();
   } catch (err) {
     log.error('Lỗi khi lạy Phật:', err.message);

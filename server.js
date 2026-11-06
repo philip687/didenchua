@@ -865,7 +865,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
         case 'ngoi-daily':
           const activeNgoi = (client.merit?.me?.quests || []).find(q => q.id === 'ngoi' || q.id.startsWith('ngoi'));
           const needNgoiSecs = activeNgoi && !activeNgoi.claimed ? Math.max(300, (activeNgoi.need - (activeNgoi.have || 0)) * 60) : 300;
-          await runMeditateWithClient(client, runOptions.meditateSeconds || needNgoiSecs);
+          await runMeditateWithClient(client, runOptions.meditateSeconds || needNgoiSecs, runOptions);
           break;
         case 'bell':
           await client.doBell();
@@ -879,7 +879,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
         case 'lay-daily':
           const activeLay = (client.merit?.me?.quests || []).find(q => q.id === 'lay' || q.id.startsWith('lay'));
           const needLay = activeLay && !activeLay.claimed ? Math.max(1, activeLay.need - (activeLay.have || 0)) : 1;
-          await client.doLay(needLay);
+          await client.doLay(needLay, runOptions);
           break;
         case 'tung': {
           const activeTung = (client.merit?.me?.quests || []).find(q => q.id === 'tung');
@@ -900,7 +900,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           break;
         case 'lay':
           const bowsCount = runOptions.count || 18;
-          await client.doLay(bowsCount);
+          await client.doLay(bowsCount, runOptions);
           break;
         case 'greet':
           await client.doGreet();
@@ -960,7 +960,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           log.temple('📿', `[Cày tự động] Bắt đầu chu trình tự động Chuỗi hạt & Lạy Phật (${farmBows} lạy, ${farmBeads} hạt tràng)...`);
           if (farmBows > 0) {
             log.temple('🙏', `[1/2] Tiến hành cày ${farmBows} lạy Phật sám hối...`);
-            await client.doLay(farmBows);
+            await client.doLay(farmBows, runOptions);
             await client.humanDelay('nghỉ ngơi tĩnh tâm sau khi lạy Phật');
           }
           if (farmBeads > 0) {
@@ -998,7 +998,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           break;
         case 'meditate':
           const secs = runOptions.meditateSeconds || 300;
-          await runMeditateWithClient(client, secs);
+          await runMeditateWithClient(client, secs, runOptions);
           break;
         case 'quiz':
           await runQuizWithClient(client, runOptions);

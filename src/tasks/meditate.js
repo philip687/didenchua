@@ -1,15 +1,15 @@
 import { DiDenChuaClient } from '../client.js';
 import { log } from '../logger.js';
 
-export async function runMeditateWithClient(client, seconds = 3600) {
-  return await client.doMeditate(seconds);
+export async function runMeditateWithClient(client, seconds = 3600, options = {}) {
+  return await client.doMeditate(seconds, null, options);
 }
 
-export async function runMeditate(seconds = 3600) {
+export async function runMeditate(seconds = 3600, options = {}) {
   const client = new DiDenChuaClient();
   try {
     await client.connect(8000);
-    const result = await client.doMeditate(seconds);
+    const result = await client.doMeditate(seconds, null, options);
     await client.claimAllQuests();
     return result;
   } catch (err) {

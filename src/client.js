@@ -556,25 +556,69 @@ export class DiDenChuaClient {
     log.info(`Đã gửi hoàn tất yêu cầu ${count} lần quét lá sân chùa (chờ máy chủ ghi nhận).`);
   }
 
-  async doLay(count = 108) {
+  async doLay(count = 108, options = {}) {
     this.checkAborted();
-    log.temple('🙏', `Bắt đầu lạy Phật sám hối (${count} lạy trang nghiêm)…`);
+    log.temple('🙏', `Bắt đầu lạy Phật sám hối (${count} lạy trang nghiêm - thu thập an toàn từng chặng)…`);
     // Đảm bảo đứng tại Chánh điện để máy chủ ghi nhận nhiệm vụ lạy (lay / lay27)
     this.send({ t: 'visit', zone: 'Chánh điện' });
-    await this.sleep(300);
+    await this.sleep(this.isTurbo() ? 80 : 300);
+
     // Máy chủ quy định: mỗi gói { t: 'emote', e: 'lay' } tự động cộng 3 lạy ($n.bows += 3).
     // Cooldown máy chủ chuẩn xác là 5.000ms. Để lạy 'count' lạy, cần Math.ceil(count / 3) lần gửi.
     const emotesNeeded = Math.ceil(count / 3);
-    for (let i = 1; i <= emotesNeeded; i++) {
-      this.checkAborted();
-      const currentBows = Math.min(i * 3, count);
-      log.info(`...[${currentBows}/${count} lạy] Thành kính cúi lạy Phật đài...`);
-      this.send({ t: 'emote', e: 'lay' });
-      if (i < emotesNeeded) {
-        await this.sleep(5050);
+    const checkpointBowsInterval = options.chunkSize || 27;
+
+    const activeLay = (this.merit?.me?.quests || []).find(q => q.id === 'lay' || q.id.startsWith('lay'));
+    const dailyQuestBows = (activeLay && !activeLay.claimed) ? (activeLay.need || 27) : 27;
+
+    let sentEmotes = 0;
+    try {
+      for (let i = 1; i <= emotesNeeded; i++) {
+        this.checkAborted();
+        const currentBows = Math.min(i * 3, count);
+        log.info(`...[${currentBows}/${count} lạy] Thành kính cúi lạy Phật đài...`);
+        this.send({ t: 'emote', e: 'lay' });
+        sentEmotes = i;
+
+        // Thu thập từng phần (Checkpoint Harvest) khi chạm mốc quest ngày, định kỳ 27 lạy, hoặc khi kết thúc
+        const isDailyQuestReached = (currentBows >= dailyQuestBows) && activeLay && !activeLay.claimed;
+        const isIntervalReached = (currentBows % checkpointBowsInterval === 0);
+        const isFinalEmote = (i === emotesNeeded);
+
+        if (isDailyQuestReached || isIntervalReached || isFinalEmote) {
+          if (activeLay && !activeLay.claimed && currentBows >= (activeLay.need || 18)) {
+            this.send({ t: 'claim', q: activeLay.id });
+            activeLay.claimed = true;
+            log.success(`🙏 [Chốt an toàn chặng: ${currentBows}/${count} lạy] -> Thu thập ngay phần thưởng nhiệm vụ Lạy Phật (+${activeLay.reward || 15}đ công đức)!`);
+          }
+
+          const wLay = (this.merit?.me?.weekly || []).find(q => q.id === 'wLay');
+          if (wLay && !wLay.claimed && (wLay.have || 0) + currentBows >= (wLay.need || 108)) {
+            this.send({ t: 'claim', q: 'wLay' });
+            wLay.claimed = true;
+            log.success(`🙏 [Chốt an toàn chặng: ${currentBows}/${count} lạy] -> Thu thập ngay nhiệm vụ tuần Lạy Phật (+${wLay.reward || 100}đ công đức)!`);
+          }
+
+          this.send({ t: 'journal' });
+        }
+
+        if (i < emotesNeeded) {
+          await this.sleep(this.isTurbo() ? 80 : 5050);
+        }
+      }
+      log.success(`🎉 HOÀN TẤT: Đã hoàn thành gửi ${count} lạy sám hối và chốt toàn bộ công đức.`);
+    } finally {
+      // Nếu bị dừng hoặc gián đoạn giữa chừng: tự động chốt an toàn và thu thập phần đã đạt
+      if (sentEmotes > 0 && sentEmotes < emotesNeeded) {
+        const bowsSoFar = Math.min(sentEmotes * 3, count);
+        log.warn(`Tiến trình lạy dừng tại ${bowsSoFar}/${count} lạy. Đang chốt an toàn và thu thập công đức phần đã lạy...`);
+        if (activeLay && !activeLay.claimed && bowsSoFar >= (activeLay.need || 18)) {
+          this.send({ t: 'claim', q: activeLay.id });
+          activeLay.claimed = true;
+        }
+        this.send({ t: 'journal' });
       }
     }
-    log.info(`Đã hoàn tất gửi ${count} lạy sám hối trước Phật đài.`);
   }
 
   async doVisitAll() {
@@ -1203,23 +1247,28 @@ export class DiDenChuaClient {
     log.success('🎉 HOÀN TẤT: Đã hoàn thành chu trình Tàng Kinh Các (nghe hết kinh) & Xin chữ Thầy đồ!');
   }
 
-  async doMeditate(seconds = 3600, onProgress = null) {
+  async doMeditate(seconds = 3600, onProgress = null, options = {}) {
+    if (typeof onProgress === 'object' && onProgress !== null) {
+      options = onProgress;
+      onProgress = options.onProgress || null;
+    }
     this.checkAborted();
     const mins = Math.ceil(seconds / 60);
-    log.temple('🧘', `Bắt đầu ngồi thiền tĩnh tâm trong ${mins} phút (${seconds}s)...`);
+    // Độ dài mỗi chặng (mặc định 300s = 5 phút - khớp quest ngày và ngưỡng an toàn Render)
+    const chunkSeconds = options.chunkSeconds || 300;
+    const totalChunks = Math.max(1, Math.ceil(seconds / chunkSeconds));
+
+    log.temple('🧘', `Bắt đầu ngồi thiền tĩnh tâm trong ${mins} phút (${seconds}s - chia làm ${totalChunks} chặng an toàn, tự thu thập công đức từng phần)…`);
 
     // 1. Chuyển đến Chánh điện (khu vực thiền định & tĩnh tâm chính thức của chùa)
     this.send({ t: 'visit', zone: 'Chánh điện' });
-    await this.sleep(600);
+    await this.sleep(this.isTurbo() ? 80 : 600);
     this.checkAborted();
 
     // 2. Chọn bồ đoàn còn trống theo tọa độ chuẩn xác của Chánh điện
     const taken = this.takenSeats || new Set();
     const availableSeat = CHANH_DIEN_SEATS.find(s => !taken.has(s.id)) || CHANH_DIEN_SEATS[0];
 
-    log.info(`-> Tọa thiền tại bồ đoàn Chánh điện [${availableSeat.id}] (tọa độ x: ${availableSeat.x}, z: ${availableSeat.z})...`);
-    
-    // Gửi trạng thái ngồi thiền chính thức với tọa độ bồ đoàn chuẩn xác
     const sitPayload = {
       t: 'state',
       x: availableSeat.x,
@@ -1229,82 +1278,129 @@ export class DiDenChuaClient {
       s: 2,
       seat: availableSeat.id
     };
-    this.send(sitPayload);
 
-    const start = Date.now();
-    let elapsed = 0;
-    let lastHeartbeat = Date.now();
-    let lastStatePing = Date.now();
-
-    while (elapsed < seconds) {
-      this.checkAborted();
-
-      // Kiểm tra và tự động phục hồi kết nối nếu mạng gián đoạn
-      if (!this.connected || this.ws?.readyState !== WebSocket.OPEN) {
-        log.warn(`Phát hiện mất kết nối với chùa tại giây ${elapsed}. Đang tự động kết nối lại...`);
-        try {
-          await this.connect(8000);
-          this.send({ t: 'visit', zone: 'Chánh điện' });
-          await this.sleep(400);
-          this.send(sitPayload);
-          lastHeartbeat = Date.now();
-          lastStatePing = Date.now();
-          log.success(`Đã kết nối lại thành công! Tiếp tục duy trì thiền định (đã ngồi ${Math.floor(elapsed / 60)} phút).`);
-        } catch (reconnErr) {
-          log.warn(`Chưa kết nối lại được (${reconnErr.message}), thử lại sau 2 giây...`);
-          await this.sleep(2000);
-          continue;
-        }
-      }
-
-      await this.sleep(1000);
-      const now = Date.now();
-      elapsed = Math.floor((now - start) / 1000);
-      const remain = Math.max(0, seconds - elapsed);
-
-      // Gửi tọa độ ngồi mỗi 2 giây chuẩn xác như game client trình duyệt (main.js)
-      if (now - lastStatePing >= 2000) {
-        this.send(sitPayload);
-        lastStatePing = now;
-      }
-
-      // Gửi heartbeat định kỳ 16 giây để giữ kết nối an toàn tuyệt đối
-      if (now - lastHeartbeat >= 16000) {
-        this.send({ t: 'hb' });
-        lastHeartbeat = now;
-      }
-
-      if (onProgress) {
-        onProgress(elapsed, seconds);
-      } else if (elapsed % 30 === 0 || remain === 0) {
-        log.info(`Thiền định: Đã ngồi ${Math.floor(elapsed / 60)}p${elapsed % 60}s / ${mins} phút (còn ${remain}s)`);
-      }
-    }
-
-    this.checkAborted();
-    log.info(`Đã hoàn thành ${mins} phút tĩnh tâm thiền định. Đứng dậy và gửi yêu cầu nhận thưởng...`);
-    // Gửi trạng thái đứng dậy
-    this.send({
+    const standPayload = {
       t: 'state',
       x: availableSeat.x,
       y: 2.4,
       z: availableSeat.z,
       ry: availableSeat.ry,
       s: 0
-    });
-    await this.sleep(600);
+    };
 
-    const activeNgoi = (this.merit?.me?.quests || []).find(q => q.id === 'ngoi' || q.id.startsWith('ngoi'));
-    this.send({ t: 'claim', q: activeNgoi ? activeNgoi.id : 'ngoi' });
-    this.send({ t: 'claim', q: 'wNgoi' });
-    await this.sleep(800);
-    await this.fetchJournal();
-    if (this.journal) {
-      log.success(`Máy chủ đã ghi nhận: ${this.journal.sitMin} phút ngồi tĩnh tâm (${this.journal.sitMin >= 60 ? '🏆 Đạt mốc Tĩnh tọa' : `còn ${60 - this.journal.sitMin} phút`}).`);
+    let totalElapsed = 0;
+    let chunkIndex = 1;
+
+    try {
+      while (totalElapsed < seconds) {
+        this.checkAborted();
+        const currentChunkTarget = Math.min(chunkSeconds, seconds - totalElapsed);
+        const currentChunkMins = Math.ceil(currentChunkTarget / 60);
+
+        log.info(`-> [Chặng ${chunkIndex}/${totalChunks}] Tọa thiền tại bồ đoàn Chánh điện [${availableSeat.id}] (thời lượng chặng: ${currentChunkMins} phút)...`);
+        this.send(sitPayload);
+
+        const chunkStart = Date.now();
+        let chunkElapsed = 0;
+        let lastHeartbeat = Date.now();
+        let lastStatePing = Date.now();
+
+        while (chunkElapsed < currentChunkTarget) {
+          this.checkAborted();
+
+          // Kiểm tra và tự động phục hồi kết nối nếu mạng gián đoạn
+          if (!this.connected || this.ws?.readyState !== WebSocket.OPEN) {
+            log.warn(`Phát hiện mất kết nối với chùa tại giây ${totalElapsed + chunkElapsed}. Đang tự động kết nối lại...`);
+            try {
+              await this.connect(8000);
+              this.send({ t: 'visit', zone: 'Chánh điện' });
+              await this.sleep(this.isTurbo() ? 80 : 400);
+              this.send(sitPayload);
+              lastHeartbeat = Date.now();
+              lastStatePing = Date.now();
+              log.success(`Đã kết nối lại thành công! Tiếp tục duy trì thiền định (đã ngồi ${Math.floor((totalElapsed + chunkElapsed) / 60)} phút).`);
+            } catch (reconnErr) {
+              log.warn(`Chưa kết nối lại được (${reconnErr.message}), thử lại sau 2 giây...`);
+              await this.sleep(2000);
+              continue;
+            }
+          }
+
+          if (options.stepSeconds) {
+            chunkElapsed += options.stepSeconds;
+          } else {
+            await this.sleep(1000);
+            const now = Date.now();
+            chunkElapsed = Math.floor((now - chunkStart) / 1000);
+          }
+          const now = Date.now();
+          const currentTotalElapsed = totalElapsed + chunkElapsed;
+          const remainTotal = Math.max(0, seconds - currentTotalElapsed);
+
+          // Gửi tọa độ ngồi mỗi 2 giây chuẩn xác như game client trình duyệt (main.js)
+          if (now - lastStatePing >= 2000) {
+            this.send(sitPayload);
+            lastStatePing = now;
+          }
+
+          // Gửi heartbeat định kỳ 16 giây để giữ kết nối an toàn tuyệt đối
+          if (now - lastHeartbeat >= 16000) {
+            this.send({ t: 'hb' });
+            lastHeartbeat = now;
+          }
+
+          if (onProgress) {
+            onProgress(currentTotalElapsed, seconds);
+          } else if (currentTotalElapsed % 30 === 0 || remainTotal === 0) {
+            log.info(`Thiền định [Chặng ${chunkIndex}/${totalChunks}]: Đã ngồi ${Math.floor(currentTotalElapsed / 60)}p${currentTotalElapsed % 60}s / ${mins} phút (còn ${remainTotal}s)`);
+          }
+        }
+
+        totalElapsed += currentChunkTarget;
+
+        // === THU THẬP TỪNG PHẦN & CHỐT TIẾN ĐỘ CHẶNG (CHECKPOINT HARVEST) ===
+        // Đứng dậy để máy chủ ghi nhận số phút ngồi thiền vào cơ sở dữ liệu chùa
+        this.send(standPayload);
+        await this.sleep(this.isTurbo() ? 60 : 600);
+
+        // Gửi lệnh nhận thưởng nhiệm vụ ngày & tuần
+        const activeNgoi = (this.merit?.me?.quests || []).find(q => q.id === 'ngoi' || q.id.startsWith('ngoi'));
+        if (activeNgoi && !activeNgoi.claimed) {
+          this.send({ t: 'claim', q: activeNgoi.id });
+          activeNgoi.claimed = true;
+          log.success(`🧘 [Chốt an toàn chặng ${chunkIndex}/${totalChunks}] -> Thu thập ngay phần thưởng nhiệm vụ Ngồi tĩnh (+20đ công đức)!`);
+        }
+        this.send({ t: 'claim', q: 'wNgoi' });
+
+        await this.sleep(this.isTurbo() ? 60 : 500);
+        await this.fetchJournal();
+
+        const sitMinRecorded = this.journal?.sitMin ?? Math.floor(totalElapsed / 60);
+        log.success(`🧘 [Chốt an toàn chặng ${chunkIndex}/${totalChunks}] Đã hoàn tất ${Math.floor(totalElapsed / 60)}/${mins} phút tĩnh tọa. Máy chủ đã ghi nhận: ${sitMinRecorded} phút (${sitMinRecorded >= 60 ? '🏆 Đạt mốc Tĩnh tọa' : `còn ${Math.max(0, 60 - sitMinRecorded)} phút`}). Đã chốt an toàn công đức!`);
+
+        if (totalElapsed < seconds) {
+          chunkIndex++;
+          log.info(`-> Chuẩn bị tiếp tục chặng ${chunkIndex}/${totalChunks} cho đến khi đủ ${mins} phút...`);
+          await this.sleep(this.isTurbo() ? 60 : 600);
+        }
+      }
+    } finally {
+      // Đảm bảo nhân vật luôn đứng dậy trang nghiêm nếu bị dừng giữa chừng
+      try {
+        this.send(standPayload);
+        const activeNgoi = (this.merit?.me?.quests || []).find(q => q.id === 'ngoi' || q.id.startsWith('ngoi'));
+        if (activeNgoi && !activeNgoi.claimed && totalElapsed >= 300) {
+          this.send({ t: 'claim', q: activeNgoi.id });
+        }
+        this.send({ t: 'claim', q: 'wNgoi' });
+      } catch {}
     }
+
+    log.success(`🎉 HOÀN TẤT: Đã hoàn thành trọn vẹn ${mins} phút tĩnh tâm thiền định qua ${totalChunks} chặng an toàn!`);
     return {
       verified: true,
-      sitMin: this.journal?.sitMin || null
+      sitMin: this.journal?.sitMin || Math.floor(totalElapsed / 60),
+      totalElapsed
     };
   }
 
