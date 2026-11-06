@@ -1306,8 +1306,56 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
     runStatus = isStopped ? 'stopped' : 'failed';
     const finishedAt = new Date().toISOString();
 
+    // 1. Đóng kết nối activeClient trước khi đồng bộ lại snapshot mới để tránh xung đột session (mã 1008)
+    try {
+      if (state.activeClient) {
+        state.activeClient.close();
+      }
+    } catch {}
+    state.activeClient = null;
+
+    // 2. Tự động đồng bộ snapshot mới nhất từ máy chủ chùa để ghi nhận tiến độ thực tế đạt được trước khi dừng
+    let postSnapshotAvailable = false;
+    let verificationStatus = isStopped ? 'stopped' : 'failed';
+    let verificationDetail = safeErrorMessage;
+
+    try {
+      postSnapshotAvailable = await refreshAccountData();
+    } catch (refreshErr) {
+      log.warn('Không thể đồng bộ snapshot sau khi dừng tác vụ:', refreshErr.message);
+    }
+
+    if (postSnapshotAvailable) {
+      const postMeritTotal = Number(state.merit?.me?.total ?? 0);
+      const postBows = Number(state.journal?.bows ?? 0);
+      const postBeads = Number(state.journal?.beads ?? 0);
+      const postIncense = Number(state.journal?.incense ?? 0);
+      const postLanterns = Number(state.journal?.lanterns ?? 0);
+      const postSitMin = Number(state.journal?.sitMin ?? 0);
+      const postVisited = Number(state.journal?.visited ?? 0);
+      const postQuests = Array.isArray(state.merit?.me?.quests) ? state.merit.me.quests : [];
+      const postClaimedCount = postQuests.filter(q => q.claimed).length;
+
+      const deltaBows = postBows - preBows;
+      const deltaBeads = postBeads - preBeads;
+      const deltaMerit = postMeritTotal - preMeritTotal;
+      const deltaClaimed = postClaimedCount - preClaimedCount;
+
+      if (deltaBows > 0 || deltaBeads > 0 || deltaMerit > 0 || deltaClaimed > 0) {
+        verificationStatus = 'partial';
+        const progressParts = [];
+        if (deltaBows > 0) progressParts.push(`${preBows} -> ${postBows} lạy (+${deltaBows})`);
+        if (deltaBeads > 0) progressParts.push(`${preBeads} -> ${postBeads} hạt (+${deltaBeads})`);
+        if (deltaMerit > 0) progressParts.push(`+${deltaMerit} công đức`);
+        if (deltaClaimed > 0) progressParts.push(`nhận ${deltaClaimed} nhiệm vụ`);
+        verificationDetail = `${safeErrorMessage}. Máy chủ đã ghi nhận: ${progressParts.join(', ')}.`;
+      } else {
+        verificationDetail = `${safeErrorMessage}. Chưa ghi nhận thay đổi chỉ số trên snapshot máy chủ.`;
+      }
+    }
+
     if (isStopped) {
-      addWebLog(`🛑 [${runId}] Tác vụ [${taskTitle}] đã dừng lại theo yêu cầu sau ${durationSec}s.`, 'warn', '🛑');
+      addWebLog(`🛑 [${runId}] Tác vụ [${taskTitle}] đã dừng lại theo yêu cầu sau ${durationSec}s.${verificationStatus === 'partial' ? ` (${verificationDetail})` : ''}`, 'warn', '🛑');
     } else {
       addWebLog(`❌ [${runId}] Thất bại tại bước [${errorStep}]: ${safeErrorMessage}`, 'error', '❌');
     }
@@ -1319,8 +1367,8 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
       task: taskId,
       taskTitle,
       status: runStatus,
-      verificationStatus: 'failed',
-      verificationDetail: safeErrorMessage,
+      verificationStatus,
+      verificationDetail,
       error: safeErrorMessage,
       errorStep,
       startTime: startedAt,
@@ -1328,7 +1376,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
       timestamp: finishedAt,
       durationSec,
       snapshotAt: state.lastUpdated,
-      snapshotStatus: state.lastUpdated ? 'stale' : 'unavailable',
+      snapshotStatus: postSnapshotAvailable ? 'fresh' : (state.lastUpdated ? 'stale' : 'unavailable'),
       storagePolicy: 'Bộ nhớ tạm phiên làm việc (In-memory buffer tối đa 15 lượt)'
     };
     state.runHistory.unshift(result);

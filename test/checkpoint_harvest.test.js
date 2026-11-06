@@ -214,3 +214,59 @@ test('CHECKPOINT_HARVEST: doMo automatically claims daily/weekly quest and journ
   const journalPackets = sentPackets.filter(p => p.t === 'journal');
   assert.ok(journalPackets.length >= 2, 'Must request journal at checkpoints');
 });
+
+test('SMART_CAP: doLay stops early when zero progress is observed after maxZeroAttempts checkpoints', async () => {
+  const client = new DiDenChuaClient({ turbo: true });
+  const sentPackets = [];
+
+  client.connected = true;
+  client.send = (pkt) => { sentPackets.push(pkt); };
+  client.sleep = async () => {};
+  client.journal = { bows: 108 };
+  client.merit = { me: { total: 1000, quests: [], weekly: [] } };
+
+  // Request 1.000 bows with chunkSize = 9 (3 emotes per chunk), maxZeroAttempts = 2
+  // Without smart cap, it would loop 334 emotes. With smart cap, it must stop after 2 zero-progress checkpoints.
+  await client.doLay(1000, { chunkSize: 9, maxZeroAttempts: 2, smartCap: true, intervalMs: 0 });
+
+  const layEmotes = sentPackets.filter(p => p.t === 'emote' && p.e === 'lay');
+  assert.ok(layEmotes.length <= 15, `Must stop early instead of 334 emotes (actual: ${layEmotes.length})`);
+  assert.ok(layEmotes.length >= 3, `Must have performed at least 1 checkpoint (actual: ${layEmotes.length})`);
+});
+
+test('SMART_CAP: doLay stops immediately upon receiving server saturation toast', async () => {
+  const client = new DiDenChuaClient({ turbo: true });
+  const sentPackets = [];
+
+  client.connected = true;
+  client.send = (pkt) => { sentPackets.push(pkt); };
+  client.sleep = async () => {};
+  client.journal = { bows: 108 };
+  client.merit = { me: { total: 1000, quests: [], weekly: [] } };
+  client.recentToasts = [{ text: 'Hôm nay bạn đã đạt giới hạn lạy Phật sám hối.' }];
+
+  await client.doLay(1000, { chunkSize: 9, smartCap: true, intervalMs: 0 });
+
+  const layEmotes = sentPackets.filter(p => p.t === 'emote' && p.e === 'lay');
+  // First checkpoint is at 9 bows = 3 emotes, then it sees the saturation toast and stops immediately
+  assert.equal(layEmotes.length, 3, 'Must stop immediately at first checkpoint upon saturation toast');
+});
+
+test('SMART_CAP: doBeads stops early when zero progress is observed after maxZeroAttempts checkpoints', async () => {
+  const client = new DiDenChuaClient({ turbo: true });
+  const sentPackets = [];
+
+  client.connected = true;
+  client.send = (pkt) => { sentPackets.push(pkt); };
+  client.sleep = async () => {};
+  client.journal = { beads: 108 };
+  client.merit = { me: { total: 1000, quests: [], weekly: [] } };
+
+  // Request 1.000 beads with chunkSize = 54 (6 batches per chunk), maxZeroAttempts = 2
+  // Without smart cap, it would loop ~112 batches. With smart cap, it must stop after 2 zero-progress checkpoints.
+  await client.doBeads(1000, { chunkSize: 54, maxZeroAttempts: 2, smartCap: true, intervalMs: 0 });
+
+  const beadPackets = sentPackets.filter(p => p.t === 'beads');
+  assert.ok(beadPackets.length <= 30, `Must stop early instead of 112 batches (actual: ${beadPackets.length})`);
+  assert.ok(beadPackets.length >= 6, `Must have performed at least 1 checkpoint (actual: ${beadPackets.length})`);
+});
