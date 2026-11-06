@@ -63,13 +63,10 @@ export async function runAllSecrets() {
     log.success(`Đã tùy hỷ công đức cho các ngọn hoa đăng trên hồ sen!`);
     await client.sleep(1500);
 
-    // 5. Thư pháp / Xin chữ đêm
-    log.temple('🖌️', '5. Xin chữ thư pháp đầu ngày…');
-    await client.humanDelay('đến bàn ông đồ xin chữ thư pháp');
-    client.send({ t: 'chu-xin', chu: 'binh-an' });
-    client.send({ t: 'chu-dem', k: 'vao' });
-    log.success('Đã xin chữ thư pháp "Bình an" lưu vào túi kỉ vật!');
-    await client.sleep(1500);
+    // 5. Thư pháp / Xin chữ Thầy đồ
+    log.temple('🖌️', '5. Xin chữ thư pháp đầu ngày từ Thầy đồ…');
+    await client.doXinChu('all');
+    await client.sleep(1000);
 
     // 6. Đi thăm đủ 10 khu vực trong chùa (Mở khóa danh hiệu "Thăm khắp chùa")
     log.temple('🚶', '6. Khám phá 10 khu vực trong chùa…');
@@ -85,11 +82,10 @@ export async function runAllSecrets() {
     log.success('Đã viếng thăm toàn bộ 10 khu vực trong chùa (🏆 Đạt danh hiệu "Thăm khắp chùa")!');
     await client.sleep(1500);
 
-    // 7. Hoàn tất khóa tụng kinh sám hối
-    log.temple('📖', '7. Hoàn thành khóa lễ tụng kinh…');
-    client.send({ t: 'tk-done' });
-    log.success('Đã ghi nhận hoàn tất khóa lễ tụng kinh!');
-    await client.sleep(1500);
+    // 7. Viếng Tàng Kinh Các & Lắng nghe trọn bộ kinh điển
+    log.temple('📖', '7. Viếng Tàng Kinh Các & Lắng nghe trọn bộ kinh điển…');
+    await client.doTangKinhCac('all');
+    await client.sleep(1000);
 
     // 8. Tự động nhận tất cả phần thưởng
     await client.claimAllQuests();

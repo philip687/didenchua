@@ -33,6 +33,16 @@ export const CALLIGRAPHY_WORDS = [
   { id: 'biet-on', text: 'Biết Ơn', wish: 'Biết ơn', meaning: 'Biết ơn là nhận ra những điều đã có. Càng thấy mình được cho nhiều, lòng càng đủ đầy.' }
 ];
 
+// Danh sách 6 bài kinh điển giác ngộ trong Tàng Kinh Các & Pháp Đường
+export const BUDDHIST_SUTRAS = [
+  { id: 'adida', title: 'Kinh A Di Đà', duration: '13:20', seconds: 800.28, desc: 'Bản Hán Việt truyền thống theo Hán bản Cưu Ma La Thập' },
+  { id: 'batnha', title: 'Bát Nhã Tâm Kinh', duration: '02:22', seconds: 142.04, desc: 'Ma ha Bát nhã Ba la mật đa Tâm kinh (Trí tuệ cứu cánh)' },
+  { id: 'batdai', title: 'Kinh Bát Đại Nhân Giác', duration: '03:04', seconds: 184.13, desc: 'Tám điều giác ngộ của các bậc đại nhân' },
+  { id: 'daibi', title: 'Chú Đại Bi', duration: '03:19', seconds: 199.14, desc: 'Thiên thủ thiên nhãn vô ngại đại bi tâm đà la ni' },
+  { id: 'vangsanh', title: 'Chú Vãng Sanh', duration: '00:40', seconds: 39.67, desc: 'Bạt nhất thiết nghiệp chướng căn bản đắc sanh Tịnh độ đà la ni' },
+  { id: 'hoihuong', title: 'Kệ Hồi Hướng', duration: '00:16', seconds: 15.66, desc: 'Nguyện dĩ thử công đức, phổ cập ư nhất thiết' }
+];
+
 // Danh sách 11 loại áo tràng trong chùa
 export const ROBES_CATALOG = {
   nau: { name: 'Áo nâu', color: '#7a5134' },
@@ -1128,6 +1138,55 @@ export class DiDenChuaClient {
       log.temple('📜', `Ý nghĩa chữ [${wordInfo.text}]: "${wordInfo.meaning}"`);
     }
     await this.sleep(500);
+  }
+
+  async doTangKinhCac(sutraId = 'all') {
+    this.checkAborted();
+    log.temple('📖', '=== BẮT ĐẦU VIẾNG TÀNG KINH CÁC & LẮNG NGHE KINH ĐIỂN ===');
+    await this.humanDelay('khoan thai bước đến gian Tàng Kinh Các');
+    this.checkAborted();
+
+    // 1. Viếng thăm Tàng Kinh Các & Sân chùa
+    this.send({ t: 'visit', zone: 'Sân chùa' });
+    this.send({ t: 'visit', zone: 'Tàng Kinh Các' });
+    await this.sleep(400);
+
+    // 2. Lắng nghe / Đọc kinh điển
+    if (!sutraId || sutraId === 'all' || sutraId === 'tat-ca' || sutraId === 'full') {
+      let idx = 0;
+      for (const sutra of BUDDHIST_SUTRAS) {
+        this.checkAborted();
+        idx++;
+        log.temple('📖', `[${idx}/${BUDDHIST_SUTRAS.length}] Lắng nghe kinh điển "${sutra.title}" (${sutra.duration}) — ${sutra.desc}…`);
+        this.send({ t: 'tk-read', id: sutra.id });
+        await this.sleep(500);
+      }
+    } else {
+      const sutra = BUDDHIST_SUTRAS.find(s => s.id === sutraId) || { id: sutraId, title: sutraId, duration: '', desc: '' };
+      log.temple('📖', `Lắng nghe kinh điển "${sutra.title}" (${sutra.duration}) — ${sutra.desc}…`);
+      this.send({ t: 'tk-read', id: sutra.id });
+      await this.sleep(500);
+    }
+
+    // 3. Hoàn tất khóa lễ tụng kinh sám hối / thời khóa
+    this.send({ t: 'tk-done' });
+    await this.sleep(400);
+    this.claimQuest('wDoc');
+    this.claimQuest('tk');
+    await this.sleep(300);
+    log.success('🎉 HOÀN TẤT: Đã lắng nghe trọn vẹn kinh điển tại Tàng Kinh Các và hoàn tất thời khóa!');
+  }
+
+  async doSecrets(wishId = null) {
+    this.checkAborted();
+    log.temple('✨', '=== BẮT ĐẦU CHU TRÌNH TÀNG KINH CÁC & XIN CHỮ THƯ PHÁP ===');
+    // 1. Viếng Tàng Kinh Các & nghe hết kinh điển
+    await this.doTangKinhCac('all');
+    await this.sleep(500);
+    // 2. Sang lều Thầy đồ xin chữ thư pháp (mặc định xin trọn bộ 12 chữ)
+    const targetWish = wishId || this.config.calligraphyWish || 'all';
+    await this.doXinChu(targetWish);
+    log.success('🎉 HOÀN TẤT: Đã hoàn thành chu trình Tàng Kinh Các (nghe hết kinh) & Xin chữ Thầy đồ!');
   }
 
   async doMeditate(seconds = 3600, onProgress = null) {

@@ -7,6 +7,7 @@ import { runAllQuests } from './src/tasks/all.js';
 import {
   DiDenChuaClient,
   CALLIGRAPHY_WORDS,
+  BUDDHIST_SUTRAS,
   ROBES_CATALOG,
   BEADS_CATALOG,
   CUSHIONS_CATALOG,
@@ -504,13 +505,23 @@ export const TASKS_CATALOG = [
     id: 'secrets',
     group: 'extra',
     title: 'Tàng Kinh Các & Xin Chữ Thư Pháp',
-    desc: 'Đọc kinh điển tại Tàng Kinh Các và xin chữ thư pháp từ Thầy đồ',
+    desc: 'Viếng Tàng Kinh Các nghe trọn bộ 6 bài kinh và xin chữ thư pháp Thầy đồ',
     icon: '✍️',
-    reward: 'Thư pháp',
+    reward: 'Kinh & Thư pháp',
     badge: 'Tàng Kinh Các',
     hasWish: true,
-    defaultWish: 'binh-an',
+    defaultWish: 'all',
     wishOptions: CALLIGRAPHY_WORDS
+  },
+  {
+    id: 'tangkinh',
+    group: 'extra',
+    questId: 'wDoc',
+    title: 'Tàng Kinh Các (Nghe Trọn Bộ 6 Bài Kinh)',
+    desc: 'Lắng nghe trọn vẹn 6 bài kinh điển giác ngộ và hoàn tất thời khóa',
+    icon: '📖',
+    reward: 'Trọn bộ 6 bài kinh',
+    badge: 'Tàng Kinh Các'
   },
   {
     id: 'chu-all',
@@ -958,9 +969,12 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           await client.doQaIncense();
           break;
         case 'secrets':
-          await client.doXinChu(runOptions.wish || client.config.calligraphyWish || 'binh-an');
-          client.send({ t: 'tk-done' });
-          await client.sleep(1200);
+          await client.doSecrets(runOptions.wish || client.config.calligraphyWish || 'all');
+          break;
+        case 'tangkinh':
+        case 'kinh':
+        case 'nghekinh':
+          await client.doTangKinhCac(runOptions.sutra || 'all');
           break;
         case 'visit':
           await client.doVisitAll();
@@ -1042,7 +1056,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
       }
 
       // Tự động nhận thưởng nếu nhiệm vụ này hoàn thành quest ngày hoặc quest tuần
-      if (['bell', 'vow', 'incense', 'lay-daily', 'lay', 'greet', 'lantern-daily', 'chores-daily', 'xam', 'chores', 'quet', 'farm-bows-beads', 'tung', 'tuoi', 'chu', 'garden', 'tuyhy', 'secrets', 'meditate', 'ngoi-daily', 'quiz', 'am', 'khoe', 'checkin', 'ca', 'dendau', 'cat', 'wAm', 'chuoi'].includes(taskId)) {
+      if (['bell', 'vow', 'incense', 'lay-daily', 'lay', 'greet', 'lantern-daily', 'chores-daily', 'xam', 'chores', 'quet', 'farm-bows-beads', 'tung', 'tuoi', 'chu', 'garden', 'tuyhy', 'secrets', 'tangkinh', 'chu-all', 'meditate', 'ngoi-daily', 'quiz', 'am', 'khoe', 'checkin', 'ca', 'dendau', 'cat', 'wAm', 'chuoi'].includes(taskId)) {
         await client.sleep(1000);
         await client.claimAllQuests();
       }
@@ -1586,6 +1600,27 @@ export const QUEST_METADATA = {
     tip: 'Xin trọn vẹn 12 bức thư pháp may mắn',
     taskId: 'chu-all'
   },
+  wDoc: {
+    icon: '📖',
+    title: 'Đọc kinh Tàng Kinh Các',
+    desc: 'Đến Tàng Kinh Các đọc kinh điển và lời Phật dạy',
+    tip: 'Viếng Tàng Kinh Các đọc lời Phật dạy',
+    taskId: 'tangkinh'
+  },
+  tangkinh: {
+    icon: '📖',
+    title: 'Tàng Kinh Các & Thư Viện Kinh Điển',
+    desc: 'Lắng nghe trọn bộ 6 bài kinh điển giác ngộ chốn thiền môn',
+    tip: 'Nghe đủ 6 bài kinh điển và hoàn tất thời khóa',
+    taskId: 'tangkinh'
+  },
+  kinh: {
+    icon: '📖',
+    title: 'Nghe kinh điển giác ngộ',
+    desc: 'Lắng nghe lời Phật dạy và tụng niệm kinh điển',
+    tip: 'Nghe kinh điển giác ngộ chốn thiền môn',
+    taskId: 'tangkinh'
+  },
   chuong: {
     icon: '🔔',
     title: 'Thỉnh chuông Bát Nhã',
@@ -1843,6 +1878,33 @@ export function renderDashboardHTML() {
         <div style="margin-top:4px; display:flex; justify-content:flex-end;">
           <button type="button" class="btn-task btn-run" onclick="runTask('chu', { wish: '${escapeHTML(w.id)}' })" style="font-size:11px; padding:3px 8px; border-radius:4px;" ${isAnyRunning ? 'disabled' : ''}>
             ✍️ Xin chữ
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // 6 Bài kinh điển trong Tàng Kinh Các & Thư Viện Kinh Điển
+  const sutrasCardsHTML = BUDDHIST_SUTRAS.map((s, idx) => {
+    return `
+      <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(233,194,122,0.2); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; justify-content:space-between; gap:6px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div>
+            <span style="font-size:11px; color:var(--text-dim); font-family:monospace;">#${idx + 1}</span>
+            <div style="font-size:15px; font-weight:700; color:var(--gold); margin-top:1px;">
+              📖 ${escapeHTML(s.title)}
+            </div>
+          </div>
+          <span class="badge" style="background:rgba(233,194,122,0.15); color:var(--gold); font-size:10px; padding:2px 6px;">
+            ⏱️ ${escapeHTML(s.duration)}
+          </span>
+        </div>
+        <p style="font-size:11px; color:var(--text-dim); margin:0; line-height:1.45;">
+          ${escapeHTML(s.desc)}
+        </p>
+        <div style="margin-top:4px; display:flex; justify-content:flex-end;">
+          <button type="button" class="btn-task btn-run" onclick="runTask('tangkinh', { sutra: '${escapeHTML(s.id)}' })" style="font-size:11px; padding:3px 8px; border-radius:4px;" ${isAnyRunning ? 'disabled' : ''}>
+            📖 Nghe bài này
           </button>
         </div>
       </div>
@@ -3174,6 +3236,22 @@ export function renderDashboardHTML() {
               ${calligraphyCardsHTML}
             </div>
           </div>
+
+          <!-- TÀNG KINH CÁC & THƯ VIỆN KINH ĐIỂN (6 BÀI KINH GIÁC NGỘ) -->
+          <div style="background:rgba(0,0,0,0.25); border:1px solid var(--card-border); padding:14px; border-radius:12px; margin-top:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+              <div>
+                <h3 style="color:var(--gold); font-size:14px; margin:0;">📖 Tàng Kinh Các & Thư Viện Kinh Điển (6 Bài Kinh Giác Ngộ)</h3>
+                <small style="color:var(--text-dim); font-size:11px;">Kinh văn đại thừa & chân ngôn mầu nhiệm lưu giữ nơi Tàng Kinh Các chốn thiền môn</small>
+              </div>
+              <button type="button" class="btn" onclick="runTask('tangkinh')" style="font-size:12px; padding:7px 16px; background:linear-gradient(135deg, #1e3c72, #2a5298); color:#fff; font-weight:700;" ${isRunning || isStopping ? 'disabled' : ''}>
+                📖 Nghe Trọn Bộ Kinh Điển Ngay
+              </button>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); gap:10px;">
+              ${sutrasCardsHTML}
+            </div>
+          </div>
         </div>
 
         <!-- TAB 3: DANH HIỆU -->
@@ -3946,7 +4024,7 @@ const server = http.createServer(async (req, res) => {
 
     const runOptions = {};
     const task = String(bodyData.task || url.searchParams.get('task') || 'all').trim();
-    const validTaskIds = ['all', 'wAm', 'chuoi', 'viec-ca', 'lamp', 'pet', 'chu-all', 'xinchu-all', ...TASKS_CATALOG.map(t => t.id)];
+    const validTaskIds = ['all', 'wAm', 'chuoi', 'viec-ca', 'lamp', 'pet', 'chu-all', 'xinchu-all', 'tangkinh', 'kinh', 'nghekinh', ...TASKS_CATALOG.map(t => t.id)];
     if (!validTaskIds.includes(task)) {
       res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ ok: false, error: `Tác vụ không hợp lệ: "${task}".` }));
@@ -3999,6 +4077,11 @@ const server = http.createServer(async (req, res) => {
       if (validWishes.includes(wishStr)) {
         runOptions.wish = wishStr;
       }
+    }
+
+    // Kiểm tra bài kinh (sutra)
+    if (bodyData.sutra || url.searchParams.get('sutra')) {
+      runOptions.sutra = String(bodyData.sutra || url.searchParams.get('sutra')).trim();
     }
 
     // Các tham số cho danh hiệu, bản đồ, trang bị và thời lượng

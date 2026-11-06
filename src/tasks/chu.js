@@ -23,3 +23,4 @@ if (process.argv[1]?.endsWith('chu.js')) {
   const wish = process.argv[2] || 'all';
   runXinChu(wish).then(() => process.exit(0));
 }
+

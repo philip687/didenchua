@@ -24,6 +24,7 @@ import { runKhoe } from './src/tasks/khoe.js';
 import { runAm } from './src/tasks/am.js';
 import { runPhapDuong } from './src/tasks/phapduong.js';
 import { runXinChu } from './src/tasks/chu.js';
+import { runTangKinh } from './src/tasks/tangkinh.js';
 import { printTempleMap, teleportToPlace } from './src/map.js';
 import { DiDenChuaClient } from './src/client.js';
 import { runAllQuests } from './src/tasks/all.js';
@@ -59,6 +60,7 @@ DANH SÁCH LỆNH CHẠY TỪNG NHIỆM VỤ:
   npm run mo [số tiếng] : Gõ mõ tụng kinh (mặc định 30 lần, vd: node cli.js mo 50)
   npm run chuoi [số hạt]: Lăn chuỗi tràng hạt niệm Phật (mặc định 20 hạt, vd: 108 hạt)
   npm run chu [chữ]     : Xin chữ Thầy đồ (mặc định 'all' để xin đủ 12 chữ cất vào Tủ chữ)
+  npm run tangkinh      : Viếng Tàng Kinh Các lắng nghe trọn bộ 6 bài kinh điển giác ngộ
   npm run chuong        : Thỉnh đại hồng chung
   npm run ngoi [số giây]: Ngồi thiền tĩnh tâm 5 phút (mặc định 300s)
   npm run claim         : Tự động kiểm tra và nhận tất cả quà nhiệm vụ đã xong
@@ -185,6 +187,13 @@ async function main() {
     case 'thaydo':
     case 'thuphap':
       await runXinChu(args[0] || 'all');
+      break;
+
+    case 'tangkinh':
+    case 'kinh':
+    case 'nghekinh':
+    case 'doc-kinh':
+      await runTangKinh(args[0] || 'all');
       break;
 
     case 'mo':

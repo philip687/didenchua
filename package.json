@@ -63,7 +63,9 @@
     "an": "node cli.js secrets",
     "hidden": "node cli.js secrets",
     "chu": "node cli.js chu",
-    "xinchu": "node cli.js chu all"
+    "xinchu": "node cli.js chu all",
+    "tangkinh": "node cli.js tangkinh",
+    "kinh": "node cli.js tangkinh"
   },
   "keywords": [],
   "author": "",

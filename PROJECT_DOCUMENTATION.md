@@ -616,7 +616,8 @@ Hệ thống hỗ trợ hơn 35 câu lệnh dòng lệnh cực kỳ tiện lợi
 | `node cli.js look [trang bị]` | `node cli.js look robe=lam` | Đổi áo tràng, tràng hạt, bồ đoàn hoặc pháp khí. |
 | `node cli.js quiz [chế độ]` | `node cli.js quiz practice` | Chơi Đố vui Phật pháp AI (luyện tập hoặc thi đấu lúc 20:00). |
 | `node cli.js chu [mã_chữ]` | `node cli.js chu all` | Ghé lều Thầy đồ xin chữ thư pháp (mặc định `all` xin trọn bộ 12 chữ cất vào Tủ chữ). |
-| `node cli.js secrets` | `node cli.js secrets` | Chạy toàn bộ nhiệm vụ ẩn: gieo quẻ, xin chữ Thầy đồ, đài Quan Âm... |
+| `node cli.js tangkinh [mã_kinh]` | `node cli.js tangkinh all` | Viếng Tàng Kinh Các lắng nghe trọn bộ 6 bài kinh điển giác ngộ và hoàn tất thời khóa. |
+| `node cli.js secrets` | `node cli.js secrets` | Chạy toàn bộ nhiệm vụ ẩn: gieo quẻ, Tàng Kinh Các nghe hết kinh, xin chữ Thầy đồ, đài Quan Âm... |
 | `node cli.js watch` | `npm run watch` | Mở Google Chrome 3D thật và tự động làm nhiệm vụ ngay trước mắt bạn. |
 
 ---
