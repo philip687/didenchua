@@ -61,7 +61,9 @@
     "maximum": "node cli.js max",
     "secrets": "node cli.js secrets",
     "an": "node cli.js secrets",
-    "hidden": "node cli.js secrets"
+    "hidden": "node cli.js secrets",
+    "chu": "node cli.js chu",
+    "xinchu": "node cli.js chu all"
   },
   "keywords": [],
   "author": "",

@@ -223,12 +223,12 @@ export const TASKS_CATALOG = [
     group: 'daily',
     questId: 'chu',
     title: 'Xin Chữ Thầy Đồ',
-    desc: 'Đến lều Thầy đồ xin chữ thư pháp đầu ngày (chọn chữ tùy ý)',
+    desc: 'Đến lều Thầy đồ xin chữ thư pháp đầu ngày (chọn 1 chữ hoặc xin đủ 12 chữ)',
     icon: '✍️',
     reward: '+25 điểm',
     badge: 'Nhiệm vụ ngày',
     hasWish: true,
-    defaultWish: 'binh-an',
+    defaultWish: 'all',
     wishOptions: CALLIGRAPHY_WORDS
   },
   {
@@ -511,6 +511,16 @@ export const TASKS_CATALOG = [
     hasWish: true,
     defaultWish: 'binh-an',
     wishOptions: CALLIGRAPHY_WORDS
+  },
+  {
+    id: 'chu-all',
+    group: 'extra',
+    questId: 'chu',
+    title: 'Xin Trọn Bộ 12 Chữ Thư Pháp',
+    desc: 'Đến lều Thầy đồ xin đủ toàn bộ 12 chữ cát tường cất vào Tủ chữ',
+    icon: '📜',
+    reward: 'Trọn bộ 12 chữ',
+    badge: 'Tủ chữ'
   },
 
   // --- TẦNG 5: TĨNH TÂM THIỀN ĐỊNH & TRÍ TUỆ AI (ZEN & WISDOM) ---
@@ -854,7 +864,11 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           await client.doGarden({ autoWaterOthers: true });
           break;
         case 'chu':
-          await client.doXinChu(runOptions.wish || client.config.calligraphyWish || 'binh-an');
+          await client.doXinChu(runOptions.wish || client.config.calligraphyWish || 'all');
+          break;
+        case 'chu-all':
+        case 'xinchu-all':
+          await client.doXinAllChu();
           break;
         case 'lay':
           const bowsCount = runOptions.count || 18;
@@ -1562,8 +1576,15 @@ export const QUEST_METADATA = {
     icon: '✍️',
     title: 'Xin chữ Thầy đồ',
     desc: 'Ghé gian lều Thầy đồ xin chữ thư pháp may mắn đầu ngày',
-    tip: 'Xin chữ bình an hoặc cát tường',
+    tip: 'Xin chữ bình an hoặc xin trọn bộ 12 chữ cát tường',
     taskId: 'chu'
+  },
+  'chu-all': {
+    icon: '📜',
+    title: 'Xin trọn bộ 12 chữ Thầy đồ',
+    desc: 'Ghé lều Thầy đồ xin đủ toàn bộ 12 chữ cát tường cất vào Tủ chữ',
+    tip: 'Xin trọn vẹn 12 bức thư pháp may mắn',
+    taskId: 'chu-all'
   },
   chuong: {
     icon: '🔔',
@@ -1801,6 +1822,33 @@ export function renderDashboardHTML() {
       </div>`;
   }).join('');
 
+  // 12 Chữ thư pháp Thầy Đồ (Bộ sưu tập Tủ chữ)
+  const calligraphyCardsHTML = CALLIGRAPHY_WORDS.map((w, idx) => {
+    return `
+      <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(233,194,122,0.2); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; justify-content:space-between; gap:6px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div>
+            <span style="font-size:11px; color:var(--text-dim); font-family:monospace;">#${idx + 1}</span>
+            <div style="font-size:16px; font-weight:700; color:var(--gold); font-family:'Noto Serif', serif; letter-spacing:1px; margin-top:1px;">
+              ✍️ ${escapeHTML(w.text)}
+            </div>
+          </div>
+          <span class="badge" style="background:rgba(233,194,122,0.15); color:var(--gold); font-size:10px; padding:2px 6px;">
+            ${escapeHTML(w.wish)}
+          </span>
+        </div>
+        <p style="font-size:11px; color:var(--text-dim); margin:0; line-height:1.45; font-style:italic;">
+          "${escapeHTML(w.meaning)}"
+        </p>
+        <div style="margin-top:4px; display:flex; justify-content:flex-end;">
+          <button type="button" class="btn-task btn-run" onclick="runTask('chu', { wish: '${escapeHTML(w.id)}' })" style="font-size:11px; padding:3px 8px; border-radius:4px;" ${isAnyRunning ? 'disabled' : ''}>
+            ✍️ Xin chữ
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
   // Danh sách danh hiệu
   const unlockedTitlesHTML = (j.titles || []).filter(t => t.got).map(t => {
     const isCurrent = t.id === activeTitleId;
@@ -1979,7 +2027,8 @@ export function renderDashboardHTML() {
             style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 8px; border-radius:6px; font-size:12px; cursor:pointer; font-weight:600; max-width:155px;"
             title="Chọn chữ thư pháp muốn xin từ Thầy đồ"
             ${isAnyRunning ? 'disabled' : ''}>
-            ${(t.wishOptions || []).map(opt => `<option value="${opt.id}" ${opt.id === (t.defaultWish || 'binh-an') ? 'selected' : ''}>${escapeHTML(opt.text)} (${escapeHTML(opt.wish)})</option>`).join('')}
+            <option value="all" ${(!t.defaultWish || t.defaultWish === 'all') ? 'selected' : ''}>📜 Xin đủ 12 chữ (Trọn bộ)</option>
+            ${(t.wishOptions || []).map(opt => `<option value="${opt.id}" ${opt.id === t.defaultWish ? 'selected' : ''}>${escapeHTML(opt.text)} (${escapeHTML(opt.wish)})</option>`).join('')}
           </select>
         </div>
       `;
@@ -3109,6 +3158,22 @@ export function renderDashboardHTML() {
               ⚡ Áp Dụng Trang Bị & Diện Mạo
             </button>
           </div>
+
+          <!-- Tủ Chữ Thư Pháp Thầy Đồ (12 Chữ Cát Tường) -->
+          <div style="background:rgba(0,0,0,0.25); border:1px solid var(--card-border); padding:14px; border-radius:12px; margin-top:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+              <div>
+                <h3 style="color:var(--gold); font-size:14px; margin:0;">📜 Tủ Chữ Thư Pháp Thầy Đồ (Trọn Bộ 12 Chữ)</h3>
+                <small style="color:var(--text-dim); font-size:11px;">Mỗi chữ là một lời chúc phước lành và ý nghĩa tu dưỡng đạo đức chốn thiền môn</small>
+              </div>
+              <button type="button" class="btn" onclick="runTask('chu-all')" style="font-size:12px; padding:7px 16px; background:linear-gradient(135deg, #b8860b, #e9c27a); color:#1c150e; font-weight:700;" ${isRunning || isStopping ? 'disabled' : ''}>
+                📜 Xin Trọn Bộ 12 Chữ Ngay
+              </button>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); gap:10px;">
+              ${calligraphyCardsHTML}
+            </div>
+          </div>
         </div>
 
         <!-- TAB 3: DANH HIỆU -->
@@ -3412,8 +3477,10 @@ export function renderDashboardHTML() {
         if (bowsInp && bowsInp.value !== '') payload.bowsCount = Number(bowsInp.value);
         if (beadsInp && beadsInp.value !== '') payload.beadsCount = Number(beadsInp.value);
       } else if (taskId === 'chu' || taskId === 'secrets') {
-        const wishSel = document.getElementById('wish_' + taskId);
-        if (wishSel && wishSel.value) payload.wish = wishSel.value;
+        if (!payload.wish) {
+          const wishSel = document.getElementById('wish_' + taskId);
+          if (wishSel && wishSel.value) payload.wish = wishSel.value;
+        }
       } else if (taskId === 'teleport') {
         const placeSel = document.getElementById('place_' + taskId);
         if (placeSel && placeSel.value) payload.placeId = placeSel.value;
@@ -3879,7 +3946,7 @@ const server = http.createServer(async (req, res) => {
 
     const runOptions = {};
     const task = String(bodyData.task || url.searchParams.get('task') || 'all').trim();
-    const validTaskIds = ['all', 'wAm', 'chuoi', 'viec-ca', 'lamp', 'pet', ...TASKS_CATALOG.map(t => t.id)];
+    const validTaskIds = ['all', 'wAm', 'chuoi', 'viec-ca', 'lamp', 'pet', 'chu-all', 'xinchu-all', ...TASKS_CATALOG.map(t => t.id)];
     if (!validTaskIds.includes(task)) {
       res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ ok: false, error: `Tác vụ không hợp lệ: "${task}".` }));
@@ -3928,7 +3995,7 @@ const server = http.createServer(async (req, res) => {
     const wishRaw = bodyData.wish ?? (url.searchParams.has('wish') ? url.searchParams.get('wish') : null);
     if (wishRaw !== null && wishRaw !== undefined) {
       const wishStr = String(wishRaw).trim();
-      const validWishes = CALLIGRAPHY_WORDS.map(w => w.id);
+      const validWishes = ['all', 'tat-ca', 'full', 'tron-bo', ...CALLIGRAPHY_WORDS.map(w => w.id)];
       if (validWishes.includes(wishStr)) {
         runOptions.wish = wishStr;
       }

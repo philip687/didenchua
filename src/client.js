@@ -1064,9 +1064,47 @@ export class DiDenChuaClient {
     }
   }
 
+  async doXinAllChu() {
+    this.checkAborted();
+    log.temple('✍️', `=== BẮT ĐẦU XIN TRỌN BỘ 12 CHỮ THƯ PHÁP TỪ THẦY ĐỒ ===`);
+    await this.humanDelay('khoan thai bước đến gian lều Thầy đồ');
+    this.checkAborted();
+
+    // 1. Bắt buộc phải viếng thăm lều Thầy đồ để máy chủ ghi nhận nhiệm vụ chu
+    this.send({ t: 'visit', zone: 'Thầy đồ' });
+    await this.sleep(500);
+    this.send({ t: 'chu-list' });
+    await this.sleep(600);
+
+    // 2. Lần lượt xin trọn vẹn từng chữ trong 12 chữ và cất vào Tủ chữ
+    let idx = 0;
+    for (const word of CALLIGRAPHY_WORDS) {
+      this.checkAborted();
+      idx++;
+      log.temple('✍️', `[${idx}/${CALLIGRAPHY_WORDS.length}] Thầy đồ phóng bút chữ "${word.text}" (Ước nguyện: ${word.wish})...`);
+      this.send({ t: 'chu-xin', chu: word.id });
+      await this.sleep(500);
+
+      this.send({ t: 'chu-dem', k: 'mo' });
+      this.send({ t: 'chu-dem', k: 'vao' });
+      this.send({ t: 'chu-giu', chu: word.id });
+
+      log.info(`   -> Đã cất chữ "${word.text}" vào Tủ chữ. Ý nghĩa: "${word.meaning}"`);
+      await this.sleep(400);
+    }
+
+    // 3. Hoàn tất & nhận thưởng quest chu
+    this.claimQuest('chu');
+    await this.sleep(500);
+    log.success(`🎉 HOÀN TẤT: Đã xin đủ toàn bộ 12/12 chữ thư pháp cát tường từ Thầy đồ và lưu trữ vào Tủ chữ!`);
+  }
+
   async doXinChu(wishId = null) {
     this.checkAborted();
     const targetWish = wishId || this.config.calligraphyWish || 'binh-an';
+    if (targetWish === 'all' || targetWish === 'tat-ca' || targetWish === 'full' || targetWish === 'tron-bo') {
+      return await this.doXinAllChu();
+    }
     const wordInfo = CALLIGRAPHY_WORDS.find(w => w.id === targetWish) || { text: targetWish, wish: '' };
     log.temple('✍️', `Bắt đầu xin chữ Thầy đồ: Chữ "${wordInfo.text}" (${wordInfo.wish || targetWish})…`);
     await this.humanDelay('bước đến lều Thầy đồ');
