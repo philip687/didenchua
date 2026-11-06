@@ -1362,36 +1362,42 @@ export class DiDenChuaClient {
     // Độ dài mỗi chặng (mặc định 300s = 5 phút - khớp quest ngày và ngưỡng an toàn Render)
     const chunkSeconds = options.chunkSeconds || 300;
     const totalChunks = Math.max(1, Math.ceil(seconds / chunkSeconds));
+    const targetZone = options.zone || 'Vườn thiền';
+    const isVuonThien = targetZone.includes('Vườn thiền') || targetZone.includes('vuon-thien');
 
-    log.temple('🧘', `Bắt đầu ngồi thiền tĩnh tâm trong ${mins} phút (${seconds}s - chia làm ${totalChunks} chặng an toàn, tự thu thập công đức từng phần)…`);
+    log.temple('🧘', `Bắt đầu ngồi thiền tĩnh tâm tại ${targetZone} trong ${mins} phút (${seconds}s - chia làm ${totalChunks} chặng an toàn, tự thu thập công đức từng phần)…`);
 
-    // 1. Chuyển đến Chánh điện (khu vực thiền định & tĩnh tâm chính thức của chùa)
-    this.send({ t: 'visit', zone: 'Chánh điện' });
+    // 1. Chuyển đến khu vực thiền định (Vườn thiền hoặc Chánh điện)
+    this.send({ t: 'visit', zone: targetZone });
     await this.sleep(this.isTurbo() ? 80 : 600);
     this.checkAborted();
 
-    // 2. Chọn bồ đoàn còn trống theo tọa độ chuẩn xác của Chánh điện
+    // 2. Thiết lập tọa độ ngồi thiền chuẩn xác theo khu vực
     const taken = this.takenSeats || new Set();
     const availableSeat = CHANH_DIEN_SEATS.find(s => !taken.has(s.id)) || CHANH_DIEN_SEATS[0];
 
-    const sitPayload = {
-      t: 'state',
-      x: availableSeat.x,
-      y: availableSeat.y,
-      z: availableSeat.z,
-      ry: availableSeat.ry,
-      s: 2,
-      seat: availableSeat.id
-    };
+    const sitPayload = isVuonThien
+      ? { t: 'state', x: -36, y: 0, z: 30, ry: 1.57, s: 2 }
+      : {
+          t: 'state',
+          x: availableSeat.x,
+          y: availableSeat.y,
+          z: availableSeat.z,
+          ry: availableSeat.ry,
+          s: 2,
+          seat: availableSeat.id
+        };
 
-    const standPayload = {
-      t: 'state',
-      x: availableSeat.x,
-      y: 2.4,
-      z: availableSeat.z,
-      ry: availableSeat.ry,
-      s: 0
-    };
+    const standPayload = isVuonThien
+      ? { t: 'state', x: -36, y: 0, z: 30, ry: 1.57, s: 0 }
+      : {
+          t: 'state',
+          x: availableSeat.x,
+          y: 2.4,
+          z: availableSeat.z,
+          ry: availableSeat.ry,
+          s: 0
+        };
 
     let totalElapsed = 0;
     let chunkIndex = 1;
@@ -1402,7 +1408,8 @@ export class DiDenChuaClient {
         const currentChunkTarget = Math.min(chunkSeconds, seconds - totalElapsed);
         const currentChunkMins = Math.ceil(currentChunkTarget / 60);
 
-        log.info(`-> [Chặng ${chunkIndex}/${totalChunks}] Tọa thiền tại bồ đoàn Chánh điện [${availableSeat.id}] (thời lượng chặng: ${currentChunkMins} phút)...`);
+        const locationText = isVuonThien ? 'không gian tĩnh mịch Vườn thiền (-36, 0, 30)' : `bồ đoàn Chánh điện [${availableSeat.id}]`;
+        log.info(`-> [Chặng ${chunkIndex}/${totalChunks}] Tọa thiền tại ${locationText} (thời lượng chặng: ${currentChunkMins} phút)...`);
         this.send(sitPayload);
 
         const chunkStart = Date.now();
@@ -1418,7 +1425,7 @@ export class DiDenChuaClient {
             log.warn(`Phát hiện mất kết nối với chùa tại giây ${totalElapsed + chunkElapsed}. Đang tự động kết nối lại...`);
             try {
               await this.connect(8000);
-              this.send({ t: 'visit', zone: 'Chánh điện' });
+              this.send({ t: 'visit', zone: targetZone });
               await this.sleep(this.isTurbo() ? 80 : 400);
               this.send(sitPayload);
               lastHeartbeat = Date.now();
