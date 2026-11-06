@@ -17,6 +17,7 @@ import {
 import { TEMPLE_MAP } from './src/map.js';
 import { runMeditateWithClient } from './src/tasks/meditate.js';
 import { runQuizWithClient } from './src/tasks/quiz.js';
+import { AutonomousBot } from './src/auto/index.js';
 import { log, setLogHook } from './src/logger.js';
 import { notifyRunResult } from './src/notify.js';
 
@@ -94,6 +95,16 @@ function verifyAuth(req) {
 // 4. group: 'extra' (Tầng 4: Vườn sen & Tùy hỷ công đức)
 // 5. group: 'zen-ai' (Tầng 5: Tĩnh tâm thiền định & Trí tuệ AI Gemini Flash)
 export const TASKS_CATALOG = [
+  // --- CỖ MÁY TỰ CHƠI THÔNG MINH (AUTONOMOUS AI) ---
+  {
+    id: 'auto',
+    group: 'daily',
+    title: 'Tự Chơi Thông Minh',
+    desc: 'Cỗ máy tự chơi tự động nhận diện công đức/tiến độ, tự đổi việc khi bão hòa, cày mốc tích luỹ và canh đúng giờ thắp đèn & đố vui',
+    icon: '🤖',
+    reward: 'Toàn diện',
+    badge: 'Autonomous AI'
+  },
   // --- TẦNG 1: NHIỆM VỤ HÀNG NGÀY (DAILY QUESTS) ---
   {
     id: 'ngoi-daily',
@@ -678,6 +689,15 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
       log.temple('⚡', `[${runId}] Bắt đầu thực thi nhiệm vụ riêng lẻ: [${taskTitle}]...`);
 
       switch (taskId) {
+        case 'auto':
+        case 'selfplay':
+          log.temple('🤖', `[${runId}] Khởi động Cỗ máy Tự chơi Thông minh (Autonomous Bot)...`);
+          const autoBot = new AutonomousBot({ client, mode: 'once' });
+          await autoBot.runDailyProbingPhase();
+          await autoBot.checkAndRunScheduledTasks();
+          await autoBot.runClaimPhase();
+          await autoBot.runAccumulationPhase();
+          break;
         case 'ngoi-daily':
           const activeNgoi = (client.merit?.me?.quests || []).find(q => q.id === 'ngoi' || q.id.startsWith('ngoi'));
           const needNgoiSecs = activeNgoi && !activeNgoi.claimed ? Math.max(300, (activeNgoi.need - (activeNgoi.have || 0)) * 60) : 300;
@@ -963,6 +983,9 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
       } else if (taskId === 'equip') {
         verificationStatus = 'verified';
         verificationDetail = 'Đã lưu trang phục và pháp bảo mới vào hồ sơ nhân vật.';
+      } else if (taskId === 'auto' || taskId === 'selfplay') {
+        verificationStatus = 'verified';
+        verificationDetail = `Cỗ máy Tự chơi đã hoàn tất chu kỳ tự nhận diện công đức và tích luỹ theo mốc (+${postMeritTotal - preMeritTotal} công đức).`;
       } else if (taskItem?.questId) {
         const preQ = preQuests.find(q => q.id === taskItem.questId);
         const postQ = postQuests.find(q => q.id === taskItem.questId);
@@ -2258,6 +2281,9 @@ function renderDashboardHTML() {
         <button id="runBtn" class="btn" onclick="triggerRun()" ${isRunning || isStopping ? 'disabled' : ''}>
           ${isStopping ? '🛑 Đang dừng an toàn…' : (isRunning ? '⏳ Đang thực thi…' : '⚡ Chạy Toàn Bộ Chu Trình')}
         </button>
+        <button id="autoPlayBtn" class="btn" onclick="runTask('auto')" style="background:linear-gradient(135deg, #1b3a4b, #2d5a88); color:#64b5f6; border:1px solid #42a5f5;" ${isRunning || isStopping ? 'disabled' : ''}>
+          🤖 Kích Hoạt Tự Chơi
+        </button>
         <button class="btn" onclick="runTask('khoe')" style="background:rgba(233,194,122,0.15); color:var(--gold); border:1px solid var(--card-border);" ${isRunning || isStopping ? 'disabled' : ''}>
           📢 Khoe (+10đ)
         </button>
@@ -2319,6 +2345,7 @@ function renderDashboardHTML() {
               </div>
             </div>
             <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <button type="button" class="btn-task btn-run" onclick="runTask('auto')" style="background:linear-gradient(135deg, #1b3a4b, #2d5a88); color:#64b5f6; border:1px solid #42a5f5;" ${isRunning || isStopping ? 'disabled' : ''}>🤖 Tự chơi</button>
               <button type="button" class="btn-task btn-run" onclick="runTask('ngoi-daily')" ${isRunning || isStopping ? 'disabled' : ''}>🧘 Ngồi thiền</button>
               <button type="button" class="btn-task btn-run" onclick="runTask('greet')" ${isRunning || isStopping ? 'disabled' : ''}>🙏 Chắp tay</button>
               <button type="button" class="btn-task btn-run" onclick="runTask('khoe')" ${isRunning || isStopping ? 'disabled' : ''}>📢 Khoe (+10đ)</button>
@@ -2771,7 +2798,7 @@ function renderDashboardHTML() {
         }
       }
 
-      const allRunBtns = document.querySelectorAll('.btn-run, #runBtn');
+      const allRunBtns = document.querySelectorAll('.btn-run, #runBtn, #autoPlayBtn');
       allRunBtns.forEach(b => { b.disabled = true; });
 
       try {
