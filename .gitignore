@@ -2,6 +2,7 @@ node_modules/
 .DS_Store
 .env
 .env.*
+.cached_token.json
 config.local.json
 .scheduler_state.json
 AGENT_UPGRADE_GUIDE.md

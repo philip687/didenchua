@@ -27,9 +27,14 @@ if (fs.existsSync(ENV_PATH)) {
 
 const DEFAULT_CONFIG = {
   cid: crypto.randomUUID(),
-  name: 'Phật Tử Tịnh Tâm',
+  domain: 'https://niemphat.online',
+  username: 'thichkngan',
+  password: 'thichkngan',
+  temple: 'voluong', // Chùa Vô Lượng
+  name: 'Hân Ánh Vũ',
+  sect: 'tinhdo',    // Tịnh Độ
   kind: 'tieu',      // tieu, ni
-  robe: 'nau',       // nau, lam, xam, vang, cam
+  robe: 'ao_lam',    // ao_lam, robe_nau
   skin: 'dong',      // sang, dong
   bio: 'Nam Mô A Di Đà Phật · Thân tâm thường an lạc',
   beads: 'go',       // go, bode, tramhuong, hophach, ngoc, manao
@@ -72,6 +77,10 @@ export function loadConfig() {
   const envConfig = {};
   if (process.env.CID) envConfig.cid = process.env.CID;
   if (process.env.NAME) envConfig.name = process.env.NAME;
+  if (process.env.NP_USERNAME || process.env.USERNAME) envConfig.username = process.env.NP_USERNAME || process.env.USERNAME;
+  if (process.env.NP_PASSWORD || process.env.PASSWORD) envConfig.password = process.env.NP_PASSWORD || process.env.PASSWORD;
+  if (process.env.NP_BASE_URL || process.env.DOMAIN) envConfig.domain = process.env.NP_BASE_URL || process.env.DOMAIN;
+  if (process.env.NP_TEMPLE || process.env.TEMPLE) envConfig.temple = process.env.NP_TEMPLE || process.env.TEMPLE;
   if (process.env.ROOM) envConfig.room = process.env.ROOM;
   if (process.env.SAFE_MODE !== undefined) envConfig.safeMode = process.env.SAFE_MODE === 'true';
   if (process.env.TURBO !== undefined) envConfig.turbo = process.env.TURBO === 'true';

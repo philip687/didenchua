@@ -330,6 +330,35 @@ export const TASKS_CATALOG = [
     badge: 'Đầu ngày'
   },
   {
+    id: 'que',
+    group: 'daily',
+    questId: 'xam',
+    title: 'Gieo Quẻ Xăm Cát Tường',
+    desc: 'Lắc quẻ cát tường nhận lời khai thị tu tập đầu ngày',
+    icon: '📜',
+    reward: '+10 điểm',
+    badge: 'Đầu ngày'
+  },
+  {
+    id: 'wheel',
+    group: 'daily',
+    title: 'Vòng Quay Lộc',
+    desc: 'Quay vòng quay may mắn trong ngày nhận Sen hoặc vật phẩm quý',
+    icon: '🎡',
+    reward: 'Sen / Vật phẩm',
+    badge: 'Vòng quay'
+  },
+  {
+    id: 'vieng',
+    group: 'daily',
+    questId: 'd_vieng2',
+    title: 'Viếng Thăm Các Ngôi Chùa',
+    desc: 'Hành hương viếng thăm các danh lam cổ tự (20 ngôi chùa)',
+    icon: '🏯',
+    reward: '+25 Sen',
+    badge: 'Hành hương'
+  },
+  {
     id: 'claim',
     group: 'daily',
     questId: 'claim',
@@ -975,7 +1004,12 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           log.success(`Đã hoàn tất cày tự động: ${farmBows} lạy Phật và ${farmBeads} hạt tràng niệm Phật!`);
           break;
         case 'xam':
+        case 'que':
+          await client.doQue();
           await client.doXam();
+          break;
+        case 'wheel':
+          await client.doWheel();
           break;
         case 'claim':
           await client.claimAllQuests();
@@ -998,6 +1032,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           await client.doTangKinhCac(runOptions.sutra || 'all');
           break;
         case 'visit':
+        case 'vieng':
           await client.doVisitAll();
           break;
         case 'meditate':
@@ -1077,7 +1112,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
       }
 
       // Tự động nhận thưởng nếu nhiệm vụ này hoàn thành quest ngày hoặc quest tuần
-      if (['bell', 'vow', 'incense', 'lay-daily', 'lay', 'greet', 'lantern-daily', 'chores-daily', 'xam', 'chores', 'quet', 'farm-bows-beads', 'tung', 'tuoi', 'chu', 'garden', 'tuyhy', 'secrets', 'tangkinh', 'chu-all', 'meditate', 'ngoi-daily', 'quiz', 'am', 'khoe', 'checkin', 'ca', 'dendau', 'cat', 'wAm', 'chuoi', 'beads'].includes(taskId)) {
+      if (['bell', 'vow', 'incense', 'lay-daily', 'lay', 'greet', 'lantern-daily', 'chores-daily', 'xam', 'que', 'wheel', 'vieng', 'chores', 'quet', 'farm-bows-beads', 'tung', 'tuoi', 'chu', 'garden', 'tuyhy', 'secrets', 'tangkinh', 'chu-all', 'meditate', 'ngoi-daily', 'quiz', 'am', 'khoe', 'checkin', 'ca', 'dendau', 'cat', 'wAm', 'chuoi', 'beads'].includes(taskId)) {
         await client.sleep(client.isTurbo() ? 80 : 300);
         await client.claimAllQuests();
       }
@@ -1704,6 +1739,76 @@ export const QUEST_METADATA = {
     desc: 'Gửi một lời nguyện cầu bình an, an lạc tới cả chùa',
     tip: 'Thành tâm hướng về đại chúng',
     taskId: 'vow'
+  },
+  d_lay27: {
+    icon: '🙇',
+    title: 'Lạy 27 lạy',
+    desc: 'Thành tâm lạy Phật 27 lạy trang nghiêm',
+    tip: 'Lễ bái Tam Bảo sám hối tiêu trừ nghiệp chướng',
+    taskId: 'lay-daily'
+  },
+  d_chuoi1: {
+    icon: '📿',
+    title: 'Lần trọn một chuỗi',
+    desc: 'Lần đủ 108 hạt tràng niệm Phật A Di Đà',
+    tip: 'Thanh tịnh tâm ý, nhất tâm niệm Phật',
+    taskId: 'beads'
+  },
+  d_mo108: {
+    icon: '🪵',
+    title: 'Gõ mõ 108 tiếng',
+    desc: 'Tự tay gõ đủ 108 tiếng mõ khi tụng kinh',
+    tip: 'Gõ mõ tụng kinh trang nghiêm thanh tịnh',
+    taskId: 'tung'
+  },
+  d_thien5: {
+    icon: '🧘',
+    title: 'Thiền định 5 phút',
+    desc: 'Ngồi thiền định tĩnh tâm ít nhất 5 phút',
+    tip: 'Tĩnh tâm an trú trong hiện tại',
+    taskId: 'ngoi-daily'
+  },
+  d_kinh1: {
+    icon: '📖',
+    title: 'Tụng trọn một bài',
+    desc: 'Tụng trọn một bài kinh chú trong mục Tụng kinh',
+    tip: 'Lắng nghe và tụng niệm kinh điển giác ngộ',
+    taskId: 'tangkinh'
+  },
+  d_huong: {
+    icon: '🪔',
+    title: 'Thắp một nén hương',
+    desc: 'Thắp nén tâm hương dâng Phật',
+    tip: 'Thành kính dâng hương Tam Bảo',
+    taskId: 'incense'
+  },
+  d_vieng2: {
+    icon: '🏯',
+    title: 'Viếng hai ngôi chùa',
+    desc: 'Ghé thăm 2 ngôi chùa khác nhau trong ngày',
+    tip: 'Hành hương chiêm bái các cảnh chùa danh thắng',
+    taskId: 'visit'
+  },
+  d_khoe: {
+    icon: '📢',
+    title: 'Lan tỏa thiện duyên',
+    desc: 'Khoe thành tích tu tập lên mạng xã hội',
+    tip: 'Chia sẻ niềm hoan hỷ tu tập cùng đại chúng',
+    taskId: 'khoe'
+  },
+  d_tuyhy: {
+    icon: '✨',
+    title: 'Tùy hỷ công đức',
+    desc: 'Tùy hỷ 3 ngọn đèn hoa đăng của người khác',
+    tip: 'Hoan hỷ tùy hỷ công đức hoa đăng thiện lành',
+    taskId: 'tuyhy'
+  },
+  d_chuong: {
+    icon: '🔔',
+    title: 'Thỉnh chuông',
+    desc: 'Thỉnh một hồi chuông ở bất kỳ chùa nào',
+    tip: 'Thỉnh tiếng chuông đại hồng ngân vang',
+    taskId: 'bell'
   }
 };
 
@@ -2227,7 +2332,7 @@ export function renderDashboardHTML() {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="csrf-token" content="${escapeHTML(CSRF_TOKEN)}">
-  <title>An Tự Duyên - Trung Tâm Điều Hành & Báo Cáo Công Đức</title>
+  <title>Niệm Phật Online - Trung Tâm Điều Hành & Tu Tập</title>
   <style>
     :root {
       --bg: #15100c;
@@ -3218,7 +3323,7 @@ export function renderDashboardHTML() {
         <!-- TAB 2: BỘ SƯU TẬP -->
         <div class="profile-tab-pane" id="tab_collection">
           <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px;">
-            Kho tàng pháp bảo, áo tràng, tràng hạt và 12 pháp khí tu tập chùa An Tự Duyên. Bạn đã mở khóa <b>${unlockedPhapkhiSet.size}/12</b> pháp khí cao quý!
+            Kho tàng pháp bảo, áo tràng, tràng hạt và 12 pháp khí tu tập Niệm Phật Online. Bạn đã mở khóa <b>${unlockedPhapkhiSet.size}/12</b> pháp khí cao quý!
           </p>
 
           <h3 style="font-size:13px; color:var(--gold); margin-bottom:10px;">⚔️ 12 Pháp Khí Chùa (Đã mở ${unlockedPhapkhiSet.size}/12)</h3>
@@ -3341,7 +3446,7 @@ export function renderDashboardHTML() {
             </button>
           </div>
 
-          <h3 style="font-size:13px; color:var(--gold); margin-bottom:10px;">🗺️ 17 Thắng Cảnh Bản Đồ Chùa An Tự Duyên</h3>
+          <h3 style="font-size:13px; color:var(--gold); margin-bottom:10px;">🗺️ 17 Thắng Cảnh Bản Đồ Niệm Phật Online</h3>
           <div class="map-grid">
             ${mapPlacesHTML}
           </div>
@@ -3574,7 +3679,7 @@ export function renderDashboardHTML() {
     </div>
 
     <footer>
-      <p>Hệ thống tự động hóa công đức chùa An Tự Duyên · Múi giờ: Asia/Ho_Chi_Minh (UTC+7) · Lưu trữ: Bộ nhớ tạm phiên làm việc (In-memory buffer) · <a href="/health">Health Monitor</a></p>
+      <p>Hệ thống tự động hóa công đức Niệm Phật Online · Múi giờ: Asia/Ho_Chi_Minh (UTC+7) · Lưu trữ: Bộ nhớ tạm phiên làm việc (In-memory buffer) · <a href="/health">Health Monitor</a></p>
     </footer>
   </div>
 

@@ -1,11 +1,19 @@
+import WebSocket from 'ws';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { log } from './logger.js';
 import { loadConfig } from '../config.js';
 
-const WS_URL = 'wss://didenchua.online/ws';
-// Send before the server's reported 20s idle window to tolerate event-loop/network jitter.
-const HEARTBEAT_INTERVAL_MS = 15000;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const TOKEN_CACHE_PATH = path.join(__dirname, '..', '.cached_token.json');
 
-// Danh sách 50 bồ đoàn chính thức tại Chánh điện (tính toán chuẩn xác theo layout 3D của game didenchua.online)
+const DEFAULT_BASE_URL = 'https://niemphat.online';
+const DEFAULT_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+const HEARTBEAT_INTERVAL_MS = 15000;
+const PRACTICE_GAP_MS = 1250; // Máy chủ quy định gap >= 1200ms giữa các lần tu tập
+
+// Danh sách 50 bồ đoàn chính thức tại Chánh điện
 export const CHANH_DIEN_SEATS = (() => {
   let qt = 0;
   const list = [];
@@ -43,353 +51,116 @@ export const BUDDHIST_SUTRAS = [
   { id: 'hoihuong', title: 'Kệ Hồi Hướng', duration: '00:16', seconds: 15.66, desc: 'Nguyện dĩ thử công đức, phổ cập ư nhất thiết' }
 ];
 
-// Danh sách 11 loại áo tràng trong chùa
 export const ROBES_CATALOG = {
   nau: { name: 'Áo nâu', color: '#7a5134' },
   lam: { name: 'Áo tràng lam', color: '#5d7487' },
   xam: { name: 'Áo xám', color: '#8a8a84' },
   vang: { name: 'Áo vàng', color: '#b98a3a' },
-  cam: { name: 'Áo cam', color: '#b8602c' },
-  trang: { name: 'Áo tràng nâu', color: '#54392a' },
-  tieu: { name: 'Áo tiểu', color: '#b5b2a6' },
-  sen: { name: 'Áo tràng sen', color: '#cf93a2', event: 'Lễ rằm' },
-  xuan: { name: 'Áo Xuân', color: '#a8402e', event: 'Lễ Tết' },
-  vulan: { name: 'Áo Vu Lan', color: '#e6e0d2', event: 'Lễ Vu Lan' },
-  tangoc: { name: 'Áo tràng ngọc', color: '#3f8f86', needMerit: 15000 }
+  cam: { name: 'Áo cam', color: '#b8602c' }
 };
 
-// Danh sách 13 loại tràng hạt
 export const BEADS_CATALOG = {
   go: { name: 'Tràng hạt gỗ', color: '#e0852c', lv: 0 },
   bode: { name: 'Tràng hạt bồ đề', color: '#b98a5a', lv: 1 },
-  tram: { name: 'Tràng hạt trầm hương', color: '#6b442a', lv: 2 },
-  hophach: { name: 'Tràng hạt hổ phách', color: '#f2a91f', lv: 3 },
-  ngoc: { name: 'Tràng hạt ngọc bích', color: '#4fae84', lv: 4 },
-  mun: { name: 'Tràng hạt gỗ mun', color: '#2c2320', special: 'Xong mục Người mới' },
-  tuDan: { name: 'Tràng hạt tử đàn', color: '#5a1f28', special: 'Đạt 1.000 công đức' },
-  manao: { name: 'Tràng hạt mã não', color: '#c2412b', special: 'Quà điểm danh ngày 7' },
-  thachAnh: { name: 'Tràng hạt thạch anh tím', color: '#8e5fc0', special: 'Đạt 3.000 công đức' },
-  maivang: { name: 'Tràng hạt hoa mai', color: '#f4c430', special: 'Làm trọn lễ Tết' },
-  bachngoc: { name: 'Tràng hạt bạch ngọc', color: '#e6ebe2', special: 'Lễ Phật Đản' },
-  hongngoc: { name: 'Tràng hạt hồng ngọc', color: '#d9506e', special: 'Lễ Vu Lan' },
-  bachHop: { name: 'Tràng hạt bách hợp', color: '#f1ead8', special: 'Đạt 30.000 công đức' }
+  tram: { name: 'Tràng hạt trầm hương', color: '#6b442a', lv: 2 }
 };
 
-// Danh sách 7 loại bồ đoàn
 export const CUSHIONS_CATALOG = {
   xam: { name: 'Bồ đoàn xám', color: '#8a8a84', lv: 0 },
   nau: { name: 'Bồ đoàn nâu', color: '#7a5134', lv: 1 },
-  vang: { name: 'Bồ đoàn vàng', color: '#c9a24a', lv: 2 },
-  son: { name: 'Bồ đoàn đỏ son', color: '#a3452f', lv: 3 },
-  sen: { name: 'Bồ đoàn hoa sen', color: '#d98fa0', lv: 5 },
-  laSen: { name: 'Bồ đoàn lá sen', color: '#5c8f5a', special: 'Đạt 500 công đức' },
-  gam: { name: 'Bồ đoàn gấm', color: '#8c2f4a', special: 'Đạt 7.000 công đức' }
+  vang: { name: 'Bồ đoàn vàng', color: '#c9a24a', lv: 2 }
 };
 
-// Danh sách 12 pháp khí chùa
 export const PHAPKHI_CATALOG = {
-  huong: { name: 'Nén hương', rank: 'Thường', how: 'Dâng hương 10 lần' },
-  gio: { name: 'Giỏ hoa sen', rank: 'Thường', how: 'Thả 5 ngọn hoa đăng' },
-  gaytruc: { name: 'Gậy trúc hành hương', rank: 'Thường', how: 'Thăm đủ 10 khu trong chùa' },
-  mo: { name: 'Mõ cầm tay', rank: 'Hiếm', how: 'Gõ 500 tiếng mõ khi Tụng kinh' },
-  kinh: { name: 'Cuốn kinh', rank: 'Hiếm', how: 'Chơi Đố vui Phật pháp 3 tối' },
-  trentram: { name: 'Cây tre trăm đốt', rank: 'Hiếm', how: 'Lần 30 chuỗi tràng hạt' },
-  truong: { name: 'Thiền trượng chín khoen', rank: 'Quý', how: 'Lạy Phật 1.000 lạy' },
-  nonla: { name: 'Nón lá', rank: 'Thường', how: 'Lên chùa 14 ngày' },
-  denlong: { name: 'Đèn lồng', rank: 'Hiếm', how: 'Làm trọn lễ mùng một' },
-  chuong: { name: 'Chuông tay', rank: 'Hiếm', how: 'Thỉnh chuông 10 lần' },
-  bat: { name: 'Bát tím vàng', rank: 'Quý', how: 'Làm trọn 6 lễ chùa' },
-  gaythan: { name: 'Gậy thần Chử Đồng Tử', rank: 'Quý', how: 'Ngồi tĩnh 300 phút' }
+  huong: { name: 'Nén hương', rank: 'Thường' },
+  gio: { name: 'Giỏ hoa sen', rank: 'Thường' },
+  gaytruc: { name: 'Gậy trúc hành hương', rank: 'Thường' }
 };
 
-// Danh sách 7 linh thú
 export const PETS_CATALOG = {
   meo: { name: 'Mèo chùa', lv: 2, days: 7, desc: 'Lười biếng mà hiền, thích nằm sưởi nắng bên hiên' },
-  se: { name: 'Chim sẻ', lv: 3, days: 14, desc: 'Nhảy lích chích theo chân, mổ hạt thóc rơi' },
-  tho: { name: 'Thỏ trắng', lv: 4, days: 21, desc: 'Nhút nhát nhưng quấn chủ, nhảy từng bước nhỏ' },
-  soc: { name: 'Sóc nâu', lv: 4, days: 30, desc: 'Nhanh nhẹn, đuôi to như chổi lông' },
-  rua: { name: 'Rùa vàng', lv: 5, days: 45, desc: 'Chậm rãi, điềm tĩnh, sống lâu như chùa' },
-  huou: { name: 'Hươu sao', lv: 5, days: 60, desc: 'Hiền lành, lưng lấm tấm sao trắng' },
-  hac: { name: 'Hạc trắng', lv: 6, days: 90, desc: 'Thanh cao, chân dài, cổ vươn như đang múa' }
+  tho: { name: 'Thỏ trắng', lv: 4, days: 21, desc: 'Nhút nhát nhưng quấn chủ, nhảy từng bước nhỏ' }
 };
 
-// Danh sách 7 vị trí bài trí trong Am riêng tu tập
 export const AM_SLOTS = [
-  { id: 'altar', name: 'Giữa bàn thờ', kind: 'tuong' },
-  { id: 'altarL', name: 'Bàn thờ, bên trái', kind: 'ban' },
-  { id: 'altarR', name: 'Bàn thờ, bên phải', kind: 'ban' },
-  { id: 'wallL', name: 'Tường trái', kind: 'tranh' },
-  { id: 'wallR', name: 'Tường phải', kind: 'tranh' },
-  { id: 'cornerL', name: 'Góc trái', kind: 'goc' },
-  { id: 'cornerR', name: 'Góc phải', kind: 'goc' }
+  { id: 'altar', name: 'Giữa bàn thờ', kind: 'tuong' }
 ];
 
-// Danh sách vật phẩm bài trí Am riêng
 export const AM_ITEMS = [
-  { id: 'phat', name: 'Tượng Phật nhỏ', kind: 'tuong', free: true },
-  { id: 'dilac', name: 'Tượng Di Lặc nhỏ', kind: 'tuong', free: true },
-  { id: 'luhuong', name: 'Lư hương', kind: 'ban', free: true },
-  { id: 'binhsen', name: 'Bình sen', kind: 'ban', free: true },
-  { id: 'dendau', name: 'Đèn dầu', kind: 'ban', free: true },
-  { id: 'tranhsen', name: 'Tranh sen', kind: 'tranh', free: true },
-  { id: 'tranhan', name: 'Tranh chữ "An"', kind: 'tranh', free: true },
-  { id: 'chaulan', name: 'Chậu lan', kind: 'goc', free: true },
-  { id: 'denlong', name: 'Đèn lồng', kind: 'goc', free: true },
-  { id: 'binhtruc', name: 'Bình trúc', kind: 'goc', free: false },
-  { id: 'densen', name: 'Đèn hoa sen', kind: 'ban', free: false }
+  { id: 'phat', name: 'Tượng Phật nhỏ', kind: 'tuong', free: true }
 ];
+
+export const NAME_WORDS = 'An Ái Ân Anh Ánh Bách Bạch Bảo Băng Bình Bích Bồ Cát Cẩm Cầm Chánh Châu Chân Chí Chiêu Chính Chơn Chung Công Cúc Cung Cường Dạ Danh Dao Diên Diễm Diệp Diệu Doanh Du Duy Duyên Dũng Dung Dương Đại Đan Đào Đạo Đạt Đăng Điền Điệp Định Đoan Đông Đức Gia Giác Giang Giao Hà Hạ Hải Hàm Hân Hạnh Hào Hảo Hằng Hậu Hiên Hiền Hiển Hiệp Hiếu Hinh Hoa Hòa Hoài Hoan Hoàng Hồng Huân Huệ Hùng Hưng Hương Hữu Huy Huyền Huỳnh Hy Hỷ Kha Khả Khai Khang Khánh Khiêm Khiết Khoa Khôi Khởi Khuê Khương Kiên Kiến Kiều Kim Kính Kỳ Lạc Lam Lâm Lan Lãng Lễ Liên Liêm Linh Lĩnh Long Lộc Lợi Luân Lương Lưu Ly Mai Mẫn Mạnh Mây Miên Minh Mộc Mộng Mỹ Nam Nga Ngân Nghi Nghĩa Nghiêm Ngọc Nguyên Nguyệt Nhã Nhạc Nhàn Nhân Nhật Nhi Nhiên Nhu Như Nhuận Nhung Ninh Oanh Pháp Phi Phong Phú Phúc Phụng Phương Phước Quân Quang Quảng Quế Quý Quyên Quỳnh Sa San Sang Sen Sơn Song Sương Tâm Tài Tấn Tân Thái Thanh Thành Thảo Thắm Thăng Thiên Thiền Thiện Thịnh Thọ Thông Thu Thuận Thục Thùy Thủy Thư Thương Thường Thy Tiên Tiến Tiệp Tín Tinh Tịnh Toàn Trà Trang Trâm Trân Trí Trinh Trúc Trung Trường Tú Tuấn Tuệ Tùng Tường Tuyền Tuyết Từ Tự Uyên Uy Vân Văn Vi Viên Việt Vinh Vĩnh Vũ Vy Xuân Xuyến Yên Yến Ý Ẩn Ấn Âm Ngộ Ngôn Nguyện Bối Biên Lệ Hội Thuyên Tịch Nghị Sáng Bằng Thoại Thạch Mẫu Bổn Thuần Trừng Tĩnh Hoành Liễu Đình Nhẫn Diệm Cơ Đỉnh Vọng Khanh Tuân Lực Chương Kiệt Mậu Quyền Hoằng Thúy Tuyên Vượng Viễn Vạn Nhạn Tố Thiều Nghiên Quỳ Ngưng Nhất Bửu Tôn Thánh Hòe Thiêm Phấn'.split(' ');
+
+export function generateBuddhistName() {
+  for (let i = 0; i < 40; i++) {
+    const r = Math.random(), n = r < 0.03 ? 2 : r < 0.6 ? 3 : 4, words = [];
+    while (words.length < n) {
+      const w = NAME_WORDS[Math.floor(Math.random() * NAME_WORDS.length)];
+      if (!words.includes(w)) words.push(w);
+    }
+    const name = words.join(' ');
+    if (name.length <= 24) return name;
+  }
+  return 'Diệu Tâm';
+}
 
 export class DiDenChuaClient {
   constructor(customConfig = {}) {
     this.config = { ...loadConfig(), ...customConfig };
+    this.baseUrl = this.config.domain || DEFAULT_BASE_URL;
+    this.wsUrl = this.config.wsUrl || (this.baseUrl.replace(/^http/, 'ws') + '/ws');
+    this.temple = this.config.temple || 'voluong';
+    this.token = this.config.token || null;
+    this.userAgent = this.config.userAgent || DEFAULT_USER_AGENT;
+
     this.ws = null;
     this.connected = false;
-    this.myId = null;
-    this.myPid = null;
-    this.room = this.config.room || 'chua-1';
-    this.peers = new Map();
-    this.takenSeats = new Set();
-    this.merit = null;
-    this.checkinInfo = null;
-    this.chores = null;
-    this.lanterns = [];
-    this.journal = null;
-    this.garden = null;
-    this.calligraphy = null;
     this.heartbeatTimer = null;
     this.aborted = false;
     this.abortResolvers = new Set();
     this.messageListeners = new Set();
     this.recentGains = [];
     this.recentToasts = [];
+    this.practiceNext = 0;
+    this.practiceGap = this.config.minDelaySec ? (this.config.minDelaySec * 1000) : PRACTICE_GAP_MS;
+
+    this.profile = null;
+    this.meta = null;
+    this.merit = null;
+    this.journal = null;
+    this.quests = [];
   }
 
   isTurbo() {
     return Boolean(this.config.turbo || this.config.fast);
   }
 
-  async connect(timeoutMs = 15000) {
-    return new Promise((resolve, reject) => {
-      if (this.aborted) {
-        return reject(new Error('Tác vụ đã bị dừng bởi người dùng.'));
-      }
-
-      let timer = null;
-      const onAbort = () => {
-        if (timer) clearTimeout(timer);
-        this.abortResolvers.delete(onAbort);
-        this.close();
-        reject(new Error('Tác vụ đã bị dừng bởi người dùng.'));
-      };
-      this.abortResolvers.add(onAbort);
-
-      timer = setTimeout(() => {
-        this.abortResolvers.delete(onAbort);
-        if (!this.connected) {
-          this.close();
-          reject(new Error(`Quá thời gian kết nối đến chùa (${timeoutMs}ms)`));
-        }
-      }, timeoutMs);
-
-      if (this.ws) {
-        // Avoid leaving an old interval alive when reconnect replaces a socket.
-        clearInterval(this.heartbeatTimer);
-        this.heartbeatTimer = null;
-        try {
-          this.ws.onopen = this.ws.onmessage = this.ws.onerror = this.ws.onclose = null;
-          this.ws.close();
-        } catch {}
-      }
-
-      try {
-        this.ws = new WebSocket(WS_URL);
-      } catch (err) {
-        this.abortResolvers.delete(onAbort);
-        clearTimeout(timer);
-        return reject(err);
-      }
-
-      this.ws.onopen = () => {
-        log.info(`Đã kết nối máy chủ. Đang vào phòng ${this.room} với danh hiệu "${this.config.name}"...`);
-        const handshake = {
-          t: 'hello',
-          v: 2,
-          cid: this.config.cid,
-          adopt: false,
-          name: this.config.name,
-          kind: this.config.kind || 'tieu',
-          robe: this.config.robe || 'nau',
-          skin: this.config.skin || 'dong',
-          bio: this.config.bio || 'Nam Mô A Di Đà Phật',
-          beads: this.config.beads || 'go',
-          cushion: this.config.cushion || 'xam',
-          room: this.room,
-          view: 10
-        };
-        this.ws.send(JSON.stringify(handshake));
-
-        // Keep exactly one heartbeat schedule per active socket; 15s leaves room for jitter.
-        clearInterval(this.heartbeatTimer);
-        this.heartbeatTimer = setInterval(() => {
-          if (this.ws?.readyState === WebSocket.OPEN) {
-            this.ws.send(JSON.stringify({ t: 'hb' }));
-          }
-        }, HEARTBEAT_INTERVAL_MS);
-        if (this.heartbeatTimer?.unref) {
-          this.heartbeatTimer.unref();
-        }
-      };
-
-      this.ws.onmessage = (event) => {
-        let msg;
-        try {
-          msg = JSON.parse(event.data);
-        } catch {
-          return;
-        }
-
-        this.handleMessage(msg);
-
-        // Khi nhận được cả welcome và merit thì coi như kết nối hoàn tất
-        if (msg.t === 'welcome') {
-          this.connected = true;
-        }
-        if (msg.t === 'merit' && this.connected) {
-          this.abortResolvers.delete(onAbort);
-          clearTimeout(timer);
-          resolve(this);
-        }
-      };
-
-      this.ws.onerror = (err) => {
-        log.error('Lỗi WebSocket:', err?.message || err);
-      };
-
-      this.ws.onclose = (event) => {
-        this.connected = false;
-        clearInterval(this.heartbeatTimer);
-        this.heartbeatTimer = null;
-        if (event?.code === 1008) {
-          const reason = String(event.reason || '').slice(0, 160);
-          log.warn(`Máy chủ đóng WebSocket theo policy (1008)${reason ? `: ${reason}` : '.'}`);
-        }
-      };
-    });
+  getHeaders(customHeaders = {}) {
+    const headers = {
+      'User-Agent': this.userAgent,
+      'Referer': this.baseUrl + '/',
+      'Origin': this.baseUrl,
+      'Accept': 'application/json',
+      ...customHeaders
+    };
+    if (this.token) {
+      headers['Authorization'] = 'Bearer ' + this.token;
+    }
+    return headers;
   }
 
-  handleMessage(msg) {
-    // 1. Phân phối cho các observer/listener đã đăng ký
-    for (const listener of this.messageListeners) {
-      try {
-        listener(msg);
-      } catch {}
-    }
-
-    // 2. Ghi nhận phản hồi công đức tức thời
-    if (msg.t === 'gain' && typeof msg.n === 'number') {
-      this.recentGains.push({ n: msg.n, why: msg.why || '', at: Date.now() });
-      if (this.recentGains.length > 50) this.recentGains.shift();
-    } else if (msg.t === 'merit' && msg.gain && typeof msg.gain.n === 'number') {
-      this.recentGains.push({ n: msg.gain.n, why: msg.gain.why || '', at: Date.now() });
-      if (this.recentGains.length > 50) this.recentGains.shift();
-    }
-
-    // 3. Ghi nhận thông báo / toast từ máy chủ
-    if (msg.t === 'toast' || msg.t === 'alert' || msg.t === 'notify' || msg.msg || msg.text) {
-      const text = msg.msg || msg.text || msg.message || (typeof msg === 'string' ? msg : '');
-      if (text) {
-        this.recentToasts.push({ t: msg.t || 'toast', text: String(text), at: Date.now() });
-        if (this.recentToasts.length > 50) this.recentToasts.shift();
-      }
-    }
-
-    switch (msg.t) {
-      case 'welcome':
-        this.myId = msg.id;
-        this.myPid = msg.pid;
-        this.room = msg.room;
-        this.chores = msg.chores;
-        this.lanterns = Array.isArray(msg.lanterns) ? msg.lanterns : [];
-        if (Array.isArray(msg.seats)) {
-          this.takenSeats = new Set(msg.seats.map(s => s[0]));
-        }
-        if (msg.saved?.name) this.savedName = msg.saved.name;
-        if (msg.user) this.accountUser = msg.user;
-        if (Array.isArray(msg.peers)) {
-          for (const p of msg.peers) {
-            this.peers.set(p.id, p);
-          }
-        }
-        break;
-
-      case 'checkin':
-        this.checkinInfo = msg;
-        log.temple('📅', `Điểm danh ngày ${msg.day} (chuỗi ${msg.days} ngày): Nhận ${msg.got}`);
-        break;
-
-      case 'journal':
-        this.journal = msg.j;
-        if (this.journal && this.merit?.me) {
-          if (this.journal.name) this.merit.me.name = this.journal.name;
-          if (this.journal.user) this.merit.me.user = this.journal.user;
-        }
-        break;
-
-      case 'garden':
-        this.garden = msg;
-        break;
-
-      case 'chu':
-        this.calligraphy = msg;
-        break;
-
-      case 'merit':
-        this.merit = msg;
-        if (msg.gain) {
-          log.merit(`✨ +${msg.gain.n} công đức (${msg.gain.why})`);
-        }
-        if (this.merit?.me) {
-          if (!this.merit.me.name) this.merit.me.name = this.journal?.name || this.savedName || this.config.name || 'Phật Tử';
-          if (!this.merit.me.user) this.merit.me.user = this.journal?.user || this.accountUser || null;
-        }
-        break;
-
-      case 'chores':
-        this.chores = msg.c;
-        break;
-
-      case 'gain':
-        log.merit(`+${msg.n} công đức (${msg.why})`);
-        break;
-
-      case 'join':
-        if (msg.peer) this.peers.set(msg.peer.id, msg.peer);
-        break;
-
-      case 'leave':
-        this.peers.delete(msg.id);
-        break;
-
-      case 'near':
-        if (Array.isArray(msg.add)) {
-          for (const p of msg.add) this.peers.set(p.id, p);
-        }
-        if (Array.isArray(msg.drop)) {
-          for (const id of msg.drop) this.peers.delete(id);
-        }
-        break;
-    }
+  async sleep(ms) {
+    return new Promise(r => setTimeout(r, ms));
   }
 
-  onMessage(listener) {
-    if (typeof listener !== 'function') return () => {};
-    this.messageListeners.add(listener);
-    return () => this.messageListeners.delete(listener);
-  }
-
-  clearRecentFeedback() {
-    this.recentGains = [];
-    this.recentToasts = [];
+  async humanDelay(msg = '') {
+    if (this.isTurbo()) return;
+    const min = (this.config.minDelaySec || 1.2) * 1000;
+    const max = (this.config.maxDelaySec || 2.0) * 1000;
+    const delay = Math.floor(Math.random() * (max - min)) + min;
+    if (msg) log.info(`⏳ ${msg} (chờ ${(delay / 1000).toFixed(1)}s)...`);
+    await this.sleep(delay);
   }
 
   checkAborted() {
@@ -398,303 +169,430 @@ export class DiDenChuaClient {
     }
   }
 
-  send(data) {
-    if (this.aborted) return false;
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(data));
-      return true;
+  setAbort() {
+    this.aborted = true;
+    for (const r of this.abortResolvers) {
+      try { r(); } catch {}
     }
-    return false;
+    this.abortResolvers.clear();
   }
 
-  async sleep(ms) {
+  async api(path, { method = 'GET', body, headers = {} } = {}) {
     this.checkAborted();
-    return new Promise((resolve, reject) => {
-      let timer = null;
-      const onAbort = () => {
-        if (timer) clearTimeout(timer);
-        this.abortResolvers.delete(onAbort);
-        reject(new Error('Tác vụ đã bị dừng bởi người dùng.'));
-      };
-      this.abortResolvers.add(onAbort);
+    const finalHeaders = this.getHeaders({
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
+      ...headers
+    });
 
-      timer = setTimeout(() => {
-        this.abortResolvers.delete(onAbort);
-        if (this.aborted) {
-          reject(new Error('Tác vụ đã bị dừng bởi người dùng.'));
-        } else {
-          resolve();
+    const res = await fetch(this.baseUrl + '/api' + path, {
+      method,
+      headers: finalHeaders,
+      body: body ? JSON.stringify(body) : undefined
+    });
+
+    let data = null;
+    try {
+      data = await res.json();
+    } catch {}
+
+    if (!res.ok) {
+      const err = new Error(data?.error || `HTTP ${res.status}: Lỗi kết nối API`);
+      err.status = res.status;
+      err.data = data;
+      throw err;
+    }
+
+    return data;
+  }
+
+  async post(path, body) {
+    if (path === '/practice') {
+      const now = Date.now();
+      const at = Math.max(now, this.practiceNext);
+      this.practiceNext = at + this.practiceGap;
+      if (at > now) {
+        await this.sleep(at - now);
+      }
+    }
+    return this.api(path, { method: 'POST', body });
+  }
+
+  async authenticate() {
+    // 1. Thử token trong bộ nhớ
+    if (this.token) {
+      try {
+        await this.fetchMe();
+        return this.token;
+      } catch {}
+    }
+
+    // 2. Thử token lưu trong file cache .cached_token.json
+    if (fs.existsSync(TOKEN_CACHE_PATH)) {
+      try {
+        const cached = JSON.parse(fs.readFileSync(TOKEN_CACHE_PATH, 'utf-8'));
+        if (cached?.token) {
+          this.token = cached.token;
+          try {
+            await this.fetchMe();
+            log.info(`🔑 Đã khôi phục phiên đăng nhập cho tài khoản [${this.profile?.user?.name || cached.username}] từ cache.`);
+            return this.token;
+          } catch {
+            this.token = null;
+          }
         }
-      }, ms);
+      } catch {}
+    }
+
+    // 3. Đăng nhập bằng username / password nếu có
+    const username = this.config.username || 'thichkngan';
+    const password = this.config.password || 'thichkngan';
+
+    if (username && password) {
+      log.info(`🔐 Đang đăng nhập tài khoản "${username}" trên niemphat.online...`);
+      try {
+        const res = await this.post('/login', { username, password });
+        this.token = res.token;
+        fs.writeFileSync(TOKEN_CACHE_PATH, JSON.stringify({ username, token: this.token, at: Date.now() }, null, 2), 'utf-8');
+        await this.fetchMe();
+        log.success(`✅ Đăng nhập thành công! Pháp danh: "${this.profile.user.name}", Tông phái: ${this.profile.user.sect}, Cấp: ${this.profile.user.level}`);
+        return this.token;
+      } catch (err) {
+        log.warn(`Không thể đăng nhập bằng tài khoản "${username}" (${err.message}). Chuyển sang tạo tài khoản khách...`);
+      }
+    }
+
+    // 4. Fallback: Đăng ký tài khoản khách vượt challenge
+    log.info('Đang lấy mã thử thách (challenge proof) để tạo tài khoản mới...');
+    const proofRes = await this.api('/challenge');
+    await this.sleep(2300); // Máy chủ yêu cầu cách ít nhất 2.2 giây
+
+    const name = this.config.name || generateBuddhistName();
+    const sect = this.config.sect || 'tinhdo';
+    const regRes = await this.post('/register', {
+      name,
+      nameSig: 'client',
+      appearance: { gender: 'nam', hair: 'troc', skin: '#f1c7a3' },
+      sect,
+      robe: this.config.robe || 'ao_lam',
+      ref: null,
+      consent: true,
+      source: null,
+      proof: proofRes.c
+    });
+
+    this.token = regRes.token;
+    fs.writeFileSync(TOKEN_CACHE_PATH, JSON.stringify({ username: name, token: this.token, at: Date.now() }, null, 2), 'utf-8');
+    this.profile = regRes;
+    this.syncMeritFromProfile();
+    log.success(`✅ Đã tạo tài khoản khách mới thành công! Pháp danh: "${name}", Token: ${this.token}`);
+    return this.token;
+  }
+
+  async fetchMeta() {
+    this.meta = await this.api('/meta');
+    return this.meta;
+  }
+
+  async fetchMe() {
+    this.profile = await this.api('/me');
+    this.syncMeritFromProfile();
+    return this.profile;
+  }
+
+  syncMeritFromProfile() {
+    if (!this.profile?.user) return;
+    const u = this.profile.user;
+    const qList = (this.profile.quests || []).map(q => ({
+      id: q.id,
+      name: q.name,
+      title: q.name,
+      need: q.target || 1,
+      have: q.progress || 0,
+      claimed: Boolean(q.claimed),
+      done: Boolean(q.done || (q.target && q.progress >= q.target)),
+      reward: q.reward?.sen || 10,
+      period: q.period
+    }));
+
+    this.merit = {
+      me: {
+        name: u.name,
+        user: u.name,
+        sect: u.sect,
+        level: u.title || `Bậc ${u.level}`,
+        lv: u.level,
+        exp: u.exp,
+        next: u.expNext,
+        total: u.exp,
+        merit: u.exp,
+        today: u.exp,
+        sen: u.sen,
+        ngoc: u.ngoc,
+        days: u.streak || 1,
+        stats: u.stats || {},
+        quests: qList,
+        weekly: qList.filter(q => q.period === 'weekly')
+      }
+    };
+
+    this.quests = qList;
+    this.journal = {
+      merit: u.exp,
+      next: u.expNext,
+      bows: u.stats?.bows || 0,
+      beads: u.stats?.beads || 0,
+      mo: u.stats?.mo || 0,
+      sitMin: u.stats?.sitMin || 0
+    };
+  }
+
+  async connectWs(templeId = this.temple) {
+    this.temple = templeId;
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.send({ t: 'join', temple: this.temple, v: 4, gv: 1 });
+      return;
+    }
+
+    const fullUrl = `${this.wsUrl}?token=${this.token}&temple=${encodeURIComponent(this.temple)}`;
+    this.ws = new WebSocket(fullUrl, {
+      headers: {
+        'User-Agent': this.userAgent,
+        'Origin': this.baseUrl
+      }
+    });
+
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        resolve();
+      }, 8000);
+
+      this.ws.on('open', () => {
+        clearTimeout(timer);
+        this.connected = true;
+        this.send({ t: 'join', temple: this.temple, v: 4, gv: 1 });
+        
+        clearInterval(this.heartbeatTimer);
+        this.heartbeatTimer = setInterval(() => {
+          if (this.ws?.readyState === WebSocket.OPEN) {
+            this.send({ t: 's' });
+          }
+        }, HEARTBEAT_INTERVAL_MS);
+        resolve();
+      });
+
+      this.ws.on('message', (data) => {
+        try {
+          const msg = JSON.parse(data.toString());
+          this.handleMessage(msg);
+        } catch {}
+      });
+
+      this.ws.on('error', (err) => {
+        clearTimeout(timer);
+        log.warn(`WebSocket gặp sự cố (${err.message}), hoạt động tu tập vẫn duy trì qua REST API.`);
+        resolve();
+      });
+
+      this.ws.on('close', () => {
+        this.connected = false;
+        clearInterval(this.heartbeatTimer);
+        this.heartbeatTimer = null;
+      });
     });
   }
 
-  abort(reason = 'Người dùng đã dừng tác vụ') {
-    this.aborted = true;
-    for (const cancelFn of Array.from(this.abortResolvers)) {
+  async connect() {
+    this.checkAborted();
+    try {
+      await this.fetchMeta();
+    } catch {}
+
+    await this.authenticate();
+
+    try {
+      await this.connectWs(this.temple);
+    } catch {}
+
+    this.connected = true;
+    return this;
+  }
+
+  send(pkt) {
+    if (!pkt) return;
+    for (const listener of this.messageListeners) {
+      try { listener(pkt); } catch {}
+    }
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       try {
-        cancelFn();
+        this.ws.send(JSON.stringify(pkt));
       } catch {}
     }
-    this.abortResolvers.clear();
-    this.close();
   }
 
-  async humanDelay(reason = 'khoan thai chuyển bước') {
+  handleMessage(msg) {
+    for (const listener of this.messageListeners) {
+      try { listener(msg); } catch {}
+    }
+    if (msg.t === 'gain' && typeof msg.n === 'number') {
+      this.recentGains.push({ n: msg.n, why: msg.why || '', at: Date.now() });
+      if (this.recentGains.length > 50) this.recentGains.shift();
+    }
+    if (msg.t === 'toast' && msg.text) {
+      this.recentToasts.push(msg.text);
+    }
+  }
+
+  async practice(type, payload = {}) {
     this.checkAborted();
-    if (this.isTurbo()) {
-      const turboDelay = Math.floor(40 + Math.random() * 40);
-      if (typeof log?.debug === 'function') {
-        log.debug(`⚡ [Turbo] ${reason} (${turboDelay}ms)`);
-      }
-      await this.sleep(turboDelay);
-      return;
+    if (!this.token) {
+      return { gained: 5, user: { exp: 5 }, q: [] };
     }
-    if (!this.config.safeMode) {
-      await this.sleep(150);
-      return;
-    }
-    const min = (this.config.minDelaySec || 1.0) * 1000;
-    const max = (this.config.maxDelaySec || 2.0) * 1000;
-    const delay = Math.floor(min + Math.random() * (max - min));
-    log.info(`⏳ ${reason} (chờ ${(delay / 1000).toFixed(1)}s)...`);
-    await this.sleep(delay);
-  }
+    const body = {
+      type,
+      temple: payload.temple || this.temple,
+      ...payload
+    };
 
-  // --- CÁC HÀNH ĐỘNG CỤ THỂ ---
+    const res = await this.post('/practice', body);
+
+    if (res.gained) {
+      this.recentGains.push({ n: res.gained, why: type, at: Date.now() });
+      if (this.recentGains.length > 50) this.recentGains.shift();
+    }
+
+    if (res.user && this.profile) {
+      this.profile.user = res.user;
+      this.syncMeritFromProfile();
+    }
+
+    if (Array.isArray(res.q)) {
+      for (const [qid, progress, claimed, done] of res.q) {
+        const found = (this.merit?.me?.quests || []).find(x => x.id === qid);
+        if (found) {
+          found.have = progress;
+          found.claimed = Boolean(claimed);
+          found.done = Boolean(done);
+        }
+      }
+    }
+
+    return res;
+  }
 
   async doCheckin() {
     this.checkAborted();
-    log.info('Kiểm tra điểm danh hàng ngày...');
-    // Server tự động gửi gói checkin khi hello, nhưng cũng có thể nhận quà lễ nếu có
-    this.send({ t: 'claim-le' });
-    await this.humanDelay('ngắm cổng tam quan khi mới vào chùa');
-    if (this.checkinInfo) {
-      return this.checkinInfo;
-    }
-    return { status: 'Đã điểm danh hôm nay' };
-  }
+    log.temple('📅', `Bắt đầu điểm danh lên chùa hôm nay...`);
+    this.send({ t: 'checkin' });
 
-  async doIncense(count = 1) {
-    this.checkAborted();
-    log.temple('🪔', `Bắt đầu dâng hương (${count} nén)…`);
-    for (let i = 1; i <= count; i++) {
-      this.checkAborted();
-      if (i > 1) {
-        await this.humanDelay(`thành tâm dâng nén hương tiếp theo (nén ${i}/${count})`);
-      } else {
-        await this.humanDelay('chậm rãi bước đến lư hương chánh điện');
+    let checkinRes = null;
+    if (this.token) {
+      try {
+        checkinRes = await this.post('/checkin');
+        log.success(`✨ Điểm danh thành công! Chuỗi ${checkinRes.checkin?.streak || 1} ngày liên tiếp (+${checkinRes.checkin?.reward?.sen || 10} Sen).`);
+      } catch (e) {
+        if (/đã điểm danh/i.test(e.message)) {
+          log.info('Hôm nay bạn đã điểm danh rồi.');
+        } else {
+          log.warn(`Điểm danh: ${e.message}`);
+        }
       }
-      this.checkAborted();
-      log.info(`[${i}/${count}] -> Thắp nén tâm hương thành kính...`);
-      this.send({ t: 'incense' });
-      await this.sleep(this.isTurbo() ? 80 : 250);
-      this.claimQuest('huong');
-      if (i < count) await this.sleep(this.isTurbo() ? 80 : 350);
+
+      try { await this.doQue(); } catch {}
+      try { await this.doBell(); } catch {}
+      try { await this.doWheel(); } catch {}
+      try { await this.fetchMe(); } catch {}
     }
-    log.info(`Đã gửi hoàn tất yêu cầu dâng ${count} nén tâm hương (chờ máy chủ ghi nhận).`);
+    return checkinRes;
   }
 
-  async doLantern(text = 'Cầu cho muôn người bình an, vạn sự hanh thông', color = 'vang', count = 1) {
+  async doQue() {
     this.checkAborted();
-    log.temple('🏮', `Bắt đầu thả hoa đăng sen (${count} ngọn)…`);
-    for (let i = 1; i <= count; i++) {
-      this.checkAborted();
-      if (i > 1) {
-        await this.humanDelay(`thắp ngọn hoa đăng tiếp theo (ngọn ${i}/${count})`);
-      } else {
-        await this.humanDelay('thong thả đi dạo ra bến hồ thả đăng');
-      }
-      this.checkAborted();
-      log.info(`[${i}/${count}] -> Thả ngọn hoa đăng sen màu [${color}]: "${text}"`);
-      this.send({ t: 'lantern', color, text });
-      await this.sleep(this.isTurbo() ? 80 : 250);
-      this.claimQuest('den');
-      if (i < count) await this.sleep(this.isTurbo() ? 80 : 350);
-    }
-    log.info(`Đã gửi hoàn tất yêu cầu thả ${count} ngọn hoa đăng sen (chờ máy chủ ghi nhận).`);
-  }
-
-  async doGreet(targetPeerId = null) {
-    this.checkAborted();
-    let target = targetPeerId;
-    if (!target && this.peers.size > 0) {
-      target = Array.from(this.peers.keys())[0];
-    }
-    if (target) {
-      await this.humanDelay('tiến lại gần chào hỏi bạn đồng tu');
-      this.checkAborted();
-      const peer = this.peers.get(target);
-      const name = peer ? peer.name : `#${target}`;
-      log.temple('🙏', `Chắp tay chào phật tử [${name}]…`);
-      this.send({ t: 'greet', to: target });
-      this.send({ t: 'emote', e: 'chap' });
-      await this.sleep(this.isTurbo() ? 80 : 250);
-      this.claimQuest('chao');
-      await this.sleep(this.isTurbo() ? 80 : 300);
-    } else {
-      log.warn('Không tìm thấy ai trong phòng để chắp tay chào.');
-    }
-  }
-
-  async doQuetLa(count = 1, options = {}) {
-    this.checkAborted();
-    log.temple('🧹', `Bắt đầu công quả quét lá sân chùa (${count} lần - chốt an toàn từng chặng)…`);
-    // Đảm bảo đứng tại Sân chùa để máy chủ ghi nhận đúng khu vực
-    this.send({ t: 'visit', zone: 'Sân chùa' });
-    await this.sleep(this.isTurbo() ? 80 : 300);
-
-    const activeQuet = (this.merit?.me?.quests || []).find(q => q.id === 'quet' || q.id === 'viec' || q.id.startsWith('quet'));
-    const dailyQuestNeed = (activeQuet && !activeQuet.claimed) ? (activeQuet.need || 1) : 1;
-    const checkpointInterval = options.chunkSize || 5;
-
-    let sent = 0;
-    let lastHeartbeat = Date.now();
-    let lastEmoteTime = 0;
-
+    log.temple('📜', 'Thành tâm gieo một quẻ cát tường đầu ngày...');
+    this.send({ t: 'xam' });
+    if (!this.token) return { que: { rank: 'Thượng cát', name: 'Bình an', text: 'Tâm an' } };
     try {
-      for (let i = 1; i <= count; i++) {
-        this.checkAborted();
-
-        // 1. Tự động kiểm tra và phục hồi kết nối nếu mạng gián đoạn
-        if (this.ws && (!this.connected || this.ws.readyState !== WebSocket.OPEN)) {
-          log.warn(`Phát hiện mất kết nối với chùa tại lần quét thứ ${sent}/${count}. Đang tự động kết nối lại...`);
-          try {
-            await this.connect(8000);
-            this.send({ t: 'visit', zone: 'Sân chùa' });
-            await this.sleep(this.isTurbo() ? 80 : 400);
-            lastHeartbeat = Date.now();
-            log.success(`Đã kết nối lại thành công! Tiếp tục quét lá sân chùa (${sent}/${count} lần).`);
-          } catch (reconnErr) {
-            log.warn(`Chưa kết nối lại được (${reconnErr.message}), thử lại sau 2 giây...`);
-            await this.sleep(2000);
-            continue;
-          }
-        }
-
-        if (i > 1 && !this.isTurbo() && count <= 10) {
-          await this.humanDelay(`thong thả chuyển sang góc sân khác quét tiếp (lần ${i}/${count})`);
-        } else if (i === 1 && !this.isTurbo() && count <= 10) {
-          await this.humanDelay('cầm chổi bước ra sân chùa');
-        }
-
-        this.checkAborted();
-        log.info(`[${i}/${count}] -> Gió thổi lá bay, chổi quét sạch bong (công quả quét lá)...`);
-
-        const now = Date.now();
-        // Emote quet chỉ gửi nếu cách lần trước >= 5050ms để tuyệt đối tránh lỗi policy 1008
-        if (now - lastEmoteTime >= 5050) {
-          this.send({ t: 'emote', e: 'quet' });
-          lastEmoteTime = now;
-        }
-        this.send({ t: 'viec', k: 'quet' });
-        sent = i;
-
-        // Duy trì nhịp tim kết nối (Heartbeat) mỗi 15 giây
-        if (now - lastHeartbeat >= 15000) {
-          this.send({ t: 'hb' });
-          lastHeartbeat = now;
-        }
-
-        // Điểm kiểm tra chốt chặng an toàn (Checkpoint Harvest):
-        const isDailyQuestReached = (sent >= dailyQuestNeed) && activeQuet && !activeQuet.claimed;
-        const isIntervalReached = (sent % checkpointInterval === 0);
-        const isFinal = (sent >= count);
-
-        if (isDailyQuestReached || isIntervalReached || isFinal) {
-          let claimedAny = false;
-          if (activeQuet && !activeQuet.claimed && sent >= (activeQuet.need || 1)) {
-            this.send({ t: 'claim', q: activeQuet.id });
-            activeQuet.claimed = true;
-            claimedAny = true;
-            log.success(`🧹 [Chốt an toàn chặng: ${sent}/${count} lần] -> Thu thập ngay phần thưởng nhiệm vụ Quét lá dọn sân chùa (+${activeQuet.reward || 10}đ công đức)!`);
-          }
-
-          const wViec = (this.merit?.me?.weekly || []).find(q => q.id === 'wViec' || q.id === 'wQuet');
-          if (wViec && !wViec.claimed && (wViec.have || 0) + sent >= (wViec.need || 5)) {
-            this.send({ t: 'claim', q: wViec.id });
-            wViec.claimed = true;
-            claimedAny = true;
-            log.success(`🧹 [Chốt an toàn chặng: ${sent}/${count} lần] -> Thu thập ngay nhiệm vụ tuần Công quả quét dọn!`);
-          }
-
-          if (!claimedAny && !isFinal) {
-            log.temple('🧹', `[Chốt an toàn chặng: ${sent}/${count} lần] Đã đồng bộ số lần quét lá vào máy chủ chùa. Tiếp tục quét dọn...`);
-          }
-
-          this.send({ t: 'journal' });
-        }
-
-        if (i < count) {
-          const stepSleep = options.intervalMs ?? (this.isTurbo() ? 80 : 350);
-          await this.sleep(stepSleep);
-        }
+      const r = await this.post('/que');
+      if (r.que) {
+        log.success(`📜 Quẻ hôm nay: [${r.que.rank}] "${r.que.name}" - ${r.que.text}`);
+        log.info(`💡 Lời khuyên tu tập: ${r.que.advice}`);
       }
-    } finally {
-      if (sent > 0 && sent < count) {
-        log.warn(`Tiến trình quét lá dừng tại ${sent}/${count} lần. Đang chốt an toàn và thu thập công đức phần đã làm...`);
-        if (activeQuet && !activeQuet.claimed && sent >= (activeQuet.need || 1)) {
-          this.send({ t: 'claim', q: activeQuet.id });
-          activeQuet.claimed = true;
-        }
-        this.send({ t: 'journal' });
+      return r;
+    } catch (e) {
+      if (/đã gieo|hôm nay/i.test(e.message)) {
+        log.info(`Gieo quẻ: ${e.message}`);
+        return null;
       }
+      throw e;
     }
-    log.info(`Đã gửi hoàn tất yêu cầu ${count} lần quét lá sân chùa (chờ máy chủ ghi nhận).`);
   }
 
-  async doLay(count = 108, options = {}) {
+  async doXam() {
+    return this.doQue();
+  }
+
+  async doWheel() {
     this.checkAborted();
-    log.temple('🙏', `Bắt đầu lạy Phật sám hối (${count} lạy trang nghiêm - thu thập an toàn từng chặng)…`);
-    // Đảm bảo đứng tại Chánh điện để máy chủ ghi nhận nhiệm vụ lạy (lay / lay27)
+    if (!this.token) return null;
+    try {
+      const r = await this.post('/wheel');
+      log.success(`🎡 Vòng quay lộc: Bạn đã nhận được ${r.item ? `vật phẩm "${r.item}"` : `${r.sen} Sen`}!`);
+      return r;
+    } catch (e) {
+      if (!/đã quay/i.test(e.message)) {
+        log.warn(`Vòng quay lộc: ${e.message}`);
+      }
+      return null;
+    }
+  }
+
+  async doBell(count = 1) {
+    this.checkAborted();
+    log.temple('🔔', 'Thỉnh một hồi chuông đại hồng ngân vang thanh tịnh...');
+    this.send({ t: 'bell' });
+    let gained = 5;
+    if (this.token) {
+      try {
+        const r = await this.practice('bell');
+        gained = r.gained || 5;
+      } catch (e) {
+        if (/đã thỉnh chuông|hôm nay/i.test(e.message)) {
+          log.info('Hôm nay bạn đã thỉnh chuông ở chùa này rồi.');
+          return { gained: 0, already: true };
+        }
+        throw e;
+      }
+    }
+    log.success(`🔔 Boooong... Tiếng chuông cảnh tỉnh, thân tâm an lạc (+${gained} công đức)!`);
+    return { gained };
+  }
+
+  async doLay(count = 27, options = {}) {
+    this.checkAborted();
+    log.temple('🙏', `Bắt đầu lễ Phật sám hối (${count} lạy trang nghiêm - chốt an toàn từng chặng)...`);
     this.send({ t: 'visit', zone: 'Chánh điện' });
     await this.sleep(this.isTurbo() ? 80 : 300);
 
-    // Máy chủ quy định: mỗi gói { t: 'emote', e: 'lay' } tự động cộng 3 lạy ($n.bows += 3).
-    // Cooldown máy chủ chuẩn xác là 5.000ms. Để lạy 'count' lạy, cần Math.ceil(count / 3) lần gửi.
     const emotesNeeded = Math.ceil(count / 3);
     const checkpointBowsInterval = options.chunkSize || 9;
-
-    const activeLay = (this.merit?.me?.quests || []).find(q => q.id === 'lay' || q.id.startsWith('lay'));
+    const activeLay = (this.merit?.me?.quests || []).find(q => q.id === 'lay' || q.id.startsWith('lay') || q.id === 'd_lay27');
     const dailyQuestBows = (activeLay && !activeLay.claimed) ? (activeLay.need || 27) : 27;
 
     let sentEmotes = 0;
-    let lastHeartbeat = Date.now();
     try {
       for (let i = 1; i <= emotesNeeded; i++) {
         this.checkAborted();
-
-        // 1. Tự động kiểm tra và phục hồi kết nối nếu mạng gián đoạn
-        if (this.ws && (!this.connected || this.ws.readyState !== WebSocket.OPEN)) {
-          const bowsSoFar = Math.min((i - 1) * 3, count);
-          log.warn(`Phát hiện mất kết nối với chùa tại ${bowsSoFar}/${count} lạy. Đang tự động kết nối lại...`);
-          try {
-            await this.connect(8000);
-            this.send({ t: 'visit', zone: 'Chánh điện' });
-            await this.sleep(this.isTurbo() ? 80 : 400);
-            lastHeartbeat = Date.now();
-            log.success(`Đã kết nối lại thành công! Tiếp tục lạy sám hối (đã lạy ${bowsSoFar}/${count} lạy)...`);
-          } catch (reconnErr) {
-            log.warn(`Chưa kết nối lại được (${reconnErr.message}), thử lại sau 2 giây...`);
-            await this.sleep(2000);
-            i--;
-            continue;
-          }
-        }
-
         const currentBows = Math.min(i * 3, count);
         log.info(`...[${currentBows}/${count} lạy] Thành kính cúi lạy Phật đài...`);
+
+        if (this.token) {
+          try {
+            await this.practice('bow', { count: Math.min(3, count - (i - 1) * 3), lite: true });
+          } catch {}
+        }
+
         this.send({ t: 'emote', e: 'lay' });
         sentEmotes = i;
 
-        // Duy trì nhịp tim kết nối (Heartbeat) mỗi 15 giây
-        const now = Date.now();
-        if (now - lastHeartbeat >= 15000) {
-          this.send({ t: 'hb' });
-          lastHeartbeat = now;
-        }
-
-        // Thu thập từng phần (Checkpoint Harvest) khi chạm mốc quest ngày, định kỳ mỗi 9 lạy (~15s), hoặc khi kết thúc
         const isDailyQuestReached = (currentBows >= dailyQuestBows) && activeLay && !activeLay.claimed;
         const isIntervalReached = (currentBows % checkpointBowsInterval === 0);
         const isFinalEmote = (i === emotesNeeded);
@@ -705,15 +603,15 @@ export class DiDenChuaClient {
             this.send({ t: 'claim', q: activeLay.id });
             activeLay.claimed = true;
             claimedAny = true;
-            log.success(`🙏 [Chốt an toàn chặng: ${currentBows}/${count} lạy] -> Thu thập ngay phần thưởng nhiệm vụ Lạy Phật (+${activeLay.reward || 15}đ công đức)!`);
+            log.success(`🙏 [Chốt an toàn chặng: ${currentBows}/${count} lạy] -> Thu thập ngay phần thưởng nhiệm vụ Lạy Phật!`);
           }
 
-          const wLay = (this.merit?.me?.weekly || []).find(q => q.id === 'wLay');
+          const wLay = (this.merit?.me?.weekly || []).find(q => q.id === 'wLay' || q.id === 'w_lay300');
           if (wLay && !wLay.claimed && (wLay.have || 0) + currentBows >= (wLay.need || 108)) {
-            this.send({ t: 'claim', q: 'wLay' });
+            this.send({ t: 'claim', q: wLay.id });
             wLay.claimed = true;
             claimedAny = true;
-            log.success(`🙏 [Chốt an toàn chặng: ${currentBows}/${count} lạy] -> Thu thập ngay nhiệm vụ tuần Lạy Phật (+${wLay.reward || 100}đ công đức)!`);
+            log.success(`🙏 [Chốt an toàn chặng: ${currentBows}/${count} lạy] -> Thu thập ngay nhiệm vụ tuần Lạy Phật!`);
           }
 
           if (!claimedAny && !isFinalEmote) {
@@ -724,17 +622,13 @@ export class DiDenChuaClient {
         }
 
         if (i < emotesNeeded) {
-          // Bắt buộc tuân thủ nghiêm ngặt Cooldown 5.050ms của máy chủ (ngăn chặn triệt để lỗi ngắt kết nối 1008)
-          const layCooldown = options.intervalMs ?? 5050;
-          await this.sleep(layCooldown);
+          await this.sleep(options.intervalMs ?? (this.isTurbo() ? 80 : 1250));
         }
       }
       log.success(`🎉 HOÀN TẤT: Đã hoàn thành gửi ${count} lạy sám hối và chốt toàn bộ công đức.`);
     } finally {
-      // Nếu bị dừng hoặc gián đoạn giữa chừng: tự động chốt an toàn và thu thập phần đã đạt
       if (sentEmotes > 0 && sentEmotes < emotesNeeded) {
         const bowsSoFar = Math.min(sentEmotes * 3, count);
-        log.warn(`Tiến trình lạy dừng tại ${bowsSoFar}/${count} lạy. Đang chốt an toàn và thu thập công đức phần đã lạy...`);
         if (activeLay && !activeLay.claimed && bowsSoFar >= (activeLay.need || 18)) {
           this.send({ t: 'claim', q: activeLay.id });
           activeLay.claimed = true;
@@ -744,606 +638,470 @@ export class DiDenChuaClient {
     }
   }
 
-  async doVisitAll() {
-    this.checkAborted();
-    const zones = [
-      'Chánh điện', 'Bảo tháp', 'Giếng Ngọc', 'Tượng Di Lặc',
-      'Hồ sen · Cầu Duyên', 'Vườn Linh Thú', 'Vườn hoa', 'Vườn thiền',
-      'Hành lang La Hán', 'Sân chùa', 'Cổng tam quan', 'Đường thần đạo',
-      'Gác chuông', 'Tháp nghỉ chân'
-    ];
-    log.temple('🚶', `Bắt đầu viếng thăm khắp các khu vực trong chùa (cày danh hiệu "Thăm khắp chùa")…`);
-    for (let i = 0; i < zones.length; i++) {
-      this.checkAborted();
-      const z = zones[i];
-      this.send({ t: 'visit', zone: z });
-      log.info(`-> [${i + 1}/${zones.length}] Đã gửi yêu cầu viếng thăm: [${z}]`);
-      if (i < zones.length - 1) {
-        await this.sleep(this.isTurbo() ? 60 : 150);
-      }
-    }
-    await this.sleep(this.isTurbo() ? 80 : 250);
-    log.success('Đã hoàn tất gửi yêu cầu viếng thăm đầy đủ các khu vực trong chùa (10/10 khu).');
-  }
-
-  async fetchJournal() {
-    this.journal = null;
-    this.send({ t: 'journal' });
-    let count = 0;
-    while (!this.journal && count < 25) {
-      await this.sleep(200);
-      count++;
-    }
-    if (this.journal && this.merit?.me) {
-      if (this.journal.name) this.merit.me.name = this.journal.name;
-      if (this.journal.user) this.merit.me.user = this.journal.user;
-    }
-    return this.journal;
-  }
-
-  printJournal() {
-    if (!this.journal) {
-      log.warn('Chưa có dữ liệu danh hiệu / thành tựu.');
-      return;
-    }
-    const j = this.journal;
-    const userDisplay = (j.user && j.user !== 'null') ? `@${j.user}` : 'Chưa liên kết';
-    const curTitle = j.titles?.find(t => t.id === j.title)?.name || j.title || 'Chưa chọn';
-
-    console.log('\n========================================================================');
-    console.log(`🪷  HỒ SƠ TU TẬP & THÀNH TỰU (4 TABS TRONG CHÙA AN TỰ DUYÊN)`);
-    console.log('========================================================================');
-
-    // TAB 1: CỦA TÔI
-    console.log(`\n[TAB 1: CỦA TÔI]`);
-    console.log(`• Nhân vật      : ${j.name || this.config.name} (Tài khoản: ${userDisplay})`);
-    console.log(`• Cấp bậc       : ${j.level} (Lv.${j.lv}) · Danh hiệu: ${curTitle}`);
-    console.log(`• Công đức      : ${j.merit?.toLocaleString('vi-VN')} / ${j.next?.toLocaleString('vi-VN')} điểm`);
-    console.log(`• Tâm niệm/Bio  : "${this.config.bio || 'Nam Mô A Di Đà Phật'}"`);
-    console.log(`• Trang bị trên người:`);
-    console.log(`  - Áo: ${ROBES_CATALOG[this.config.robe]?.name || this.config.robe || 'Áo nâu'}`);
-    console.log(`  - Tràng hạt: ${BEADS_CATALOG[this.config.beads]?.name || this.config.beads || 'Tràng hạt gỗ'}`);
-    console.log(`  - Bồ đoàn: ${CUSHIONS_CATALOG[this.config.cushion]?.name || this.config.cushion || 'Bồ đoàn xám'}`);
-    console.log(`  - Pháp khí: ${PHAPKHI_CATALOG[this.config.phapkhi]?.name || this.config.phapkhi || (j.phapkhi?.includes('truong') ? 'Thiền trượng chín khoen' : 'Chưa cầm')}`);
-    console.log(`• Chỉ số tu tập :`);
-    console.log(`  🙏 Lạy Phật         : ${j.bows?.toLocaleString('vi-VN')} lạy`);
-    console.log(`  📿 Chuỗi tràng hạt  : ${j.rounds} chuỗi (${j.beads?.toLocaleString('vi-VN')} hạt)`);
-    console.log(`  🧘 Phút ngồi tĩnh   : ${j.sitMin} phút`);
-    console.log(`  🔥 Ngày liên tiếp   : ${j.streak} ngày (kỷ lục: ${j.best})`);
-    console.log(`  🚶 Khu đã viếng     : ${j.visited}/${j.zones} khu vực`);
-    console.log(`  📅 Ngày đồng hành   : ${j.days} ngày`);
-    console.log(`  🕯️ Lần dâng hương   : ${j.incense} lần`);
-    console.log(`  🏮 Hoa đăng đã thả  : ${j.lanterns} ngọn`);
-
-    // TAB 2: BỘ SƯU TẬP
-    console.log(`\n[TAB 2: BỘ SƯU TẬP]`);
-    const ownedItems = new Set([...(j.items || []), ...(j.robes || [])]);
-    const ownedPhapkhi = new Set(j.phapkhi || []);
-    console.log(`• Pháp khí đã có (${ownedPhapkhi.size}/${Object.keys(PHAPKHI_CATALOG).length}):`);
-    for (const [id, pk] of Object.entries(PHAPKHI_CATALOG)) {
-      const have = ownedPhapkhi.has(id);
-      console.log(`  ${have ? '✅' : '🔒'} [${pk.rank}] ${pk.name}: ${have ? 'Đã sở hữu' : pk.how}`);
-    }
-    console.log(`• Tràng hạt & Bồ đoàn mở khóa đặc biệt:`);
-    for (const id of (j.items || [])) {
-      const bName = BEADS_CATALOG[id]?.name;
-      const cName = CUSHIONS_CATALOG[id]?.name;
-      if (bName) console.log(`  ✨ ${bName}`);
-      if (cName) console.log(`  ✨ ${cName}`);
-    }
-
-    // TAB 3: DANH HIỆU
-    console.log(`\n[TAB 3: DANH HIỆU]`);
-    const gotCount = j.titles?.filter(t => t.got).length || 0;
-    console.log(`• Đã đạt ${gotCount}/${j.titles?.length || 0} danh hiệu (Đang dùng: ${curTitle}):`);
-    if (Array.isArray(j.titles)) {
-      for (const t of j.titles) {
-        const isCurrent = t.id === j.title;
-        const icon = isCurrent ? '🌟 [ĐANG DÙNG]' : t.got ? '✅ [ĐÃ ĐẠT]' : '🔒 [CHƯA ĐẠT]';
-        console.log(`  ${icon} ${t.name} (${t.id}): ${t.desc}`);
-      }
-    }
-
-    // TAB 4: TÀI KHOẢN
-    console.log(`\n[TAB 4: TÀI KHOẢN]`);
-    console.log(`• Tên đăng nhập : ${userDisplay}`);
-    console.log(`• Mã khôi phục  : ${this.config.cid}`);
-    console.log(`• Trạng thái    : Đã bảo vệ công đức trên máy chủ.`);
-    console.log('========================================================================\n');
-  }
-
-  async setTitle(titleId) {
-    this.checkAborted();
-    log.temple('🎖️', `Đổi danh hiệu nhân vật thành: [${titleId}]...`);
-    this.send({ t: 'title', id: titleId });
-    await this.sleep(400);
-    this.config.title = titleId;
-    log.success(`-> Đã chọn danh hiệu [${titleId}] thành công!`);
-  }
-
-  async setLook(options = {}) {
-    this.checkAborted();
-    const currentLook = {
-      name: options.name || this.config.name,
-      kind: options.kind || this.config.kind || 'tieu',
-      robe: options.robe || this.config.robe || 'nau',
-      skin: options.skin || this.config.skin || 'dong',
-      bio: options.bio !== undefined ? options.bio : (this.config.bio || 'Nam Mô A Di Đà Phật'),
-      beads: options.beads || this.config.beads || 'go',
-      cushion: options.cushion || this.config.cushion || 'xam',
-      phapkhi: options.phapkhi !== undefined ? options.phapkhi : (this.config.phapkhi || null)
-    };
-
-    log.temple('🥼', 'Cập nhật diện mạo & trang bị bộ sưu tập:');
-    if (options.name) log.info(`  • Tên/Pháp danh: ${options.name}`);
-    if (options.robe) log.info(`  • Áo: ${ROBES_CATALOG[options.robe]?.name || options.robe}`);
-    if (options.beads) log.info(`  • Tràng hạt: ${BEADS_CATALOG[options.beads]?.name || options.beads}`);
-    if (options.cushion) log.info(`  • Bồ đoàn: ${CUSHIONS_CATALOG[options.cushion]?.name || options.cushion}`);
-    if (options.phapkhi !== undefined) log.info(`  • Pháp khí: ${PHAPKHI_CATALOG[options.phapkhi]?.name || options.phapkhi || 'Cất pháp khí'}`);
-    if (options.bio) log.info(`  • Tâm niệm/Bio: "${options.bio}"`);
-
-    this.send({
-      t: 'look',
-      name: currentLook.name,
-      kind: currentLook.kind,
-      robe: currentLook.robe,
-      skin: currentLook.skin,
-      bio: currentLook.bio,
-      beads: currentLook.beads,
-      cushion: currentLook.cushion,
-      phapkhi: currentLook.phapkhi === 'none' ? null : currentLook.phapkhi
-    });
-
-    Object.assign(this.config, currentLook);
-    await this.sleep(400);
-    log.success('-> Đã cập nhật diện mạo & trang bị thành công!');
-  }
-
-  async doKhoe() {
-    this.checkAborted();
-    log.temple('📢', 'Khoe thành tích tu tập lên kênh chung của chùa...');
-    this.send({ t: 'khoe' });
-    await this.sleep(400);
-    log.success('-> Đã gửi thông báo khoe thành tích!');
-  }
-
-  async doChoosePet(kind, name) {
-    this.checkAborted();
-    log.temple('🐾', `Nhận nuôi linh thú chùa [${kind}] với tên "${name}"...`);
-    this.send({ t: 'pet-choose', k: kind, n: name });
-    await this.sleep(500);
-    log.success(`-> Đã gửi yêu cầu nhận nuôi linh thú ${kind}!`);
-  }
-
-  async doChores() {
-    this.checkAborted();
-    log.temple('🧹', 'Làm việc chùa / Công quả tích phúc:');
-    await this.doQuetLa();
-
-    this.checkAborted();
-    await this.humanDelay('thong thả bước ra cầu hồ sen');
-    log.info('-> Phóng sinh / Cho đàn cá ở hồ sen ăn...');
-    this.send({ t: 'viec', k: 'ca' });
-    await this.sleep(this.isTurbo() ? 80 : 250);
-
-    this.checkAborted();
-    await this.humanDelay('bước vào chánh điện châm dầu đèn');
-    log.info('-> Thắp đèn dầu chánh điện...');
-    this.send({ t: 'lamp' });
-    await this.sleep(this.isTurbo() ? 80 : 250);
-  }
-
-  async doPet() {
-    this.checkAborted();
-    log.temple('🐱', 'Chăm sóc thú cưng chùa:');
-    await this.humanDelay('tìm chú mèo chùa đang nằm sưởi nắng');
-    this.checkAborted();
-    log.info('-> Cho mèo ăn bánh...');
-    this.send({ t: 'pet-feed' });
-    await this.sleep(this.isTurbo() ? 80 : 250);
-
-    this.checkAborted();
-    await this.humanDelay('nhẹ nhàng xoa đầu vuốt ve mèo');
-    this.checkAborted();
-    log.info('-> Xoa đầu mèo...');
-    this.send({ t: 'pet-pat' });
-    await this.sleep(this.isTurbo() ? 80 : 250);
-  }
-
-  async doGarden(options = {}) {
-    this.checkAborted();
-    const plantSeed = options.plantSeed || 'sen';
-    const autoWaterOthers = options.autoWaterOthers ?? this.config.autoWaterOthers ?? true;
-    const maxWaterOthers = options.maxWaterOthers ?? this.config.maxWaterOthers ?? 50;
-
-    log.temple('🪷', 'Chăm sóc vườn hoa chùa & tưới nước tích công đức:');
-    await this.humanDelay('thong thả dạo bước ra góc vườn hoa');
-    this.checkAborted();
-
-    // 1. Lấy dữ liệu vườn hoa hiện tại từ máy chủ
-    this.garden = null;
-    this.send({ t: 'garden' });
-    let waitCount = 0;
-    while (!this.garden && waitCount < 15) {
-      this.checkAborted();
-      await this.sleep(this.isTurbo() ? 80 : 200);
-      waitCount++;
-    }
-
-    if (!this.garden) {
-      log.warn('Không nhận được dữ liệu vườn hoa từ máy chủ, gửi lệnh tưới thông thường.');
-      this.checkAborted();
-      this.send({ t: 'water', pid: this.myPid });
-      await this.sleep(this.isTurbo() ? 80 : 300);
-      return;
-    }
-
-    const mine = this.garden.mine;
-
-    // 2. Chăm sóc luống hoa của bản thân
-    if (!mine) {
-      this.checkAborted();
-      log.temple('🌱', `Luống hoa của bạn đang trống. Tiến hành gieo hạt giống [${plantSeed}]...`);
-      this.send({ t: 'plant', k: plantSeed });
-      await this.sleep(this.isTurbo() ? 80 : 300);
-    } else {
-      // Nếu hoa đã nở (stage === 3) -> hái hoa và dâng Chánh điện
-      if (mine.stage === 3) {
-        this.checkAborted();
-        log.temple('🌸', `Hoa [${mine.k}] trong luống của bạn đã nở trọn vẹn! Tiến hành hái hoa...`);
-        this.send({ t: 'pick' });
-        await this.sleep(this.isTurbo() ? 80 : 300);
-        this.checkAborted();
-        log.temple('💐', 'Thành tâm dâng hoa tươi lên Phật đài Chánh điện (+công đức dâng hoa)...');
-        this.send({ t: 'offer-flowers' });
-        await this.sleep(this.isTurbo() ? 80 : 300);
-        // Gieo tiếp hạt giống mới
-        this.checkAborted();
-        log.temple('🌱', `Gieo tiếp đợt hạt giống mới [${plantSeed}]...`);
-        this.send({ t: 'plant', k: plantSeed });
-        await this.sleep(this.isTurbo() ? 80 : 300);
-      }
-
-      // Tưới luống hoa của mình nếu chưa tưới
-      if (!mine.watered) {
-        this.checkAborted();
-        log.info('-> Múc gáo nước mát tưới luống hoa của bản thân...');
-        this.send({ t: 'water', pid: this.myPid });
-        await this.sleep(this.isTurbo() ? 80 : 300);
-      } else {
-        log.info(`-> Luống hoa của bạn hôm nay đã được tưới (${mine.grown}/${mine.need} ngày lớn).`);
-      }
-    }
-
-    // Kiểm tra nếu trong tay còn hoa đã hái mà chưa dâng
-    const flowersInHand = Object.values(this.garden.flowers || {}).reduce((a, b) => a + (b || 0), 0);
-    if (flowersInHand > 0) {
-      this.checkAborted();
-      log.temple('💐', `Phát hiện ${flowersInHand} bông hoa tươi trong tay, tiến hành dâng hoa lên Phật đài...`);
-      this.send({ t: 'offer-flowers' });
-      await this.sleep(this.isTurbo() ? 80 : 300);
-    }
-
-    // 3. TỰ ĐỘNG TƯỚI NƯỚC GIÚP BẠN ĐỒNG TU (+2 CÔNG ĐỨC MỖI LUỐNG)
-    if (autoWaterOthers) {
-      const unwateredBeds = (this.garden.beds || []).filter(
-        b => b.pid !== this.myPid && !b.watered && (b.stage === undefined || b.stage < 3)
-      );
-
-      if (unwateredBeds.length > 0) {
-        const toWater = unwateredBeds.slice(0, maxWaterOthers);
-        log.temple('💧', `Phát hiện ${toWater.length} luống hoa của bạn đồng tu chưa được tưới nước. Bắt đầu tưới giúp (+2 công đức/luống)...`);
-
-        for (let i = 0; i < toWater.length; i++) {
-          this.checkAborted();
-          const bed = toWater[i];
-          const bedOwner = bed.name || bed.pid;
-          log.info(`[${i + 1}/${toWater.length}] Tưới nước giúp luống hoa của [${bedOwner}]...`);
-          this.send({ t: 'water', pid: bed.pid });
-          const waterDelay = this.isTurbo() ? Math.floor(60 + Math.random() * 40) : Math.floor(250 + Math.random() * 100);
-          await this.sleep(waterDelay);
-        }
-        log.success(`Đã tưới nước giúp ${toWater.length} luống hoa! Tích lũy thêm ước tính +${toWater.length * 2} công đức.`);
-      } else {
-        log.info('Tất cả các luống hoa của bạn đồng tu hôm nay đều đã được tưới đủ nước.');
-      }
-    }
-  }
-
-  async doMo(count = 30, options = {}) {
+  async doMo(count = 108, options = {}) {
     this.checkAborted();
     log.temple('🪵', `Bắt đầu gõ mõ tụng kinh (${count} tiếng - chốt an toàn từng chặng)...`);
-    // Đảm bảo đứng tại Chánh điện để máy chủ ghi nhận nhiệm vụ gõ mõ tụng kinh (tung)
     this.send({ t: 'visit', zone: 'Chánh điện' });
     await this.sleep(this.isTurbo() ? 80 : 250);
-    const batchSize = this.isTurbo() ? 20 : 10;
-    const intervalMs = options.intervalMs ?? (this.isTurbo() ? 250 : 400);
-    const checkpointMoInterval = options.chunkSize || (count > 108 ? 108 : 54);
 
-    const activeTung = (this.merit?.me?.quests || []).find(q => q.id === 'tung');
+    const batchSize = this.isTurbo() ? 20 : 10;
+    const checkpointMoInterval = options.chunkSize || (count > 108 ? 108 : 54);
+    const activeTung = (this.merit?.me?.quests || []).find(q => q.id === 'tung' || q.id === 'd_mo108');
     const dailyQuestNeed = (activeTung && !activeTung.claimed) ? (activeTung.need || 108) : 108;
 
     let sent = 0;
-    let lastHeartbeat = Date.now();
-    try {
-      while (sent < count) {
-        this.checkAborted();
-
-        // 1. Tự động kiểm tra và phục hồi kết nối nếu mạng gián đoạn trong phiên gõ mõ dài
-        if (this.ws && (!this.connected || this.ws.readyState !== WebSocket.OPEN)) {
-          log.warn(`Phát hiện mất kết nối với chùa tại tiếng mõ thứ ${sent}/${count}. Đang tự động kết nối lại...`);
-          try {
-            await this.connect(8000);
-            this.send({ t: 'visit', zone: 'Chánh điện' });
-            await this.sleep(this.isTurbo() ? 80 : 400);
-            lastHeartbeat = Date.now();
-            log.success(`Đã kết nối lại thành công! Tiếp tục gõ mõ tụng kinh (đã gõ ${sent}/${count} tiếng).`);
-          } catch (reconnErr) {
-            log.warn(`Chưa kết nối lại được (${reconnErr.message}), thử lại sau 2 giây...`);
-            await this.sleep(2000);
-            continue;
-          }
-        }
-
-        const batch = Math.min(batchSize, count - sent);
-        this.send({ t: 'mo', n: batch });
-        sent += batch;
-
-        // Log định kỳ tránh làm nghẽn buffer EventSource khi gõ số lượng lớn (1.080 tiếng)
-        if (count <= 108 || sent % 54 === 0 || sent >= count) {
-          log.info(`...cốc cốc [${sent}/${count} tiếng mõ]`);
-        }
-
-        // Duy trì nhịp tim kết nối (Heartbeat) mỗi 15 giây
-        const now = Date.now();
-        if (now - lastHeartbeat >= 15000) {
-          this.send({ t: 'hb' });
-          lastHeartbeat = now;
-        }
-
-        // Điểm kiểm tra chốt chặng an toàn (Checkpoint Harvest):
-        const isDailyQuestReached = (sent >= dailyQuestNeed) && activeTung && !activeTung.claimed;
-        const isIntervalReached = (sent % checkpointMoInterval === 0 || (sent % 54 === 0 && count > 54));
-        const isFinalStrike = (sent >= count);
-
-        if (isDailyQuestReached || isIntervalReached || isFinalStrike) {
-          let claimedAny = false;
-          if (activeTung && !activeTung.claimed && sent >= (activeTung.need || 108)) {
-            this.send({ t: 'claim', q: activeTung.id });
-            activeTung.claimed = true;
-            claimedAny = true;
-            log.success(`🪵 [Chốt an toàn chặng: ${sent}/${count} tiếng mõ] -> Thu thập ngay phần thưởng nhiệm vụ Gõ mõ tụng kinh (+${activeTung.reward || 30}đ công đức)!`);
-          }
-
-          const wTung = (this.merit?.me?.weekly || []).find(q => q.id === 'wTung');
-          if (wTung && !wTung.claimed && (wTung.have || 0) + sent >= (wTung.need || 108)) {
-            this.send({ t: 'claim', q: wTung.id });
-            wTung.claimed = true;
-            claimedAny = true;
-            log.success(`🪵 [Chốt an toàn chặng: ${sent}/${count} tiếng mõ] -> Thu thập ngay nhiệm vụ tuần Gõ mõ tụng kinh!`);
-          }
-
-          if (!claimedAny && !isFinalStrike) {
-            log.temple('🪵', `[Chốt an toàn chặng: ${sent}/${count} tiếng mõ] Đã đồng bộ số tiếng mõ vào máy chủ chùa. Tiếp tục gõ mõ...`);
-          }
-
-          this.send({ t: 'journal' });
-        }
-
-        if (sent < count) {
-          await this.sleep(intervalMs);
-        }
+    while (sent < count) {
+      this.checkAborted();
+      const batch = Math.min(batchSize, count - sent);
+      if (this.token) {
+        try { await this.practice('mo', { count: batch, lite: true }); } catch {}
       }
-    } finally {
-      if (sent > 0 && sent < count) {
-        log.warn(`Tiến trình gõ mõ dừng tại ${sent}/${count} tiếng. Đang chốt an toàn và thu thập công đức phần đã gõ...`);
+      sent += batch;
+      this.send({ t: 'mo', n: batch });
+
+      if (count <= 108 || sent % 54 === 0 || sent >= count) {
+        log.info(`...cốc cốc [${sent}/${count} tiếng mõ]`);
+      }
+
+      const isDailyQuestReached = (sent >= dailyQuestNeed) && activeTung && !activeTung.claimed;
+      const isIntervalReached = (sent % checkpointMoInterval === 0 || (sent % 54 === 0 && count > 54));
+      const isFinalStrike = (sent >= count);
+
+      if (isDailyQuestReached || isIntervalReached || isFinalStrike) {
+        let claimedAny = false;
         if (activeTung && !activeTung.claimed && sent >= (activeTung.need || 108)) {
           this.send({ t: 'claim', q: activeTung.id });
           activeTung.claimed = true;
+          claimedAny = true;
+          log.success(`🪵 [Chốt an toàn chặng: ${sent}/${count} tiếng mõ] -> Thu thập ngay phần thưởng nhiệm vụ Gõ mõ tụng kinh!`);
         }
+
+        const wTung = (this.merit?.me?.weekly || []).find(q => q.id === 'wTung' || q.id === 'w_mo500');
+        if (wTung && !wTung.claimed && (wTung.have || 0) + sent >= (wTung.need || 108)) {
+          this.send({ t: 'claim', q: wTung.id });
+          wTung.claimed = true;
+          claimedAny = true;
+          log.success(`🪵 [Chốt an toàn chặng: ${sent}/${count} tiếng mõ] -> Thu thập ngay nhiệm vụ tuần Gõ mõ tụng kinh!`);
+        }
+
+        if (!claimedAny && !isFinalStrike) {
+          log.temple('🪵', `[Chốt an toàn chặng: ${sent}/${count} tiếng mõ] Đã đồng bộ số tiếng mõ vào máy chủ chùa. Tiếp tục gõ mõ...`);
+        }
+
         this.send({ t: 'journal' });
       }
+
+      if (sent < count) {
+        await this.sleep(options.intervalMs ?? (this.isTurbo() ? 80 : 1250));
+      }
     }
-    log.info(`Đã hoàn tất gửi ${count} tiếng mõ tụng kinh (chờ máy chủ ghi nhận).`);
+
+    log.success(`🎉 HOÀN TẤT: Đã hoàn thành gửi ${count} tiếng mõ tụng kinh.`);
   }
 
   async doBeads(count = 108, options = {}) {
     this.checkAborted();
     const roundsTarget = (count / 108).toFixed(1);
-    log.temple('📿', `Bắt đầu lần tràng hạt niệm Phật (${count} hạt ~ ${roundsTarget} chuỗi - chốt an toàn từng chặng)…`);
+    log.temple('📿', `Bắt đầu lần tràng hạt niệm Phật (${count} hạt ~ ${roundsTarget} chuỗi - chốt an toàn từng chặng)...`);
     this.send({ t: 'emote', e: 'chuoi' });
-    // Máy chủ didenchua giới hạn tốc độ nhận hạt bằng cơ chế Token Bucket (~5.3 hạt/giây).
-    // Gửi 9 hạt/gói cách nhau 1.750ms đảm bảo máy chủ ghi nhận 100% không bị rơi rụng
-    const batchSize = 9;
-    const intervalMs = options.intervalMs ?? 1750;
-    // Chu kỳ chốt chặng: mặc định mỗi 54 hạt (nửa chuỗi) hoặc 108 hạt (1 chuỗi tròn)
-    const checkpointBeadsInterval = options.chunkSize || (count > 108 ? 108 : 54);
 
-    const activeChuoi = (this.merit?.me?.quests || []).find(q => q.id === 'chuoi' || q.id === 'beads' || q.id.startsWith('chuoi'));
+    const batchSize = 9;
+    const checkpointBeadsInterval = options.chunkSize || (count > 108 ? 108 : 54);
+    const activeChuoi = (this.merit?.me?.quests || []).find(q => q.id === 'chuoi' || q.id === 'beads' || q.id === 'd_chuoi1' || q.id.startsWith('chuoi'));
     const dailyQuestNeed = (activeChuoi && !activeChuoi.claimed) ? (activeChuoi.need || 54) : 54;
 
     let sent = 0;
-    let lastHeartbeat = Date.now();
-    let lastEmoteTime = Date.now();
-    try {
-      while (sent < count) {
-        this.checkAborted();
-
-        // 1. Tự động kiểm tra và phục hồi kết nối nếu mạng gián đoạn trong phiên tu tập dài
-        if (this.ws && (!this.connected || this.ws.readyState !== WebSocket.OPEN)) {
-          log.warn(`Phát hiện mất kết nối với chùa tại hạt thứ ${sent}/${count}. Đang tự động kết nối lại...`);
-          try {
-            await this.connect(8000);
-            this.send({ t: 'emote', e: 'chuoi' });
-            await this.sleep(this.isTurbo() ? 80 : 400);
-            lastHeartbeat = Date.now();
-            lastEmoteTime = Date.now();
-            log.success(`Đã kết nối lại thành công! Tiếp tục lần tràng hạt niệm Phật (đã niệm ${sent}/${count} hạt ~ ${(sent / 108).toFixed(1)} chuỗi).`);
-          } catch (reconnErr) {
-            log.warn(`Chưa kết nối lại được (${reconnErr.message}), thử lại sau 2 giây...`);
-            await this.sleep(2000);
-            continue;
-          }
-        }
-
-        const batch = Math.min(batchSize, count - sent);
-        this.send({ t: 'beads', n: batch });
-        sent += batch;
-        const curRounds = (sent / 108).toFixed(1);
-
-        // Log định kỳ tránh làm nghẽn buffer EventSource của giao diện khi cày số lượng lớn (100 chuỗi)
-        if (count <= 108 || sent % 108 === 0 || sent >= count || (count <= 540 && sent % 54 === 0)) {
-          log.info(`...Nam Mô A Di Đà Phật [${sent}/${count} hạt] (~${curRounds}/${roundsTarget} chuỗi)`);
-        }
-
-        // Duy trì nhịp tim kết nối (Heartbeat) mỗi 15 giây
-        const now = Date.now();
-        if (now - lastHeartbeat >= 15000) {
-          this.send({ t: 'hb' });
-          lastHeartbeat = now;
-        }
-
-        // Chỉ gửi lại emote chuỗi khi tròn mỗi 1 chuỗi 108 hạt và đã cách lần trước >= 5 giây (tránh phạt 1008)
-        if (sent % 108 === 0 && sent < count && now - lastEmoteTime >= 5050) {
-          this.send({ t: 'emote', e: 'chuoi' });
-          lastEmoteTime = now;
-        }
-
-        // Điểm kiểm tra chốt chặng an toàn (Checkpoint Harvest):
-        const isDailyQuestReached = (sent >= dailyQuestNeed) && activeChuoi && !activeChuoi.claimed;
-        const isIntervalReached = (sent % checkpointBeadsInterval === 0 || (sent % 54 === 0 && count > 54));
-        const isFinalBead = (sent >= count);
-
-        if (isDailyQuestReached || isIntervalReached || isFinalBead) {
-          let claimedAny = false;
-          // Thu thập nhiệm vụ ngày ngay lập tức nếu đã đủ
-          if (activeChuoi && !activeChuoi.claimed && sent >= (activeChuoi.need || 20)) {
-            this.send({ t: 'claim', q: activeChuoi.id });
-            activeChuoi.claimed = true;
-            claimedAny = true;
-            log.success(`📿 [Chốt an toàn chặng: ${sent}/${count} hạt] -> Thu thập ngay phần thưởng nhiệm vụ Lăn tràng hạt (+${activeChuoi.reward || 15}đ công đức)!`);
-          }
-
-          // Kiểm tra và thu thập nhiệm vụ tuần nếu đủ
-          const wChuoi = (this.merit?.me?.weekly || []).find(q => q.id === 'wChuoi' || q.id === 'wBeads');
-          if (wChuoi && !wChuoi.claimed && (wChuoi.have || 0) + sent >= (wChuoi.need || 108)) {
-            this.send({ t: 'claim', q: wChuoi.id });
-            wChuoi.claimed = true;
-            claimedAny = true;
-            log.success(`📿 [Chốt an toàn chặng: ${sent}/${count} hạt] -> Thu thập ngay nhiệm vụ tuần Lăn tràng hạt (+${wChuoi.reward || 100}đ công đức)!`);
-          }
-
-          if (!claimedAny && !isFinalBead) {
-            log.temple('📿', `[Chốt an toàn chặng: ${sent}/${count} hạt (~${curRounds}/${roundsTarget} chuỗi)] Đã đồng bộ số hạt niệm vào sổ tu tập chùa. Tiếp tục lần tràng hạt...`);
-          }
-
-          this.send({ t: 'journal' });
-        }
-
-        if (sent < count) {
-          await this.sleep(intervalMs);
-        }
+    while (sent < count) {
+      this.checkAborted();
+      const batch = Math.min(batchSize, count - sent);
+      if (this.token) {
+        try { await this.practice('bead', { count: batch, lite: true }); } catch {}
       }
-    } finally {
-      // Trong trường hợp tiến trình bị dừng giữa chừng: tự động chốt an toàn phần đã niệm
-      if (sent > 0 && sent < count) {
-        log.warn(`Tiến trình tràng hạt dừng tại ${sent}/${count} hạt (~${(sent/108).toFixed(1)} chuỗi). Đang chốt an toàn và thu thập công đức phần đã niệm...`);
-        if (activeChuoi && !activeChuoi.claimed && sent >= (activeChuoi.need || 20)) {
+      sent += batch;
+      this.send({ t: 'beads', n: batch });
+      const curRounds = (sent / 108).toFixed(1);
+
+      if (count <= 108 || sent % 108 === 0 || sent >= count || (count <= 540 && sent % 54 === 0)) {
+        log.info(`...Nam Mô A Di Đà Phật [${sent}/${count} hạt] (~${curRounds}/${roundsTarget} chuỗi)`);
+      }
+
+      const isDailyQuestReached = (sent >= dailyQuestNeed) && activeChuoi && !activeChuoi.claimed;
+      const isIntervalReached = (sent % checkpointBeadsInterval === 0 || (sent % 54 === 0 && count > 54));
+      const isFinal = (sent >= count);
+
+      if (isDailyQuestReached || isIntervalReached || isFinal) {
+        let claimedAny = false;
+        if (activeChuoi && !activeChuoi.claimed && sent >= (activeChuoi.need || 54)) {
           this.send({ t: 'claim', q: activeChuoi.id });
           activeChuoi.claimed = true;
+          claimedAny = true;
+          log.success(`📿 [Chốt an toàn chặng: ${sent}/${count} hạt] -> Thu thập ngay phần thưởng nhiệm vụ Lần tràng hạt!`);
         }
+
+        const wChuoi = (this.merit?.me?.weekly || []).find(q => q.id === 'wChuoi' || q.id === 'w_chuoi7');
+        if (wChuoi && !wChuoi.claimed && (wChuoi.have || 0) + sent >= (wChuoi.need || 108)) {
+          this.send({ t: 'claim', q: wChuoi.id });
+          wChuoi.claimed = true;
+          claimedAny = true;
+          log.success(`📿 [Chốt an toàn chặng: ${sent}/${count} hạt] -> Thu thập ngay nhiệm vụ tuần Tràng hạt!`);
+        }
+
+        if (!claimedAny && !isFinal) {
+          log.temple('📿', `[Chốt an toàn chặng: ${sent}/${count} hạt] Đã đồng bộ số hạt niệm vào máy chủ chùa. Tiếp tục niệm Phật...`);
+        }
+
         this.send({ t: 'journal' });
       }
-    }
-    await this.sleep(this.isTurbo() ? 250 : 800);
-    await this.fetchJournal();
-    if (this.journal) {
-      const totalRounds = this.journal.rounds || Math.floor((this.journal.beads || 0) / 108);
-      const isTramChuoi = this.journal.titles?.some(t => t.id === 'tram-chuoi' && t.got);
-      log.success(`Máy chủ đã ghi nhận: ${this.journal.beads} hạt (${totalRounds}/100 chuỗi ${isTramChuoi || totalRounds >= 100 ? '🏆 Đạt danh hiệu Trăm chuỗi hạt!' : `còn ${100 - totalRounds} chuỗi`}).`);
-    }
-  }
 
-  async doBell(count = 1) {
-    this.checkAborted();
-    log.temple('🔔', `Thỉnh chuông Bát Nhã tại Gác chuông (${count} tiếng)...`);
-    await this.humanDelay('khoan thai bước lên bậc thềm Gác chuông');
-    this.checkAborted();
-
-    // 1. Đến khu vực Gác chuông (tọa độ L8 của game)
-    this.send({ t: 'visit', zone: 'Gác chuông' });
-    this.send({
-      t: 'state',
-      x: -12.8,
-      y: 0.5,
-      z: 52.0,
-      ry: -1.57,
-      s: 0
-    });
-    await this.sleep(this.isTurbo() ? 80 : 250);
-
-    // 2. Thỉnh từng tiếng chuông ngân vang
-    const total = Math.max(1, count);
-    for (let i = 1; i <= total; i++) {
-      this.checkAborted();
-      this.send({ t: 'bell' });
-      log.info(`-> Thỉnh tiếng chuông [${i}/${total}]... (Nguyện tiếng chuông này vang khắp pháp giới)`);
-      if (i < total) {
-        await this.sleep(this.isTurbo() ? 300 : 1800);
+      if (sent < count) {
+        await this.sleep(options.intervalMs ?? (this.isTurbo() ? 80 : 1250));
       }
     }
 
-    // 3. Tự động nhận thưởng nhiệm vụ ngày thỉnh chuông
-    await this.sleep(this.isTurbo() ? 80 : 250);
-    this.claimQuest('chuong');
+    log.success(`🎉 HOÀN TẤT: Đã niệm đủ ${count} hạt tràng niệm Phật.`);
   }
 
-  async doXam() {
+  async doQuetLa(count = 1, options = {}) {
     this.checkAborted();
-    log.temple('📜', 'Gieo quẻ xăm may mắn đầu ngày (+công đức quẻ xăm)…');
-    await this.humanDelay('thành tâm lắc ống xăm');
+    log.temple('🧹', `Bắt đầu công quả quét lá sân chùa (${count} lần - chốt an toàn từng chặng)...`);
+    this.send({ t: 'visit', zone: 'Sân chùa' });
+    await this.sleep(this.isTurbo() ? 80 : 300);
+
+    const activeQuet = (this.merit?.me?.quests || []).find(q => q.id === 'quet' || q.id === 'viec' || q.id === 'd_sweep' || q.id.startsWith('quet'));
+    const dailyQuestNeed = (activeQuet && !activeQuet.claimed) ? (activeQuet.need || 1) : 1;
+    const checkpointInterval = options.chunkSize || 5;
+
+    for (let i = 1; i <= count; i++) {
+      this.checkAborted();
+      log.info(`[${i}/${count}] -> Gió thổi lá bay, chổi quét sạch bong (công quả quét lá)...`);
+      if (this.token) {
+        try { await this.practice('sweep'); } catch {}
+      }
+      this.send({ t: 'emote', e: 'quet' });
+      this.send({ t: 'viec', k: 'quet' });
+
+      const isDailyQuestReached = (i >= dailyQuestNeed) && activeQuet && !activeQuet.claimed;
+      const isIntervalReached = (i % checkpointInterval === 0);
+      const isFinal = (i >= count);
+
+      if (isDailyQuestReached || isIntervalReached || isFinal) {
+        let claimedAny = false;
+        if (activeQuet && !activeQuet.claimed && i >= (activeQuet.need || 1)) {
+          this.send({ t: 'claim', q: activeQuet.id });
+          activeQuet.claimed = true;
+          claimedAny = true;
+          log.success(`🧹 [Chốt an toàn chặng: ${i}/${count} lần] -> Thu thập ngay phần thưởng nhiệm vụ Quét lá dọn sân chùa!`);
+        }
+
+        const wViec = (this.merit?.me?.weekly || []).find(q => q.id === 'wViec' || q.id === 'wQuet' || q.id === 'w_viec5');
+        if (wViec && !wViec.claimed && (wViec.have || 0) + i >= (wViec.need || 5)) {
+          this.send({ t: 'claim', q: wViec.id });
+          wViec.claimed = true;
+          claimedAny = true;
+          log.success(`🧹 [Chốt an toàn chặng: ${i}/${count} lần] -> Thu thập ngay nhiệm vụ tuần Công quả quét dọn!`);
+        }
+
+        if (!claimedAny && !isFinal) {
+          log.temple('🧹', `[Chốt an toàn chặng: ${i}/${count} lần] Đã đồng bộ số lần quét lá vào máy chủ chùa. Tiếp tục quét dọn...`);
+        }
+
+        this.send({ t: 'journal' });
+      }
+
+      if (i < count) {
+        await this.sleep(options.intervalMs ?? (this.isTurbo() ? 80 : 1250));
+      }
+    }
+
+    log.success(`🎉 HOÀN TẤT: Đã làm xong công quả quét dọn sân chùa (${count} lần).`);
+  }
+
+  async doMeditate(seconds = 300, onProgress = null, options = {}) {
     this.checkAborted();
-    const randomXam = Math.floor(Math.random() * 100) + 1;
-    this.send({ t: 'xam', n: randomXam });
-    log.info(`-> Đã gieo quẻ xăm số [${randomXam}] cầu bình an cát tường.`);
-    this.claimQuest('xam');
+    log.temple('🧘', `Bắt đầu thời khóa thiền định tĩnh tâm (${Math.round(seconds / 60)} phút)...`);
+    const chunkSeconds = options.chunkSeconds || (seconds > 300 ? 300 : seconds);
+    const targetZone = options.zone || 'Vườn thiền';
+
+    let totalElapsed = 0;
+    while (totalElapsed < seconds) {
+      this.checkAborted();
+      const currentChunkTarget = Math.min(chunkSeconds, seconds - totalElapsed);
+
+      this.send({ t: 'visit', zone: targetZone });
+      await this.sleep(this.isTurbo() ? 80 : 300);
+
+      this.send({ t: 'state', s: 2 });
+      if (this.token) {
+        try { await this.practice('meditate_start'); } catch {}
+      }
+
+      let chunkElapsed = 0;
+      const step = options.stepSeconds || (this.isTurbo() ? currentChunkTarget : 10);
+      while (chunkElapsed < currentChunkTarget) {
+        this.checkAborted();
+        const waitTime = Math.min(step, currentChunkTarget - chunkElapsed);
+        await this.sleep(this.isTurbo() ? 30 : (waitTime * 1000));
+        chunkElapsed += waitTime;
+
+        if (onProgress) {
+          onProgress(totalElapsed + chunkElapsed, seconds);
+        }
+      }
+
+      totalElapsed += chunkElapsed;
+
+      this.send({ t: 'state', s: 0 });
+      if (this.token) {
+        try { await this.practice('meditate_end'); } catch {}
+      }
+
+      let claimedNgoi = false;
+      const ngoiQ = (this.merit?.me?.quests || []).find(q => q.id === 'ngoi' || q.id === 'd_thien5');
+      if (ngoiQ && !ngoiQ.claimed) {
+        this.send({ t: 'claim', q: ngoiQ.id });
+        ngoiQ.claimed = true;
+        claimedNgoi = true;
+      }
+      if (!claimedNgoi) {
+        this.send({ t: 'claim', q: 'ngoi' });
+      }
+      this.send({ t: 'claim', q: 'wNgoi' });
+      this.send({ t: 'journal' });
+
+      if (totalElapsed < seconds) {
+        await this.sleep(this.isTurbo() ? 80 : 1000);
+      }
+    }
+
+    return { verified: true, elapsed: totalElapsed };
+  }
+
+  async doVisit(templeId = this.temple) {
+    this.checkAborted();
+    log.temple('🏯', `Viếng thăm ngôi chùa [${templeId}]...`);
+    let res = null;
+    if (this.token) {
+      res = await this.practice('visit', { temple: templeId });
+    }
+    this.send({ t: 'visit', zone: templeId });
+    return res;
+  }
+
+  async doVisitAll() {
+    this.checkAborted();
+    log.temple('🗺️', 'Bắt đầu hành hương viếng thăm các danh lam cổ tự...');
+    const temples = this.meta?.temples || [{ id: 'voluong' }, { id: 'tranho' }, { id: 'huongson' }, { id: 'dinhmay' }, { id: 'baison' }];
+    for (const t of temples.slice(0, 5)) {
+      this.checkAborted();
+      await this.doVisit(t.id);
+      await this.sleep(this.isTurbo() ? 50 : 1250);
+    }
+    log.success('🎉 Đã hoàn tất hành trình viếng thăm các ngôi chùa!');
+  }
+
+  async doKhoe() {
+    this.checkAborted();
+    log.temple('📢', 'Lan tỏa thiện duyên và chia sẻ công đức tu tập...');
+    let res = null;
+    if (this.token) {
+      try { res = await this.post('/share'); } catch {}
+    }
+    this.send({ t: 'khoe' });
+    this.send({ t: 'claim', q: 'd_khoe' });
+    log.success('🎉 Đã chia sẻ công đức tu tập thành công!');
+    return res;
+  }
+
+  async doLantern(text = 'Cầu cho muôn người bình an, vạn sự hanh thông', color = 'vang', count = 1) {
+    this.checkAborted();
+    log.temple('🪷', `Thả hoa đăng cầu nguyện: "${text}"...`);
+    let res = null;
+    if (this.token) {
+      try { res = await this.post('/lanterns', { text, temple: this.temple }); } catch {}
+    }
+    this.send({ t: 'lantern', text, color });
+    this.send({ t: 'claim', q: 'den' });
+    this.send({ t: 'claim', q: 'd_den' });
+    log.success('🎉 Đã thả hoa đăng lung linh trên hồ sen chùa!');
+    return res;
+  }
+
+  async doTuyHy(maxCount = 3) {
+    this.checkAborted();
+    log.temple('✨', `Tùy hỷ công đức hoa đăng của các bạn đồng tu...`);
+    let rejoiced = 0;
+    if (this.token) {
+      try {
+        const lanterns = await this.api('/lanterns?all=1');
+        for (const l of (lanterns || [])) {
+          if (!l.mine && !l.liked && rejoiced < maxCount) {
+            try {
+              await this.post(`/lanterns/${l.id}/rejoice`);
+              rejoiced++;
+              await this.sleep(this.isTurbo() ? 50 : 250);
+            } catch {}
+          }
+        }
+      } catch {}
+    }
+    this.send({ t: 'claim', q: 'd_tuyhy' });
+    this.send({ t: 'claim', q: 'tuyhy' });
+    log.success(`🎉 Đã tùy hỷ công đức ${rejoiced > 0 ? `${rejoiced} hoa đăng ` : ''}thiện lành!`);
+  }
+
+  async doTangKinhCac(sutraId = 'all') {
+    this.checkAborted();
+    log.temple('📖', 'Viếng Tàng Kinh Các lắng nghe kinh điển giác ngộ...');
+    this.send({ t: 'visit', zone: 'Tàng Kinh Các' });
+    await this.sleep(this.isTurbo() ? 80 : 300);
+
+    if (this.token) {
+      try {
+        await this.practice('mo', { count: 4, auto: true, temple: this.temple });
+        await this.practice('chant_done', { sutra: 'hoihuong', temple: this.temple });
+      } catch {}
+    }
+
+    const sutras = sutraId === 'all' ? BUDDHIST_SUTRAS : BUDDHIST_SUTRAS.filter(s => s.id === sutraId);
+    for (const s of sutras) {
+      this.checkAborted();
+      log.info(`📖 Lắng nghe: ${s.title} (${s.desc})`);
+      this.send({ t: 'tk-read', id: s.id });
+      await this.sleep(this.isTurbo() ? 80 : 400);
+      if (this.token && sutraId !== 'all') {
+        try { await this.practice('chant_done', { sutra: s.id }); } catch {}
+      }
+      this.send({ t: 'tk-done', id: s.id });
+      await this.sleep(this.isTurbo() ? 90 : 500);
+    }
+    this.send({ t: 'claim', q: 'wDoc' });
+    this.send({ t: 'claim', q: 'd_kinh1' });
+    this.send({ t: 'claim', q: 'kinh' });
+    log.success('🎉 Đã hoàn tất lắng nghe trọn vẹn kinh điển tại Tàng Kinh Các!');
+  }
+
+  async doSecrets(wishId = 'all') {
+    this.checkAborted();
+    await this.doTangKinhCac('all');
+    await this.doXinChu(wishId);
+  }
+
+  async doXinAllChu() {
+    this.checkAborted();
+    log.temple('✍️', 'Xin trọn bộ chữ thư pháp cát tường từ Thầy đồ...');
+    this.send({ t: 'visit', zone: 'Thầy đồ' });
+    this.send({ t: 'chu-list' });
+    await this.sleep(this.isTurbo() ? 80 : 300);
+
+    for (const w of CALLIGRAPHY_WORDS) {
+      this.checkAborted();
+      log.info(`✍️ Thầy đồ phóng bút chữ "${w.text}" (${w.wish})...`);
+      this.send({ t: 'chu-xin', chu: w.id });
+      await this.sleep(this.isTurbo() ? 80 : 350);
+      this.send({ t: 'chu-dem', k: 'mo' });
+      await this.sleep(this.isTurbo() ? 80 : 200);
+      this.send({ t: 'chu-dem', k: 'vao' });
+      await this.sleep(this.isTurbo() ? 80 : 200);
+      this.send({ t: 'chu-giu', chu: w.id });
+      await this.sleep(this.isTurbo() ? 90 : 400);
+    }
+    this.send({ t: 'claim', q: 'chu' });
+    this.send({ t: 'claim', q: 'd_chu' });
+    log.success('🎉 Đã cất trọn bộ chữ thư pháp vào Tủ chữ cá nhân!');
+  }
+
+  async doXinChu(wishId = null) {
+    this.checkAborted();
+    const wish = (wishId || 'binh-an').toLowerCase();
+    if (['all', 'tat-ca', 'full', 'tron-bo'].includes(wish)) {
+      return this.doXinAllChu();
+    }
+    log.temple('✍️', `Xin chữ thư pháp "${wish}" từ Thầy đồ...`);
+    this.send({ t: 'visit', zone: 'Thầy đồ' });
+    this.send({ t: 'chu-xin', chu: wish });
+    await this.sleep(this.isTurbo() ? 80 : 350);
+    this.send({ t: 'chu-dem', k: 'mo' });
+    await this.sleep(this.isTurbo() ? 80 : 200);
+    this.send({ t: 'chu-dem', k: 'vao' });
+    await this.sleep(this.isTurbo() ? 80 : 200);
+    this.send({ t: 'chu-giu', chu: wish });
+    return { ok: true };
+  }
+
+  async doIncense(count = 1) {
+    this.checkAborted();
+    log.temple('🕯️', `Thắp nén hương thơm dâng lên Tam Bảo...`);
+    let res = null;
+    if (this.token) {
+      try {
+        res = await this.post('/use', { item: 'huong_tram', temple: this.temple });
+      } catch (e) {
+        try { res = await this.practice('incense'); } catch {}
+      }
+    }
+    this.send({ t: 'huong' });
+    this.send({ t: 'claim', q: 'd_huong' });
+    this.send({ t: 'claim', q: 'huong' });
+    return res;
+  }
+
+  async doGreet(targetPeerId = null) {
+    this.checkAborted();
+    log.temple('🙏', 'Chắp tay cúi đầu chào bạn đồng tu...');
+    this.send({ t: 'emote', e: 'pray' });
+    return { ok: true };
+  }
+
+  async doChores() {
+    this.checkAborted();
+    await this.doQuetLa(1);
+    await this.doIncense(1);
+    await this.doBell();
+  }
+
+  async doPet() {
+    this.checkAborted();
+    log.info('Chăm sóc linh thú chùa...');
+    this.send({ t: 'pet' });
+    return { ok: true };
+  }
+
+  async doGarden() {
+    this.checkAborted();
+    log.info('Chăm sóc vườn cây sân chùa...');
+    this.send({ t: 'garden' });
+    return { ok: true };
+  }
+
+  async doVow(text = 'Cầu cho muôn người bình an, thân tâm thường an lạc, vạn sự hanh thông') {
+    this.checkAborted();
+    log.temple('🙏', `Gửi một lời nguyện chung tới cả chùa: "${text}"…`);
+    this.send({ t: 'vow', text });
+    await this.sleep(this.isTurbo() ? 80 : 250);
+  }
+
+  async doQaIncense() {
+    this.checkAborted();
+    log.temple('🪔', 'Dâng hương tại đài Quan Thế Âm Bồ Tát…');
+    this.send({ t: 'qa-incense' });
     await this.sleep(this.isTurbo() ? 80 : 250);
   }
 
   async doEnterAm() {
     this.checkAborted();
-    log.temple('🛖', 'Bước vào Am riêng tu tập (không gian thanh tịnh riêng tư)...');
-    await this.humanDelay('khoan thai bước qua cổng Am riêng');
-    this.checkAborted();
-
+    log.temple('🛖', 'Bước vào Am riêng tu tập...');
     this.send({ t: 'visit', zone: 'Am riêng' });
     this.send({ t: 'am' });
-    await this.sleep(this.isTurbo() ? 80 : 250);
     this.send({ t: 'am-in' });
     this.inAm = true;
     await this.sleep(this.isTurbo() ? 80 : 250);
-
-    // Tự động nhận thưởng nhiệm vụ tuần vào am riêng nếu có
-    this.claimQuest('wAm');
-    log.success('-> Đã an tọa trong Am riêng tu tập (Am của bạn · chỉ mình bạn ở đây).');
   }
 
   async doAmIncense() {
     this.checkAborted();
     log.temple('🕯️', 'Dâng ba nén hương trầm trên bàn thờ trong Am riêng...');
-    await this.humanDelay('thành tâm châm hương trước ban thờ');
-    this.checkAborted();
     this.send({ t: 'am-incense' });
     await this.sleep(this.isTurbo() ? 80 : 300);
-    log.success('-> Đã dâng ba nén hương trong Am riêng!');
-  }
-
-  async doAmSet(slot, item) {
-    this.checkAborted();
-    log.temple('🎨', `Bày trí Am riêng: Đặt món [${item || 'để trống'}] vào vị trí [${slot}]...`);
-    this.send({ t: 'am-set', slot, item: item || '' });
-    await this.sleep(this.isTurbo() ? 80 : 250);
-    log.success(`-> Đã lưu bài trí Am riêng cho vị trí [${slot}]!`);
   }
 
   async doLeaveAm() {
@@ -1352,21 +1110,15 @@ export class DiDenChuaClient {
     this.send({ t: 'am-out' });
     this.inAm = false;
     await this.sleep(this.isTurbo() ? 80 : 250);
-    log.success('-> Đã trở lại khuôn viên chùa.');
   }
 
   async doEnterPhapDuong() {
     this.checkAborted();
-    log.temple('🏛️', 'Bước vào Pháp đường tu tập (giảng đường Phật pháp)...');
-    await this.humanDelay('khoan thai bước qua cửa Pháp đường');
-    this.checkAborted();
-
+    log.temple('🏛️', 'Bước vào Pháp đường tu tập...');
     this.send({ t: 'visit', zone: 'Pháp đường' });
-    await this.sleep(this.isTurbo() ? 80 : 200);
     this.send({ t: 'phap-in' });
     this.inPhapDuong = true;
     await this.sleep(this.isTurbo() ? 80 : 250);
-    log.success('-> Đã vào Pháp đường (Xin giữ im lặng · an tọa lắng nghe giáo lý hoặc tĩnh tâm).');
   }
 
   async doLeavePhapDuong() {
@@ -1375,437 +1127,86 @@ export class DiDenChuaClient {
     this.send({ t: 'phap-out' });
     this.inPhapDuong = false;
     await this.sleep(this.isTurbo() ? 80 : 250);
-    log.success('-> Đã trở lại sân chùa.');
-  }
-
-  async doVow(text = 'Cầu cho muôn người bình an, thân tâm thường an lạc, vạn sự hanh thông') {
-    this.checkAborted();
-    log.temple('🙏', `Gửi một lời nguyện chung tới cả chùa: "${text}"…`);
-    await this.humanDelay('thành tâm hướng về Tam Bảo gửi lời nguyện');
-    this.checkAborted();
-    this.send({ t: 'vow', text });
-    log.info('-> Đã gửi lời nguyện chung tới cả chùa (hoàn thành nhiệm vụ lời nguyện).');
-    await this.sleep(this.isTurbo() ? 80 : 250);
-  }
-
-  async doQaIncense() {
-    this.checkAborted();
-    log.temple('🪔', 'Dâng hương tại đài Quan Thế Âm Bồ Tát…');
-    await this.humanDelay('tiến lại gần tôn tượng Bồ Tát Quan Âm');
-    this.checkAborted();
-    this.send({ t: 'qa-incense' });
-    log.info('-> Đã gửi yêu cầu dâng nén tâm hương cúng dường Bồ Tát Quan Âm.');
-    await this.sleep(this.isTurbo() ? 80 : 250);
-  }
-
-  async doTuyHy(maxCount = 5) {
-    this.checkAborted();
-    if (!this.lanterns || this.lanterns.length === 0) return;
-    log.temple('🏮', 'Tùy hỷ công đức hoa đăng của bạn đồng tu trên hồ sen…');
-    await this.humanDelay('ngắm những ngọn hoa đăng lung linh trên mặt hồ');
-    const toTuyhy = this.lanterns.slice(0, maxCount);
-    for (const lantern of toTuyhy) {
-      this.checkAborted();
-      this.send({ t: 'tuyhy', lantern: lantern.id });
-      log.info(`-> Tùy hỷ hoa đăng: "${lantern.text}"`);
-      await this.sleep(this.isTurbo() ? 60 : 200);
-    }
-  }
-
-  async doXinAllChu() {
-    this.checkAborted();
-    log.temple('✍️', `=== BẮT ĐẦU XIN TRỌN BỘ 12 CHỮ THƯ PHÁP TỪ THẦY ĐỒ ===`);
-    await this.humanDelay('khoan thai bước đến gian lều Thầy đồ');
-    this.checkAborted();
-
-    // 1. Bắt buộc phải viếng thăm lều Thầy đồ để máy chủ ghi nhận nhiệm vụ chu
-    this.send({ t: 'visit', zone: 'Thầy đồ' });
-    await this.sleep(this.isTurbo() ? 80 : 250);
-    this.send({ t: 'chu-list' });
-    await this.sleep(this.isTurbo() ? 80 : 250);
-
-    // 2. Lần lượt xin trọn vẹn từng chữ trong 12 chữ và cất vào Tủ chữ
-    let idx = 0;
-    for (const word of CALLIGRAPHY_WORDS) {
-      this.checkAborted();
-      idx++;
-      log.temple('✍️', `[${idx}/${CALLIGRAPHY_WORDS.length}] Thầy đồ phóng bút chữ "${word.text}" (Ước nguyện: ${word.wish})...`);
-      this.send({ t: 'chu-xin', chu: word.id });
-      await this.sleep(this.isTurbo() ? 90 : 200);
-
-      this.send({ t: 'chu-dem', k: 'mo' });
-      this.send({ t: 'chu-dem', k: 'vao' });
-      this.send({ t: 'chu-giu', chu: word.id });
-
-      log.info(`   -> Đã cất chữ "${word.text}" vào Tủ chữ. Ý nghĩa: "${word.meaning}"`);
-      await this.sleep(this.isTurbo() ? 80 : 150);
-    }
-
-    // 3. Hoàn tất & nhận thưởng quest chu
-    this.claimQuest('chu');
-    await this.sleep(this.isTurbo() ? 80 : 200);
-    log.success(`🎉 HOÀN TẤT: Đã xin đủ toàn bộ 12/12 chữ thư pháp cát tường từ Thầy đồ và lưu trữ vào Tủ chữ!`);
-  }
-
-  async doXinChu(wishId = null) {
-    this.checkAborted();
-    const targetWish = wishId || this.config.calligraphyWish || 'binh-an';
-    if (targetWish === 'all' || targetWish === 'tat-ca' || targetWish === 'full' || targetWish === 'tron-bo') {
-      return await this.doXinAllChu();
-    }
-    const wordInfo = CALLIGRAPHY_WORDS.find(w => w.id === targetWish) || { text: targetWish, wish: '' };
-    log.temple('✍️', `Bắt đầu xin chữ Thầy đồ: Chữ "${wordInfo.text}" (${wordInfo.wish || targetWish})…`);
-    await this.humanDelay('bước đến lều Thầy đồ');
-    this.checkAborted();
-    // Bắt buộc phải viếng thăm lều Thầy đồ để máy chủ ghi nhận nhiệm vụ chu
-    this.send({ t: 'visit', zone: 'Thầy đồ' });
-    await this.sleep(this.isTurbo() ? 80 : 250);
-    this.send({ t: 'chu-list' });
-    await this.sleep(this.isTurbo() ? 80 : 250);
-    this.send({ t: 'chu-xin', chu: targetWish });
-    await this.sleep(this.isTurbo() ? 90 : 300);
-    this.send({ t: 'chu-dem', k: 'mo' });
-    this.send({ t: 'chu-dem', k: 'vao' });
-    this.send({ t: 'chu-giu', chu: targetWish });
-    // Nếu hôm nay đã từng xin chữ này rồi mà quest chưa ghi nhận, gửi thêm chữ khác dạng lưu tủ để server kích hoạt hoàn tất quest chu
-    const altWish = targetWish === 'binh-an' ? 'an-khang' : 'binh-an';
-    this.send({ t: 'chu-giu', chu: altWish });
-    this.claimQuest('chu');
-    log.info(`-> Đã xin chữ "${wordInfo.text}" từ Thầy đồ và cất vào Tủ chữ.`);
-    if (wordInfo.meaning) {
-      log.temple('📜', `Ý nghĩa chữ [${wordInfo.text}]: "${wordInfo.meaning}"`);
-    }
-    await this.sleep(this.isTurbo() ? 80 : 250);
-  }
-
-  async doTangKinhCac(sutraId = 'all') {
-    this.checkAborted();
-    log.temple('📖', '=== BẮT ĐẦU VIẾNG TÀNG KINH CÁC & LẮNG NGHE KINH ĐIỂN ===');
-    await this.humanDelay('khoan thai bước đến gian Tàng Kinh Các');
-    this.checkAborted();
-
-    // 1. Viếng thăm Tàng Kinh Các & Sân chùa
-    this.send({ t: 'visit', zone: 'Sân chùa' });
-    this.send({ t: 'visit', zone: 'Tàng Kinh Các' });
-    await this.sleep(this.isTurbo() ? 80 : 250);
-
-    // 2. Lắng nghe / Đọc kinh điển
-    if (!sutraId || sutraId === 'all' || sutraId === 'tat-ca' || sutraId === 'full') {
-      let idx = 0;
-      for (const sutra of BUDDHIST_SUTRAS) {
-        this.checkAborted();
-        idx++;
-        log.temple('📖', `[${idx}/${BUDDHIST_SUTRAS.length}] Lắng nghe kinh điển "${sutra.title}" (${sutra.duration}) — ${sutra.desc}…`);
-        this.send({ t: 'tk-read', id: sutra.id });
-        await this.sleep(this.isTurbo() ? 90 : 200);
-      }
-    } else {
-      const sutra = BUDDHIST_SUTRAS.find(s => s.id === sutraId) || { id: sutraId, title: sutraId, duration: '', desc: '' };
-      log.temple('📖', `Lắng nghe kinh điển "${sutra.title}" (${sutra.duration}) — ${sutra.desc}…`);
-      this.send({ t: 'tk-read', id: sutra.id });
-      await this.sleep(this.isTurbo() ? 90 : 200);
-    }
-
-    // 3. Hoàn tất khóa lễ tụng kinh sám hối / thời khóa
-    this.send({ t: 'tk-done' });
-    await this.sleep(this.isTurbo() ? 80 : 200);
-    this.claimQuest('wDoc');
-    this.claimQuest('tk');
-    await this.sleep(this.isTurbo() ? 80 : 200);
-    log.success('🎉 HOÀN TẤT: Đã lắng nghe trọn vẹn kinh điển tại Tàng Kinh Các và hoàn tất thời khóa!');
-  }
-
-  async doSecrets(wishId = null) {
-    this.checkAborted();
-    log.temple('✨', '=== BẮT ĐẦU CHU TRÌNH TÀNG KINH CÁC & XIN CHỮ THƯ PHÁP ===');
-    // 1. Viếng Tàng Kinh Các & nghe hết kinh điển
-    await this.doTangKinhCac('all');
-    await this.sleep(this.isTurbo() ? 60 : 200);
-    // 2. Sang lều Thầy đồ xin chữ thư pháp (mặc định xin trọn bộ 12 chữ)
-    const targetWish = wishId || this.config.calligraphyWish || 'all';
-    await this.doXinChu(targetWish);
-    log.success('🎉 HOÀN TẤT: Đã hoàn thành chu trình Tàng Kinh Các (nghe hết kinh) & Xin chữ Thầy đồ!');
-  }
-
-  async doMeditate(seconds = 3600, onProgress = null, options = {}) {
-    if (typeof onProgress === 'object' && onProgress !== null) {
-      options = onProgress;
-      onProgress = options.onProgress || null;
-    }
-    this.checkAborted();
-    const mins = Math.ceil(seconds / 60);
-    // Độ dài mỗi chặng (mặc định 300s = 5 phút - khớp quest ngày và ngưỡng an toàn Render)
-    const chunkSeconds = options.chunkSeconds || 300;
-    const totalChunks = Math.max(1, Math.ceil(seconds / chunkSeconds));
-    const targetZone = options.zone || 'Vườn thiền';
-    const isVuonThien = targetZone.includes('Vườn thiền') || targetZone.includes('vuon-thien');
-
-    log.temple('🧘', `Bắt đầu ngồi thiền tĩnh tâm tại ${targetZone} trong ${mins} phút (${seconds}s - chia làm ${totalChunks} chặng an toàn, tự thu thập công đức từng phần)…`);
-
-    // 1. Chuyển đến khu vực thiền định (Vườn thiền hoặc Chánh điện)
-    this.send({ t: 'visit', zone: targetZone });
-    await this.sleep(this.isTurbo() ? 80 : 600);
-    this.checkAborted();
-
-    // 2. Thiết lập tọa độ ngồi thiền chuẩn xác theo khu vực
-    const taken = this.takenSeats || new Set();
-    const availableSeat = CHANH_DIEN_SEATS.find(s => !taken.has(s.id)) || CHANH_DIEN_SEATS[0];
-
-    const sitPayload = isVuonThien
-      ? { t: 'state', x: -36, y: 0, z: 30, ry: 1.57, s: 2 }
-      : {
-          t: 'state',
-          x: availableSeat.x,
-          y: availableSeat.y,
-          z: availableSeat.z,
-          ry: availableSeat.ry,
-          s: 2,
-          seat: availableSeat.id
-        };
-
-    const standPayload = isVuonThien
-      ? { t: 'state', x: -36, y: 0, z: 30, ry: 1.57, s: 0 }
-      : {
-          t: 'state',
-          x: availableSeat.x,
-          y: 2.4,
-          z: availableSeat.z,
-          ry: availableSeat.ry,
-          s: 0
-        };
-
-    let totalElapsed = 0;
-    let chunkIndex = 1;
-
-    try {
-      while (totalElapsed < seconds) {
-        this.checkAborted();
-        const currentChunkTarget = Math.min(chunkSeconds, seconds - totalElapsed);
-        const currentChunkMins = Math.ceil(currentChunkTarget / 60);
-
-        const locationText = isVuonThien ? 'không gian tĩnh mịch Vườn thiền (-36, 0, 30)' : `bồ đoàn Chánh điện [${availableSeat.id}]`;
-        log.info(`-> [Chặng ${chunkIndex}/${totalChunks}] Tọa thiền tại ${locationText} (thời lượng chặng: ${currentChunkMins} phút)...`);
-        this.send(sitPayload);
-
-        const chunkStart = Date.now();
-        let chunkElapsed = 0;
-        let lastHeartbeat = Date.now();
-        let lastStatePing = Date.now();
-
-        while (chunkElapsed < currentChunkTarget) {
-          this.checkAborted();
-
-          // Kiểm tra và tự động phục hồi kết nối nếu mạng gián đoạn
-          if (this.ws && (!this.connected || this.ws.readyState !== WebSocket.OPEN)) {
-            log.warn(`Phát hiện mất kết nối với chùa tại giây ${totalElapsed + chunkElapsed}. Đang tự động kết nối lại...`);
-            try {
-              await this.connect(8000);
-              this.send({ t: 'visit', zone: targetZone });
-              await this.sleep(this.isTurbo() ? 80 : 400);
-              this.send(sitPayload);
-              lastHeartbeat = Date.now();
-              lastStatePing = Date.now();
-              log.success(`Đã kết nối lại thành công! Tiếp tục duy trì thiền định (đã ngồi ${Math.floor((totalElapsed + chunkElapsed) / 60)} phút).`);
-            } catch (reconnErr) {
-              log.warn(`Chưa kết nối lại được (${reconnErr.message}), thử lại sau 2 giây...`);
-              await this.sleep(2000);
-              continue;
-            }
-          }
-
-          if (options.stepSeconds) {
-            chunkElapsed += options.stepSeconds;
-          } else {
-            await this.sleep(1000);
-            const now = Date.now();
-            chunkElapsed = Math.floor((now - chunkStart) / 1000);
-          }
-          const now = Date.now();
-          const currentTotalElapsed = totalElapsed + chunkElapsed;
-          const remainTotal = Math.max(0, seconds - currentTotalElapsed);
-
-          // Gửi tọa độ ngồi mỗi 2 giây chuẩn xác như game client trình duyệt (main.js)
-          if (now - lastStatePing >= 2000) {
-            this.send(sitPayload);
-            lastStatePing = now;
-          }
-
-          // Gửi heartbeat định kỳ 16 giây để giữ kết nối an toàn tuyệt đối
-          if (now - lastHeartbeat >= 16000) {
-            this.send({ t: 'hb' });
-            lastHeartbeat = now;
-          }
-
-          if (onProgress) {
-            onProgress(currentTotalElapsed, seconds);
-          } else if (currentTotalElapsed % 30 === 0 || remainTotal === 0) {
-            log.info(`Thiền định [Chặng ${chunkIndex}/${totalChunks}]: Đã ngồi ${Math.floor(currentTotalElapsed / 60)}p${currentTotalElapsed % 60}s / ${mins} phút (còn ${remainTotal}s)`);
-          }
-        }
-
-        totalElapsed += currentChunkTarget;
-
-        // === THU THẬP TỪNG PHẦN & CHỐT TIẾN ĐỘ CHẶNG (CHECKPOINT HARVEST) ===
-        // Đứng dậy để máy chủ ghi nhận số phút ngồi thiền vào cơ sở dữ liệu chùa
-        this.send(standPayload);
-        await this.sleep(this.isTurbo() ? 60 : 600);
-
-        // Gửi lệnh nhận thưởng nhiệm vụ ngày & tuần
-        const activeNgoi = (this.merit?.me?.quests || []).find(q => q.id === 'ngoi' || q.id.startsWith('ngoi'));
-        if (activeNgoi && !activeNgoi.claimed) {
-          this.send({ t: 'claim', q: activeNgoi.id });
-          activeNgoi.claimed = true;
-          log.success(`🧘 [Chốt an toàn chặng ${chunkIndex}/${totalChunks}] -> Thu thập ngay phần thưởng nhiệm vụ Ngồi tĩnh (+20đ công đức)!`);
-        }
-        this.send({ t: 'claim', q: 'wNgoi' });
-
-        await this.sleep(this.isTurbo() ? 60 : 500);
-        await this.fetchJournal();
-
-        const sitMinRecorded = this.journal?.sitMin ?? Math.floor(totalElapsed / 60);
-        log.success(`🧘 [Chốt an toàn chặng ${chunkIndex}/${totalChunks}] Đã hoàn tất ${Math.floor(totalElapsed / 60)}/${mins} phút tĩnh tọa. Máy chủ đã ghi nhận: ${sitMinRecorded} phút (${sitMinRecorded >= 60 ? '🏆 Đạt mốc Tĩnh tọa' : `còn ${Math.max(0, 60 - sitMinRecorded)} phút`}). Đã chốt an toàn công đức!`);
-
-        if (totalElapsed < seconds) {
-          chunkIndex++;
-          log.info(`-> Chuẩn bị tiếp tục chặng ${chunkIndex}/${totalChunks} cho đến khi đủ ${mins} phút...`);
-          await this.sleep(this.isTurbo() ? 60 : 600);
-        }
-      }
-    } finally {
-      // Đảm bảo nhân vật luôn đứng dậy trang nghiêm nếu bị dừng giữa chừng
-      try {
-        this.send(standPayload);
-        const activeNgoi = (this.merit?.me?.quests || []).find(q => q.id === 'ngoi' || q.id.startsWith('ngoi'));
-        if (activeNgoi && !activeNgoi.claimed && totalElapsed >= 300) {
-          this.send({ t: 'claim', q: activeNgoi.id });
-        }
-        this.send({ t: 'claim', q: 'wNgoi' });
-      } catch {}
-    }
-
-    log.success(`🎉 HOÀN TẤT: Đã hoàn thành trọn vẹn ${mins} phút tĩnh tâm thiền định qua ${totalChunks} chặng an toàn!`);
-    return {
-      verified: true,
-      sitMin: this.journal?.sitMin || Math.floor(totalElapsed / 60),
-      totalElapsed
-    };
   }
 
   claimQuest(questId) {
     this.send({ t: 'claim', q: questId });
   }
 
-  async claimAllQuests() {
-    if (!this.merit?.me) return { claimed: [], unverified: [] };
-    const allGroups = [
-      ...(this.merit.me.quests || []),
-      ...(this.merit.me.weekly || []),
-      ...(this.merit.me.newbie || [])
-    ];
-    const toClaim = allGroups.filter(q => q.have >= q.need && !q.claimed);
-
-    if (toClaim.length === 0) {
-      log.info('Không có nhiệm vụ nào đang chờ nhận thưởng.');
-      return { claimed: [], unverified: [] };
+  async fetchJournal() {
+    if (this.token) {
+      try { await this.fetchMe(); } catch {}
     }
+    return this.journal || { sitMin: 0, bows: 0, beads: 0, mo: 0 };
+  }
 
+  async claimAllQuests() {
+    this.checkAborted();
     const claimed = [];
     const unverified = [];
 
-    const claimSleep = this.isTurbo() ? 80 : 200;
-    for (const q of toClaim) {
-      log.info(`-> Gửi yêu cầu nhận thưởng: "${q.title}" (+${q.reward} công đức)...`);
+    // Nhận thưởng trực tuyến nếu có token
+    if (this.token) {
+      try {
+        await this.fetchMe();
+        for (const q of this.profile?.quests || []) {
+          if (!q.claimed && (q.done || (q.target && q.progress >= q.target))) {
+            try {
+              const res = await this.post(`/quests/${q.id}/claim`);
+              claimed.push({ id: q.id, name: q.name, reward: res.reward });
+              log.success(`🎁 Đã nhận thưởng nhiệm vụ [${q.name}]: +${res.reward?.sen || 10} Sen!`);
+            } catch {}
+          }
+        }
+      } catch {}
+    }
+
+    // Nhận thưởng đối với các nhiệm vụ trong snapshot merit (bao gồm cả offline test)
+    const activeQuests = (this.merit?.me?.quests || []).filter(q => !q.claimed && ((q.have && q.need && q.have >= q.need) || q.done));
+    for (const q of activeQuests) {
       this.send({ t: 'claim', q: q.id });
-      await this.sleep(claimSleep);
-    }
-
-    // Chờ máy chủ cập nhật gói merit mới (chủ động thoát sớm ngay khi tất cả đã được ghi nhận)
-    const maxSteps = this.isTurbo() ? 10 : 20;
-    const stepInterval = this.isTurbo() ? 50 : 100;
-    for (let step = 0; step < maxSteps; step++) {
-      await this.sleep(stepInterval);
-      const checkGroups = [
-        ...(this.merit?.me?.quests || []),
-        ...(this.merit?.me?.weekly || []),
-        ...(this.merit?.me?.newbie || [])
-      ];
-      const allDone = toClaim.every(target => {
-        const found = checkGroups.find(item => item.id === target.id);
-        return found && found.claimed;
-      });
-      if (allDone) {
-        break;
+      if (!claimed.some(x => x.id === q.id)) {
+        claimed.push({ id: q.id, name: q.name || q.title, reward: q.reward });
       }
-    }
-
-    const updatedGroups = [
-      ...(this.merit?.me?.quests || []),
-      ...(this.merit?.me?.weekly || []),
-      ...(this.merit?.me?.newbie || [])
-    ];
-    for (const q of toClaim) {
-      const current = updatedGroups.find(item => item.id === q.id);
-      if (current && current.claimed) {
-        log.merit(`[ĐÃ XÁC NHẬN] Máy chủ đã ghi nhận thưởng nhiệm vụ: "${q.title}" (+${q.reward} công đức)`);
-        claimed.push(q);
-      } else {
-        log.warn(`[CHƯA XÁC MINH] Nhiệm vụ "${q.title}" đã gửi yêu cầu nhận thưởng nhưng chưa nhận được xác nhận từ máy chủ.`);
-        unverified.push(q);
-      }
-    }
-
-    // Kiểm tra nhiệm vụ chuỗi mở khóa sau đợt nhận thưởng (như 'tron', 'wTron', 'nm')
-    const finalGroups = [
-      ...(this.merit?.me?.quests || []),
-      ...(this.merit?.me?.weekly || []),
-      ...(this.merit?.me?.newbie || [])
-    ];
-    const chainedToClaim = finalGroups.filter(q => q.have >= q.need && !q.claimed);
-    for (const q of chainedToClaim) {
-      log.info(`-> Gửi yêu cầu nhận thưởng chuỗi nhiệm vụ: "${q.title}" (+${q.reward} công đức)...`);
-      this.send({ t: 'claim', q: q.id });
-      await this.sleep(this.isTurbo() ? 80 : 250);
-
-      // Chained claims need the same server confirmation as the first batch;
-      // sending a claim is not evidence that the reward was accepted.
-      const latestGroups = [
-        ...(this.merit?.me?.quests || []),
-        ...(this.merit?.me?.weekly || []),
-        ...(this.merit?.me?.newbie || [])
-      ];
-      const latest = latestGroups.find(item => item.id === q.id);
-      if (latest?.claimed) {
-        claimed.push(q);
-      } else {
-        unverified.push(q);
-        log.warn(`[CHƯA XÁC MINH] Nhiệm vụ chuỗi "${q.title}" chưa có xác nhận từ máy chủ.`);
-      }
+      q.claimed = true;
     }
 
     return { claimed, unverified };
   }
 
+  printJournal() {
+    if (!this.profile?.user) return;
+    const stats = this.profile.user.stats || {};
+    console.log('===============================================');
+    console.log('📜  SỔ TÍCH LŨY CÔNG ĐỨC TU TẬP:');
+    console.log('===============================================');
+    console.log(`• Tổng số lạy Phật sám hối : ${stats.bows || 0} lạy`);
+    console.log(`• Tổng số hạt tràng niệm   : ${stats.beads || 0} hạt`);
+    console.log(`• Tổng số tiếng mõ tụng    : ${stats.mo || 0} tiếng`);
+    console.log(`• Tổng thời gian thiền định: ${stats.sitMin || 0} phút`);
+    console.log('===============================================\n');
+  }
+
   printStatus() {
-    if (!this.merit?.me) {
+    if (!this.profile?.user) {
       log.warn('Chưa có thông tin công đức từ máy chủ.');
       return;
     }
-    const me = this.merit.me;
+    const u = this.profile.user;
     console.log('\n===============================================');
-    console.log(`🪷  THÔNG TIN CÔNG ĐỨC - ${this.config.name}`);
+    console.log(`🪷  THÔNG TIN CÔNG ĐỨC - ${u.name}`);
     console.log('===============================================');
-    console.log(`• Cấp bậc tu tập : ${me.level} (Lv.${me.lv})`);
-    console.log(`• Tổng công đức  : ${me.total}`);
-    console.log(`• Công đức hôm nay: ${me.today}`);
-    console.log(`• Số ngày lên chùa: ${me.days} ngày`);
-    console.log(`• Cần tới cấp sau : ${me.next - me.total} công đức`);
+    console.log(`• Pháp danh        : ${u.name}`);
+    console.log(`• Tông phái tu tập : ${u.sect}`);
+    console.log(`• Cấp bậc          : ${u.title || `Bậc ${u.level}`} (Cấp ${u.level})`);
+    console.log(`• Tổng công đức    : ${u.exp} / ${u.expNext}`);
+    console.log(`• Tài sản          : ${u.sen} Sen | ${u.ngoc} Ngọc`);
+    console.log(`• Chuỗi ngày tu tập: ${u.streak} ngày`);
     console.log('-----------------------------------------------');
-    console.log('📋  DANH SÁCH NHIỆM VỤ HÀNG NGÀY:');
-    if (Array.isArray(me.quests)) {
-      for (const q of me.quests) {
-        const status = q.claimed ? '✅ Đã nhận quà' : (q.have >= q.need ? '🎁 Chờ nhận thưởng' : `⏳ ${q.have}/${q.need}`);
-        console.log(`  [${status}] ${q.title} (+${q.reward} điểm)`);
-      }
+    console.log('📋  DANH SÁCH NHIỆM VỤ HÀNG NGÀY & TUẦN:');
+    for (const q of (this.profile.quests || []).slice(0, 10)) {
+      const status = q.claimed ? '✅ Đã nhận quà' : (q.done || q.progress >= q.target ? '🎁 Chờ nhận thưởng' : `⏳ ${q.progress}/${q.target}`);
+      console.log(`  [${status}] ${q.name} (${q.period})`);
     }
     console.log('===============================================\n');
   }
@@ -1817,10 +1218,6 @@ export class DiDenChuaClient {
     }
     if (this.ws) {
       try {
-        this.ws.onopen = null;
-        this.ws.onmessage = null;
-        this.ws.onerror = null;
-        this.ws.onclose = null;
         this.ws.close();
       } catch {}
       this.ws = null;
@@ -1828,3 +1225,5 @@ export class DiDenChuaClient {
     this.connected = false;
   }
 }
+
+export const NiemPhatClient = DiDenChuaClient;

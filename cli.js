@@ -212,6 +212,43 @@ async function main() {
       await runBell(args[0] ? parseInt(args[0], 10) : 1);
       break;
 
+    case 'que':
+    case 'gieoque':
+    case 'xam': {
+      const client = new DiDenChuaClient();
+      try {
+        await client.connect();
+        await client.doQue();
+      } finally {
+        client.close();
+      }
+      break;
+    }
+
+    case 'wheel':
+    case 'vongquay': {
+      const client = new DiDenChuaClient();
+      try {
+        await client.connect();
+        await client.doWheel();
+      } finally {
+        client.close();
+      }
+      break;
+    }
+
+    case 'vieng':
+    case 'hanhhuong': {
+      const client = new DiDenChuaClient();
+      try {
+        await client.connect();
+        await client.doVisitAll();
+      } finally {
+        client.close();
+      }
+      break;
+    }
+
     case 'meditate':
     case 'ngoi':
       await runMeditate(args[0] ? parseInt(args[0], 10) : 3600);
