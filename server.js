@@ -24,6 +24,15 @@ import { notifyRunResult } from './src/notify.js';
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const HOST = '0.0.0.0';
 
+// URL ứng dụng công khai (dùng để ping giữ thức Render Free Tier từ router ngoại vi)
+const PUBLIC_APP_URL = (
+  process.env.RENDER_EXTERNAL_URL
+  || process.env.PUBLIC_URL
+  || process.env.APP_URL
+  || (process.env.RENDER_SERVICE_NAME ? `https://${process.env.RENDER_SERVICE_NAME}.onrender.com` : '')
+  || 'https://didenchua-bot.onrender.com'
+).replace(/\/+$/, '');
+
 // Cấu hình mã bảo mật & xác thực (Priority 1)
 const AUTH_TOKEN = (process.env.AUTH_TOKEN || process.env.CRON_SECRET || process.env.ADMIN_KEY || '').trim();
 const CSRF_TOKEN = crypto.randomBytes(32).toString('hex');
@@ -491,6 +500,7 @@ const state = {
   runStartTime: null,
   currentRunId: null,
   runTriggerSource: null,
+  activeRun: null,
   runHistory: [],
   currentLogs: []
 };
@@ -508,6 +518,33 @@ function loadCachedState() {
       if (Array.isArray(data.runHistory) && data.runHistory.length > 0) {
         state.runHistory = data.runHistory;
       }
+      if (Array.isArray(data.currentLogs) && data.currentLogs.length > 0) {
+        state.currentLogs = data.currentLogs;
+      }
+      // Phát hiện tiến trình bị gián đoạn do máy chủ Render Free tự động tắt (spindown) sau 15 phút không có người xem
+      if (data.activeRun && data.activeRun.runId) {
+        const interruptedTask = data.activeRun.taskTitle || data.activeRun.taskId || 'Nhiệm vụ';
+        const interruptedMsg = `Tiến trình [${interruptedTask}] trước đó đã bị gián đoạn do máy chủ Render Free tự động tắt (spindown) sau 15 phút không có người xem.`;
+        addWebLog(`⚠️ ${interruptedMsg}`, 'warn', '⚠️');
+        state.runHistory.unshift({
+          id: data.activeRun.runId,
+          runId: data.activeRun.runId,
+          triggerSource: data.activeRun.runTriggerSource || 'Manual / Web',
+          task: data.activeRun.taskId,
+          taskTitle: interruptedTask,
+          startedAt: data.activeRun.startedAt || new Date().toISOString(),
+          finishedAt: new Date().toISOString(),
+          durationSeconds: data.activeRun.startedAt ? Math.round((Date.now() - new Date(data.activeRun.startedAt).getTime()) / 1000) : 0,
+          status: 'stopped',
+          step: 'render_spindown',
+          message: interruptedMsg,
+          verificationStatus: 'unverified',
+          verificationDetail: 'Bị ngắt bởi cơ chế tiết kiệm tài nguyên của Render Free.'
+        });
+        if (state.runHistory.length > 15) state.runHistory.pop();
+        state.activeRun = null;
+        saveCachedState();
+      }
     }
   } catch (err) {
     log.warn('Không thể nạp file cache trạng thái:', err.message);
@@ -520,6 +557,8 @@ function saveCachedState() {
       lastUpdated: state.lastUpdated,
       merit: state.merit,
       journal: state.journal,
+      activeRun: state.activeRun || null,
+      currentLogs: state.currentLogs.slice(0, 50),
       runHistory: state.runHistory.slice(0, 15)
     }, null, 2), 'utf-8');
   } catch (err) {
@@ -531,6 +570,15 @@ function saveCachedState() {
 loadCachedState();
 
 // Ghi log vào bộ nhớ đệm theo cấu trúc sự kiện chuẩn (SYSTEM_LOG_REPORT)
+let logSaveTimer = null;
+function scheduleCacheSave() {
+  if (logSaveTimer) return;
+  logSaveTimer = setTimeout(() => {
+    logSaveTimer = null;
+    saveCachedState();
+  }, 2000);
+}
+
 function addWebLog(msg, level = 'info', icon = 'ℹ️') {
   const now = new Date();
   const timeVN = new Date(now.getTime() + 7 * 3600 * 1000).toISOString().slice(11, 19);
@@ -545,6 +593,7 @@ function addWebLog(msg, level = 'info', icon = 'ℹ️') {
   };
   state.currentLogs.unshift(entry);
   if (state.currentLogs.length > 80) state.currentLogs.pop();
+  scheduleCacheSave();
 }
 
 setLogHook((msg, level, icon) => {
@@ -627,6 +676,14 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
   state.currentRunId = runId;
   state.runStartTime = Date.now();
   state.runTriggerSource = triggerSource;
+  state.activeRun = {
+    runId,
+    taskId,
+    taskTitle,
+    startedAt: new Date().toISOString(),
+    runTriggerSource: triggerSource
+  };
+  saveCachedState();
 
   const startedAt = new Date().toISOString();
   addWebLog(`⚡ [${runId}] Khởi động tác vụ: ${taskTitle} (Nguồn: ${triggerSource})...`, 'info', '⚡');
@@ -639,14 +696,19 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
   let keepAliveTimer = null;
 
   try {
-    // Tự động ping keep-alive mỗi 3 phút trong lúc làm nhiệm vụ để chống Render Free Tier ngủ gật
-    const keepAliveUrl = process.env.RENDER_EXTERNAL_URL
-      ? `${process.env.RENDER_EXTERNAL_URL}/health`
-      : `http://127.0.0.1:${PORT}/health`;
-    keepAliveTimer = setInterval(() => {
-      fetch(keepAliveUrl).catch(() => {});
-    }, 180000);
-    if (keepAliveTimer.unref) keepAliveTimer.unref();
+    // Tự động ping keep-alive mỗi 3 phút tới URL công khai HTTPS để Render Router nhận diện traffic và reset bộ đếm 15 phút
+    const keepAliveUrl = `${PUBLIC_APP_URL}/health`;
+    addWebLog(`📡 Kích hoạt cơ chế tự giữ thức Render: định kỳ ping ${keepAliveUrl}...`, 'info', '📡');
+    keepAliveTimer = setInterval(async () => {
+      try {
+        const resp = await fetch(keepAliveUrl);
+        if (resp.ok) {
+          log.info(`[Keep-Alive] Đã gửi tín hiệu giữ thức tới ${keepAliveUrl} thành công.`);
+        }
+      } catch (pingErr) {
+        fetch(`http://127.0.0.1:${PORT}/health`).catch(() => {});
+      }
+    }, 180000); // 3 phút / lần (timeout của Render là 15 phút)
 
     // 1. Chụp baseline snapshot trước khi chạy để đối soát trung thực
     if (!state.merit?.me || !state.journal) {
@@ -1165,6 +1227,8 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
     state.runStartTime = null;
     state.runTriggerSource = null;
     state.currentRunId = null;
+    state.activeRun = null;
+    saveCachedState();
   }
 }
 
@@ -1638,7 +1702,7 @@ function renderDashboardHTML() {
       </div>
       <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-dim); flex-wrap:wrap; gap:8px;">
         <span>📡 Đang truyền nhật ký trực tiếp (Tự động cập nhật mỗi 2 giây)...</span>
-        <span style="color:var(--gold);">⚡ Xin vui lòng không tắt tab</span>
+        <span style="color:var(--gold);">💡 Cơ chế tự giữ thức Render đang hoạt động (tự ping HTTPS mỗi 3 phút)</span>
       </div>
     </div>
   ` : `
@@ -2873,6 +2937,9 @@ function renderDashboardHTML() {
     }
 
     async function manualRefresh() {
+      if (!confirm('⚠️ LƯU Ý KẾT NỐI MÁY CHỦ CHÙA:\nLàm mới dữ liệu từ chùa sẽ kết nối máy chủ trong vài giây để lấy snapshot công đức mới nhất.\nNếu bạn đang tự chơi game trên điện thoại/máy tính, phiên game có thể bị ngắt kết nối.\n\nBạn có chắc chắn muốn làm mới từ chùa lúc này không?')) {
+        return;
+      }
       const csrfMeta = document.querySelector('meta[name="csrf-token"]');
       const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
       const refBtn = document.getElementById('refreshBtn');

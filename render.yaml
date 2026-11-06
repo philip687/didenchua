@@ -15,6 +15,8 @@ services:
         value: chua-1
       - key: SAFE_MODE
         value: "true"
+      - key: RENDER_EXTERNAL_URL
+        value: "https://didenchua-bot.onrender.com"
       - key: AUTH_TOKEN
         sync: false
       - key: NODE_VERSION
