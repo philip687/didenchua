@@ -1642,6 +1642,13 @@ export class DiDenChuaClient {
 
     let totalElapsed = 0;
     let chunkIndex = 1;
+    let lastObservedSitMin = this.journal?.sitMin ?? null;
+    if (lastObservedSitMin === null && this.connected && !options.stepSeconds) {
+      if (typeof this.requestFreshJournal === 'function') {
+        await this.requestFreshJournal(1200).catch(() => null);
+      }
+      lastObservedSitMin = this.journal?.sitMin ?? null;
+    }
 
     try {
       while (totalElapsed < seconds) {
@@ -1651,6 +1658,7 @@ export class DiDenChuaClient {
 
         log.info(`-> [Chặng ${chunkIndex}/${totalChunks}] Tọa thiền tại bồ đoàn Chánh điện [${availableSeat.id}] (thời lượng chặng: ${currentChunkMins} phút)...`);
         this.send(sitPayload);
+        this.send({ t: 'sit', seat: availableSeat.id });
 
         const chunkStart = Date.now();
         let chunkElapsed = 0;
@@ -1668,6 +1676,7 @@ export class DiDenChuaClient {
               this.send({ t: 'visit', zone: 'Chánh điện' });
               await this.sleep(this.isTurbo() ? 80 : 400);
               this.send(sitPayload);
+              this.send({ t: 'sit', seat: availableSeat.id });
               lastHeartbeat = Date.now();
               lastStatePing = Date.now();
               log.success(`Đã kết nối lại thành công! Tiếp tục duy trì thiền định (đã ngồi ${Math.floor((totalElapsed + chunkElapsed) / 60)} phút).`);
@@ -1711,11 +1720,12 @@ export class DiDenChuaClient {
         totalElapsed += currentChunkTarget;
 
         // === THU THẬP TỪNG PHẦN & CHỐT TIẾN ĐỘ CHẶNG (CHECKPOINT HARVEST) ===
-        // Đứng dậy để máy chủ ghi nhận số phút ngồi thiền vào cơ sở dữ liệu chùa
+        // 1. Đứng dậy gửi đủ bộ lệnh stand + state để máy chủ chốt thời gian
+        this.send({ t: 'stand' });
         this.send(standPayload);
         await this.sleep(this.isTurbo() ? 60 : 600);
 
-        // Gửi lệnh nhận thưởng nhiệm vụ ngày & tuần
+        // 2. Gửi lệnh nhận thưởng nhiệm vụ ngày & tuần
         const activeNgoi = (this.merit?.me?.quests || []).find(q => q.id === 'ngoi' || q.id.startsWith('ngoi'));
         if (activeNgoi && !activeNgoi.claimed) {
           this.send({ t: 'claim', q: activeNgoi.id });
@@ -1724,11 +1734,42 @@ export class DiDenChuaClient {
         }
         this.send({ t: 'claim', q: 'wNgoi' });
 
+        // 3. Đồng bộ nhật ký từ máy chủ (kèm cơ chế kiên nhẫn Patience Wait)
         await this.sleep(this.isTurbo() ? 60 : 500);
-        await this.fetchJournal();
+        let freshJournal = null;
+        if (typeof this.requestFreshJournal === 'function' && !options.stepSeconds) {
+          freshJournal = await this.requestFreshJournal(1200).catch(() => null);
+        }
+        if (!freshJournal && typeof this.fetchJournal === 'function') {
+          freshJournal = await this.fetchJournal().catch(() => null);
+        }
 
-        const sitMinRecorded = this.journal?.sitMin ?? Math.floor(totalElapsed / 60);
-        log.success(`🧘 [Chốt an toàn chặng ${chunkIndex}/${totalChunks}] Đã hoàn tất ${Math.floor(totalElapsed / 60)}/${mins} phút tĩnh tọa. Máy chủ đã ghi nhận: ${sitMinRecorded} phút (${sitMinRecorded >= 60 ? '🏆 Đạt mốc Tĩnh tọa' : `còn ${Math.max(0, 60 - sitMinRecorded)} phút`}). Đã chốt an toàn công đức!`);
+        let curSitMin = (freshJournal || this.journal)?.sitMin ?? null;
+
+        // Nếu máy chủ chưa kịp cập nhật, tạm dừng 2s để chờ cơ sở dữ liệu chùa cam kết (Patience wait)
+        if (lastObservedSitMin !== null && curSitMin !== null && curSitMin <= lastObservedSitMin && !options.stepSeconds && !this.isTurbo()) {
+          log.info(`  ⏳ [Chặng ${chunkIndex}/${totalChunks}] Máy chủ đang xử lý dữ liệu thiền, tạm dừng 2s để chờ đồng bộ...`);
+          await this.sleep(2000);
+          if (typeof this.requestFreshJournal === 'function') {
+            freshJournal = await this.requestFreshJournal(1500).catch(() => null);
+          }
+          if (!freshJournal && typeof this.fetchJournal === 'function') {
+            freshJournal = await this.fetchJournal().catch(() => null);
+          }
+          curSitMin = (freshJournal || this.journal)?.sitMin ?? null;
+        }
+
+        const deltaSitMin = (lastObservedSitMin !== null && curSitMin !== null)
+          ? Math.max(0, curSitMin - lastObservedSitMin)
+          : Math.floor(currentChunkTarget / 60);
+        const deltaText = deltaSitMin > 0 ? ` · +${deltaSitMin} phút chặng này` : '';
+        const curSitVal = curSitMin ?? Math.floor(totalElapsed / 60);
+        const remainSitMin = Math.max(0, 60 - curSitVal);
+        const milestoneText = curSitVal >= 60 ? '🏆 Đã mở khóa danh hiệu Tĩnh tọa' : `còn ${remainSitMin} phút để đạt danh hiệu Tĩnh tọa`;
+
+        log.success(`🧘 [Chốt an toàn chặng ${chunkIndex}/${totalChunks}] Đã hoàn tất ${Math.floor(totalElapsed / 60)}/${mins} phút tĩnh tọa. Máy chủ đã ghi nhận: ${curSitVal} phút${deltaText} (${milestoneText}). Đã chốt an toàn công đức!`);
+
+        if (curSitMin !== null) lastObservedSitMin = curSitMin;
 
         if (totalElapsed < seconds) {
           chunkIndex++;
@@ -1739,6 +1780,7 @@ export class DiDenChuaClient {
     } finally {
       // Đảm bảo nhân vật luôn đứng dậy trang nghiêm nếu bị dừng giữa chừng
       try {
+        this.send({ t: 'stand' });
         this.send(standPayload);
         const activeNgoi = (this.merit?.me?.quests || []).find(q => q.id === 'ngoi' || q.id.startsWith('ngoi'));
         if (activeNgoi && !activeNgoi.claimed && totalElapsed >= 300) {

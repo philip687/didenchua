@@ -95,9 +95,17 @@ test('CHECKPOINT_HARVEST: doMeditate divides long session into safe chunks, stan
   const sitPackets = sentPackets.filter(p => p.t === 'state' && p.s === 2);
   assert.ok(sitPackets.length >= 2, 'Must sit at cushion for each chunk');
 
+  // 1b. Must send auxiliary { t: 'sit', seat } packet for dual protocol compliance
+  const auxSitPackets = sentPackets.filter(p => p.t === 'sit');
+  assert.ok(auxSitPackets.length >= 2, 'Must send auxiliary { t: "sit" } packet for each chunk');
+
   // 2. Must stand up (s: 0) at each chunk boundary to lock in sitMin
   const standPackets = sentPackets.filter(p => p.t === 'state' && p.s === 0);
   assert.ok(standPackets.length >= 2, 'Must stand up at chunk checkpoints to record sitMin');
+
+  // 2b. Must send auxiliary { t: 'stand' } packet for dual protocol compliance
+  const auxStandPackets = sentPackets.filter(p => p.t === 'stand');
+  assert.ok(auxStandPackets.length >= 2, 'Must send auxiliary { t: "stand" } packet for each chunk checkpoint');
 
   // 3. Must send claim for ngoi quest
   const claimPackets = sentPackets.filter(p => p.t === 'claim' && p.q === 'ngoi');
@@ -136,9 +144,13 @@ test('CHECKPOINT_HARVEST: doMeditate handles single short session (<= 5 min) gra
 
   const sitPackets = sentPackets.filter(p => p.t === 'state' && p.s === 2);
   assert.equal(sitPackets.length, 1, 'Single session must sit down once');
+  const auxSitPackets = sentPackets.filter(p => p.t === 'sit');
+  assert.equal(auxSitPackets.length, 1, 'Single session must send auxiliary { t: "sit" }');
 
   const standPackets = sentPackets.filter(p => p.t === 'state' && p.s === 0);
   assert.ok(standPackets.length >= 1, 'Single session must stand up at completion');
+  const auxStandPackets = sentPackets.filter(p => p.t === 'stand');
+  assert.ok(auxStandPackets.length >= 1, 'Single session must send auxiliary { t: "stand" }');
 
   const claimPackets = sentPackets.filter(p => p.t === 'claim' && p.q === 'ngoi');
   assert.equal(claimPackets.length, 1, 'Must claim ngoi once');
