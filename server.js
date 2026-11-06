@@ -4180,6 +4180,19 @@ const isDirectRun = Boolean(
 );
 
 if (isDirectRun && process.env.NODE_ENV !== 'test') {
+  const handleExit = (signal) => {
+    log.warn(`Nhận tín hiệu ${signal} (hệ thống/Render đang tái khởi động hoặc dừng tiến trình)...`);
+    if (state.activeClient) {
+      try {
+        state.activeClient.abort();
+        state.activeClient.close();
+      } catch {}
+    }
+    process.exit(0);
+  };
+  process.on('SIGTERM', () => handleExit('SIGTERM'));
+  process.on('SIGINT', () => handleExit('SIGINT'));
+
   server.listen(PORT, HOST, async () => {
     log.temple('🚀', `Server Dashboard đang lắng nghe tại: http://${HOST}:${PORT}`);
     log.info(`Sẵn sàng phục vụ Render Cloud Web Service trên cổng ${PORT}`);
