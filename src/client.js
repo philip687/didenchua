@@ -149,6 +149,9 @@ export class DiDenChuaClient {
     this.heartbeatTimer = null;
     this.aborted = false;
     this.abortResolvers = new Set();
+    this.messageListeners = new Set();
+    this.recentGains = [];
+    this.recentToasts = [];
   }
 
   async connect(timeoutMs = 15000) {
@@ -261,6 +264,31 @@ export class DiDenChuaClient {
   }
 
   handleMessage(msg) {
+    // 1. Phân phối cho các observer/listener đã đăng ký
+    for (const listener of this.messageListeners) {
+      try {
+        listener(msg);
+      } catch {}
+    }
+
+    // 2. Ghi nhận phản hồi công đức tức thời
+    if (msg.t === 'gain' && typeof msg.n === 'number') {
+      this.recentGains.push({ n: msg.n, why: msg.why || '', at: Date.now() });
+      if (this.recentGains.length > 50) this.recentGains.shift();
+    } else if (msg.t === 'merit' && msg.gain && typeof msg.gain.n === 'number') {
+      this.recentGains.push({ n: msg.gain.n, why: msg.gain.why || '', at: Date.now() });
+      if (this.recentGains.length > 50) this.recentGains.shift();
+    }
+
+    // 3. Ghi nhận thông báo / toast từ máy chủ
+    if (msg.t === 'toast' || msg.t === 'alert' || msg.t === 'notify' || msg.msg || msg.text) {
+      const text = msg.msg || msg.text || msg.message || (typeof msg === 'string' ? msg : '');
+      if (text) {
+        this.recentToasts.push({ t: msg.t || 'toast', text: String(text), at: Date.now() });
+        if (this.recentToasts.length > 50) this.recentToasts.shift();
+      }
+    }
+
     switch (msg.t) {
       case 'welcome':
         this.myId = msg.id;
@@ -337,6 +365,17 @@ export class DiDenChuaClient {
         }
         break;
     }
+  }
+
+  onMessage(listener) {
+    if (typeof listener !== 'function') return () => {};
+    this.messageListeners.add(listener);
+    return () => this.messageListeners.delete(listener);
+  }
+
+  clearRecentFeedback() {
+    this.recentGains = [];
+    this.recentToasts = [];
   }
 
   checkAborted() {

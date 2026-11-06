@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "test": "node --test test/auto.test.js",
     "start": "node server.js",
     "web": "node server.js",
     "bot": "node cli.js all",
@@ -32,6 +33,8 @@
     "browser": "node cli.js browser",
     "view": "node cli.js browser",
     "daemon": "node cli.js daemon",
+    "auto": "node cli.js auto",
+    "selfplay": "node cli.js auto",
     "watch": "node cli.js watch",
     "live": "node cli.js watch",
     "quet": "node cli.js quet",

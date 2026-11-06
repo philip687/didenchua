@@ -30,6 +30,7 @@ import { runMaximumQuests } from './src/tasks/max.js';
 import { openTempleBrowser } from './src/tasks/browser.js';
 import { runWatch } from './src/tasks/watch.js';
 import { startDaemon } from './src/tasks/daemon.js';
+import { AutonomousBot } from './src/auto/index.js';
 
 const command = process.argv[2]?.toLowerCase();
 const args = process.argv.slice(3);
@@ -73,6 +74,12 @@ QUY TRÌNH CHUẨN HÓA 3 GIAI ĐOẠN (HÀNH ĐỘNG -> CÀY THÀNH TÍCH -> TR
     --skip-milestones hoặc --no-farm: Bỏ qua giai đoạn cày thành tích, chỉ làm nhiệm vụ ngày
     --only-actions                 : Chỉ chạy các hành động kiếm điểm ngày, bỏ cả cày và treo
   npm run daemon        : Chạy ngầm 24/7, tự động canh 0h sáng hàng ngày để làm nhiệm vụ
+  npm run auto          : CỖ MÁY TỰ CHƠI THÔNG MINH (Autonomous Self-Play Engine):
+                          - Nhận diện ghi nhận máy chủ (điểm, tiến độ, nhật ký, việc chùa)
+                          - Tự đổi nhiệm vụ khác khi chạm ngưỡng bão hòa
+                          - Treo tích luỹ phước điền dài hạn (lạy Phật, tràng hạt, thiền định)
+                          - Canh giờ sự kiện: Đố vui Phật pháp (20:00 UTC+7), Thắp đèn (16:30 - 21:30 UTC+7), Reset (00:01 UTC+7)
+                          Tùy chọn: --once (chạy 1 chu kỳ rồi nghỉ), --probe (chẩn đoán trạng thái ghi nhận)
 
 MỞ TRÌNH DUYỆT ĐỂ XEM TRỰC TIẾP (KHÔNG BỊ BÁO ĐĂNG NHẬP CHỖ KHÁC):
   npm run watch         : Mở Chrome 3D và tự động chạy nhiệm vụ trực tiếp trên màn hình để bạn ngắm
@@ -271,6 +278,24 @@ async function main() {
     case 'daemon':
       await startDaemon();
       return; // daemon chạy vô hạn
+
+    case 'auto':
+    case 'selfplay':
+    case 'self-play': {
+      const mode = args.includes('--once') ? 'once' : (args.includes('--probe') ? 'probe' : 'daemon');
+      const bot = new AutonomousBot({ mode });
+      process.on('SIGINT', () => {
+        console.log('\nĐang dừng cỗ máy tự chơi...');
+        bot.stop('Người dùng gửi tín hiệu dừng (SIGINT)');
+        process.exit(0);
+      });
+      process.on('SIGTERM', () => {
+        bot.stop('Hệ thống yêu cầu dừng (SIGTERM)');
+        process.exit(0);
+      });
+      await bot.start();
+      return;
+    }
 
     case 'help':
     case '--help':
