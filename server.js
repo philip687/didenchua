@@ -32,7 +32,7 @@ const PUBLIC_APP_URL = (
   || process.env.PUBLIC_URL
   || process.env.APP_URL
   || (process.env.RENDER_SERVICE_NAME ? `https://${process.env.RENDER_SERVICE_NAME}.onrender.com` : '')
-  || 'https://didenchua-bot.onrender.com'
+  || 'https://niemphat-online-bot.onrender.com'
 ).replace(/\/+$/, '');
 
 // File lưu trữ bộ nhớ đệm trạng thái (Persistence Cache) để khi mở report không phải kết nối game
