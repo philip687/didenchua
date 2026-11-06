@@ -176,6 +176,8 @@ test('CHECKPOINT_HARVEST: doMo automatically claims daily/weekly quest and journ
   const client = new DiDenChuaClient({ turbo: true });
   const sentPackets = [];
 
+  client.connected = true;
+  client.ws = { readyState: 1 };
   client.send = (pkt) => { sentPackets.push(pkt); };
   client.sleep = async () => {};
 
@@ -213,6 +215,55 @@ test('CHECKPOINT_HARVEST: doMo automatically claims daily/weekly quest and journ
   assert.equal(client.merit.me.weekly[0].claimed, true, 'Weekly wTung quest must be marked claimed');
 
   // 5. Journal sync
+  const journalPackets = sentPackets.filter(p => p.t === 'journal');
+  assert.ok(journalPackets.length >= 2, 'Must request journal at checkpoints');
+});
+
+test('CHECKPOINT_HARVEST: doQuetLa automatically claims daily/weekly quest and journals at checkpoints', async () => {
+  const client = new DiDenChuaClient({ turbo: true });
+  const sentPackets = [];
+
+  client.connected = true;
+  client.ws = { readyState: 1 };
+  client.send = (pkt) => { sentPackets.push(pkt); };
+  client.sleep = async () => {};
+
+  client.merit = {
+    me: {
+      quests: [
+        { id: 'quet', name: 'Quét lá dọn sân chùa', need: 5, have: 0, claimed: false, reward: 10 }
+      ],
+      weekly: [
+        { id: 'wViec', name: 'Công quả tuần', need: 10, have: 0, claimed: false, reward: 50 }
+      ]
+    }
+  };
+
+  // Perform 10 sweeps (two chunks of 5)
+  await client.doQuetLa(10, { chunkSize: 5, intervalMs: 0 });
+
+  // 1. Visit Sân chùa
+  assert.ok(sentPackets.some(p => p.t === 'visit' && p.zone === 'Sân chùa'), 'Must visit Sân chùa');
+
+  // 2. Viec packets: total sweeps must be 10
+  const quetPackets = sentPackets.filter(p => p.t === 'viec' && p.k === 'quet');
+  assert.equal(quetPackets.length, 10, 'Must send exactly 10 viec quet packets');
+
+  // 3. Emote packets: should not spam emote rapidly (strictly throttled)
+  const emotePackets = sentPackets.filter(p => p.t === 'emote' && p.e === 'quet');
+  assert.ok(emotePackets.length >= 1, 'Must send at least 1 emote packet');
+
+  // 4. Daily quest claim at 5 sweeps
+  const claimDaily = sentPackets.filter(p => p.t === 'claim' && p.q === 'quet');
+  assert.ok(claimDaily.length >= 1, 'Must claim daily quest "quet" at checkpoint');
+  assert.equal(client.merit.me.quests[0].claimed, true, 'Daily quet quest must be marked claimed');
+
+  // 5. Weekly quest claim at 10 sweeps
+  const claimWeekly = sentPackets.filter(p => p.t === 'claim' && p.q === 'wViec');
+  assert.ok(claimWeekly.length >= 1, 'Must claim weekly quest "wViec" at 10 sweeps');
+  assert.equal(client.merit.me.weekly[0].claimed, true, 'Weekly wViec quest must be marked claimed');
+
+  // 6. Journal sync
   const journalPackets = sentPackets.filter(p => p.t === 'journal');
   assert.ok(journalPackets.length >= 2, 'Must request journal at checkpoints');
 });

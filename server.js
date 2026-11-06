@@ -395,7 +395,7 @@ export const TASKS_CATALOG = [
     id: 'mo',
     group: 'milestone',
     title: 'Gõ Mõ Tụng Kinh Tự Do',
-    desc: 'Gõ mõ theo nhịp thong thả tự nhiên (nhập số tiếng tùy ý hoặc chọn gợi ý)',
+    desc: 'Gõ mõ theo nhịp thong thả tự nhiên (nhập số tiếng tùy ý hoặc chọn gợi ý mốc lớn)',
     icon: '🪵',
     reward: 'Tụng kinh',
     badge: 'Tu tập',
@@ -408,24 +408,28 @@ export const TASKS_CATALOG = [
       { value: 216, label: '216 tiếng (2 khóa lễ)' },
       { value: 300, label: '300 tiếng (Sám hối)' },
       { value: 540, label: '540 tiếng (Tinh tấn)' },
-      { value: 1080, label: '1.080 tiếng (Đại khóa lễ 🏆)' }
+      { value: 1080, label: '1.080 tiếng (Đại khóa lễ 🏆)' },
+      { value: 3240, label: '3.240 tiếng (Vạn tiếng mõ 🏆)' },
+      { value: 10800, label: '10.800 tiếng (Đại viên mãn 🏆)' }
     ]
   },
   {
     id: 'quet',
     group: 'milestone',
     title: 'Quét Lá Sân Chùa (Cày Sân)',
-    desc: 'Công quả quét dọn lá rụng nhiều lượt giữ gìn khuôn viên thanh tịnh (nhập số lần)',
+    desc: 'Công quả quét dọn lá rụng nhiều lượt giữ gìn khuôn viên thanh tịnh (1-100 lần)',
     icon: '🧹',
     reward: 'Công quả',
     badge: 'Công quả',
     hasCount: true,
     defaultCount: 5,
     countOptions: [
-      { value: 1, label: '1 lần' },
-      { value: 5, label: '5 lần' },
-      { value: 10, label: '10 lần' },
-      { value: 20, label: '20 lần' }
+      { value: 1, label: '1 lần (Khởi tâm)' },
+      { value: 5, label: '5 lần (Quest ngày 🎯)' },
+      { value: 10, label: '10 lần (Công quả)' },
+      { value: 20, label: '20 lần (Chăm chỉ)' },
+      { value: 50, label: '50 lần (Tinh tấn 🏆)' },
+      { value: 100, label: '100 lần (Đại công quả 🏆)' }
     ]
   },
   {
@@ -934,13 +938,13 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           log.success('Đã chăm sóc mèo chùa chu đáo!');
           break;
         case 'chores-daily':
-          await client.doQuetLa(1);
+          await client.doQuetLa(1, runOptions);
           client.send({ t: 'viec', k: 'ca' });
           client.send({ t: 'lamp' });
           await client.doPet();
           break;
         case 'quet':
-          await client.doQuetLa(runOptions.count || 5);
+          await client.doQuetLa(runOptions.count || 5, runOptions);
           break;
         case 'chores':
           await client.doChores();
@@ -2072,14 +2076,20 @@ export function renderDashboardHTML() {
           const rem = Math.max(1, Number(tungQ.need || 108) - Number(tungQ.have || 0));
           smartOption = `<option value="${rem}">Làm đủ nhiệm vụ ngày (còn ${rem} tiếng 🎯)</option>`;
         }
+      } else if (t.id === 'quet') {
+        const quetQ = (me?.quests || []).find(q => q.id === 'quet' || q.id === 'viec' || q.id.startsWith('quet'));
+        if (quetQ && !quetQ.claimed && Number(quetQ.have || 0) < Number(quetQ.need || 1)) {
+          const rem = Math.max(1, Number(quetQ.need || 1) - Number(quetQ.have || 0));
+          smartOption = `<option value="${rem}">Làm đủ nhiệm vụ ngày (còn ${rem} lần 🎯)</option>`;
+        }
       }
 
       inputControl = `
         <div style="display:flex; align-items:center; gap:5px; margin-right:4px;">
           <input type="number" id="count_${escapeHTML(t.id)}" value="${t.defaultCount || 1}" min="1" max="20000"
             style="width:72px; min-width:72px; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 6px; border-radius:6px; font-size:12px; text-align:center; font-weight:600;"
-            placeholder="${t.id === 'beads' ? 'Số hạt' : 'Số lượng'}"
-            title="${t.id === 'beads' ? 'Nhập số hạt niệm (1 chuỗi = 108 hạt, 100 chuỗi = 10.800 hạt)' : 'Nhập số lượng tùy ý'}"
+            placeholder="${t.id === 'beads' ? 'Số hạt' : (t.id === 'mo' || t.id === 'tung' ? 'Số tiếng' : (t.id === 'quet' ? 'Số lần' : 'Số lượng'))}"
+            title="${t.id === 'beads' ? 'Nhập số hạt niệm (1 chuỗi = 108 hạt, 100 chuỗi = 10.800 hạt)' : (t.id === 'mo' || t.id === 'tung' ? 'Nhập số tiếng mõ tụng kinh' : (t.id === 'quet' ? 'Nhập số lần quét lá sân chùa' : 'Nhập số lượng tùy ý'))}"
             ${isAnyRunning ? 'disabled' : ''}>
           <select onchange="if(this.value){ document.getElementById('count_${escapeHTML(t.id)}').value = this.value; }"
             style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 6px; border-radius:6px; font-size:12px; cursor:pointer; max-width:210px;"

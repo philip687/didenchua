@@ -1,11 +1,11 @@
 import { DiDenChuaClient } from '../client.js';
 import { log } from '../logger.js';
 
-export async function runQuetLa(count = 1) {
+export async function runQuetLa(count = 1, options = {}) {
   const client = new DiDenChuaClient();
   try {
     await client.connect();
-    await client.doQuetLa(count);
+    await client.doQuetLa(count, options);
     client.printStatus();
   } catch (err) {
     log.error('Lỗi khi quét lá:', err.message);

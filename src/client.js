@@ -537,21 +537,108 @@ export class DiDenChuaClient {
     }
   }
 
-  async doQuetLa(count = 1) {
+  async doQuetLa(count = 1, options = {}) {
     this.checkAborted();
-    log.temple('🧹', `Bắt đầu công quả quét lá sân chùa (${count} lần)…`);
-    for (let i = 1; i <= count; i++) {
-      this.checkAborted();
-      if (i > 1) {
-        await this.humanDelay(`thong thả chuyển sang góc sân khác quét tiếp (lần ${i}/${count})`);
-      } else {
-        await this.humanDelay('cầm chổi bước ra sân chùa');
+    log.temple('🧹', `Bắt đầu công quả quét lá sân chùa (${count} lần - chốt an toàn từng chặng)…`);
+    // Đảm bảo đứng tại Sân chùa để máy chủ ghi nhận đúng khu vực
+    this.send({ t: 'visit', zone: 'Sân chùa' });
+    await this.sleep(this.isTurbo() ? 80 : 300);
+
+    const activeQuet = (this.merit?.me?.quests || []).find(q => q.id === 'quet' || q.id === 'viec' || q.id.startsWith('quet'));
+    const dailyQuestNeed = (activeQuet && !activeQuet.claimed) ? (activeQuet.need || 1) : 1;
+    const checkpointInterval = options.chunkSize || 5;
+
+    let sent = 0;
+    let lastHeartbeat = Date.now();
+    let lastEmoteTime = 0;
+
+    try {
+      for (let i = 1; i <= count; i++) {
+        this.checkAborted();
+
+        // 1. Tự động kiểm tra và phục hồi kết nối nếu mạng gián đoạn
+        if (this.ws && (!this.connected || this.ws.readyState !== WebSocket.OPEN)) {
+          log.warn(`Phát hiện mất kết nối với chùa tại lần quét thứ ${sent}/${count}. Đang tự động kết nối lại...`);
+          try {
+            await this.connect(8000);
+            this.send({ t: 'visit', zone: 'Sân chùa' });
+            await this.sleep(this.isTurbo() ? 80 : 400);
+            lastHeartbeat = Date.now();
+            log.success(`Đã kết nối lại thành công! Tiếp tục quét lá sân chùa (${sent}/${count} lần).`);
+          } catch (reconnErr) {
+            log.warn(`Chưa kết nối lại được (${reconnErr.message}), thử lại sau 2 giây...`);
+            await this.sleep(2000);
+            continue;
+          }
+        }
+
+        if (i > 1 && !this.isTurbo() && count <= 10) {
+          await this.humanDelay(`thong thả chuyển sang góc sân khác quét tiếp (lần ${i}/${count})`);
+        } else if (i === 1 && !this.isTurbo() && count <= 10) {
+          await this.humanDelay('cầm chổi bước ra sân chùa');
+        }
+
+        this.checkAborted();
+        log.info(`[${i}/${count}] -> Gió thổi lá bay, chổi quét sạch bong (công quả quét lá)...`);
+
+        const now = Date.now();
+        // Emote quet chỉ gửi nếu cách lần trước >= 5050ms để tuyệt đối tránh lỗi policy 1008
+        if (now - lastEmoteTime >= 5050) {
+          this.send({ t: 'emote', e: 'quet' });
+          lastEmoteTime = now;
+        }
+        this.send({ t: 'viec', k: 'quet' });
+        sent = i;
+
+        // Duy trì nhịp tim kết nối (Heartbeat) mỗi 15 giây
+        if (now - lastHeartbeat >= 15000) {
+          this.send({ t: 'hb' });
+          lastHeartbeat = now;
+        }
+
+        // Điểm kiểm tra chốt chặng an toàn (Checkpoint Harvest):
+        const isDailyQuestReached = (sent >= dailyQuestNeed) && activeQuet && !activeQuet.claimed;
+        const isIntervalReached = (sent % checkpointInterval === 0);
+        const isFinal = (sent >= count);
+
+        if (isDailyQuestReached || isIntervalReached || isFinal) {
+          let claimedAny = false;
+          if (activeQuet && !activeQuet.claimed && sent >= (activeQuet.need || 1)) {
+            this.send({ t: 'claim', q: activeQuet.id });
+            activeQuet.claimed = true;
+            claimedAny = true;
+            log.success(`🧹 [Chốt an toàn chặng: ${sent}/${count} lần] -> Thu thập ngay phần thưởng nhiệm vụ Quét lá dọn sân chùa (+${activeQuet.reward || 10}đ công đức)!`);
+          }
+
+          const wViec = (this.merit?.me?.weekly || []).find(q => q.id === 'wViec' || q.id === 'wQuet');
+          if (wViec && !wViec.claimed && (wViec.have || 0) + sent >= (wViec.need || 5)) {
+            this.send({ t: 'claim', q: wViec.id });
+            wViec.claimed = true;
+            claimedAny = true;
+            log.success(`🧹 [Chốt an toàn chặng: ${sent}/${count} lần] -> Thu thập ngay nhiệm vụ tuần Công quả quét dọn!`);
+          }
+
+          if (!claimedAny && !isFinal) {
+            log.temple('🧹', `[Chốt an toàn chặng: ${sent}/${count} lần] Đã đồng bộ số lần quét lá vào máy chủ chùa. Tiếp tục quét dọn...`);
+          }
+
+          this.send({ t: 'journal' });
+        }
+
+        if (i < count) {
+          const stepSleep = options.intervalMs ?? (this.isTurbo() ? 80 : 350);
+          await this.sleep(stepSleep);
+        }
       }
-      this.checkAborted();
-      log.info(`[${i}/${count}] -> Gió thổi lá bay, chổi quét sạch bong (động tác quét lá)...`);
-      this.send({ t: 'emote', e: 'quet' });
-      this.send({ t: 'viec', k: 'quet' });
-      if (i < count) await this.sleep(this.isTurbo() ? 80 : 350);
+    } finally {
+      if (sent > 0 && sent < count) {
+        log.warn(`Tiến trình quét lá dừng tại ${sent}/${count} lần. Đang chốt an toàn và thu thập công đức phần đã làm...`);
+        if (activeQuet && !activeQuet.claimed && sent >= (activeQuet.need || 1)) {
+          this.send({ t: 'claim', q: activeQuet.id });
+          activeQuet.claimed = true;
+        }
+        this.send({ t: 'journal' });
+      }
     }
     log.info(`Đã gửi hoàn tất yêu cầu ${count} lần quét lá sân chùa (chờ máy chủ ghi nhận).`);
   }
@@ -572,13 +659,40 @@ export class DiDenChuaClient {
     const dailyQuestBows = (activeLay && !activeLay.claimed) ? (activeLay.need || 27) : 27;
 
     let sentEmotes = 0;
+    let lastHeartbeat = Date.now();
     try {
       for (let i = 1; i <= emotesNeeded; i++) {
         this.checkAborted();
+
+        // 1. Tự động kiểm tra và phục hồi kết nối nếu mạng gián đoạn
+        if (this.ws && (!this.connected || this.ws.readyState !== WebSocket.OPEN)) {
+          const bowsSoFar = Math.min((i - 1) * 3, count);
+          log.warn(`Phát hiện mất kết nối với chùa tại ${bowsSoFar}/${count} lạy. Đang tự động kết nối lại...`);
+          try {
+            await this.connect(8000);
+            this.send({ t: 'visit', zone: 'Chánh điện' });
+            await this.sleep(this.isTurbo() ? 80 : 400);
+            lastHeartbeat = Date.now();
+            log.success(`Đã kết nối lại thành công! Tiếp tục lạy sám hối (đã lạy ${bowsSoFar}/${count} lạy)...`);
+          } catch (reconnErr) {
+            log.warn(`Chưa kết nối lại được (${reconnErr.message}), thử lại sau 2 giây...`);
+            await this.sleep(2000);
+            i--;
+            continue;
+          }
+        }
+
         const currentBows = Math.min(i * 3, count);
         log.info(`...[${currentBows}/${count} lạy] Thành kính cúi lạy Phật đài...`);
         this.send({ t: 'emote', e: 'lay' });
         sentEmotes = i;
+
+        // Duy trì nhịp tim kết nối (Heartbeat) mỗi 15 giây
+        const now = Date.now();
+        if (now - lastHeartbeat >= 15000) {
+          this.send({ t: 'hb' });
+          lastHeartbeat = now;
+        }
 
         // Thu thập từng phần (Checkpoint Harvest) khi chạm mốc quest ngày, định kỳ mỗi 9 lạy (~15s), hoặc khi kết thúc
         const isDailyQuestReached = (currentBows >= dailyQuestBows) && activeLay && !activeLay.claimed;
@@ -950,13 +1064,42 @@ export class DiDenChuaClient {
     const dailyQuestNeed = (activeTung && !activeTung.claimed) ? (activeTung.need || 108) : 108;
 
     let sent = 0;
+    let lastHeartbeat = Date.now();
     try {
       while (sent < count) {
         this.checkAborted();
+
+        // 1. Tự động kiểm tra và phục hồi kết nối nếu mạng gián đoạn trong phiên gõ mõ dài
+        if (this.ws && (!this.connected || this.ws.readyState !== WebSocket.OPEN)) {
+          log.warn(`Phát hiện mất kết nối với chùa tại tiếng mõ thứ ${sent}/${count}. Đang tự động kết nối lại...`);
+          try {
+            await this.connect(8000);
+            this.send({ t: 'visit', zone: 'Chánh điện' });
+            await this.sleep(this.isTurbo() ? 80 : 400);
+            lastHeartbeat = Date.now();
+            log.success(`Đã kết nối lại thành công! Tiếp tục gõ mõ tụng kinh (đã gõ ${sent}/${count} tiếng).`);
+          } catch (reconnErr) {
+            log.warn(`Chưa kết nối lại được (${reconnErr.message}), thử lại sau 2 giây...`);
+            await this.sleep(2000);
+            continue;
+          }
+        }
+
         const batch = Math.min(batchSize, count - sent);
         this.send({ t: 'mo', n: batch });
         sent += batch;
-        log.info(`...cốc cốc [${sent}/${count} tiếng mõ]`);
+
+        // Log định kỳ tránh làm nghẽn buffer EventSource khi gõ số lượng lớn (1.080 tiếng)
+        if (count <= 108 || sent % 54 === 0 || sent >= count) {
+          log.info(`...cốc cốc [${sent}/${count} tiếng mõ]`);
+        }
+
+        // Duy trì nhịp tim kết nối (Heartbeat) mỗi 15 giây
+        const now = Date.now();
+        if (now - lastHeartbeat >= 15000) {
+          this.send({ t: 'hb' });
+          lastHeartbeat = now;
+        }
 
         // Điểm kiểm tra chốt chặng an toàn (Checkpoint Harvest):
         const isDailyQuestReached = (sent >= dailyQuestNeed) && activeTung && !activeTung.claimed;
@@ -1027,7 +1170,7 @@ export class DiDenChuaClient {
         this.checkAborted();
 
         // 1. Tự động kiểm tra và phục hồi kết nối nếu mạng gián đoạn trong phiên tu tập dài
-        if (!this.connected || this.ws?.readyState !== WebSocket.OPEN) {
+        if (this.ws && (!this.connected || this.ws.readyState !== WebSocket.OPEN)) {
           log.warn(`Phát hiện mất kết nối với chùa tại hạt thứ ${sent}/${count}. Đang tự động kết nối lại...`);
           try {
             await this.connect(8000);
@@ -1453,7 +1596,7 @@ export class DiDenChuaClient {
           this.checkAborted();
 
           // Kiểm tra và tự động phục hồi kết nối nếu mạng gián đoạn
-          if (!this.connected || this.ws?.readyState !== WebSocket.OPEN) {
+          if (this.ws && (!this.connected || this.ws.readyState !== WebSocket.OPEN)) {
             log.warn(`Phát hiện mất kết nối với chùa tại giây ${totalElapsed + chunkElapsed}. Đang tự động kết nối lại...`);
             try {
               await this.connect(8000);
