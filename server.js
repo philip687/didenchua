@@ -2160,16 +2160,14 @@ export function renderDashboardHTML() {
     let inputControl = '';
     if (t.isCombo) {
       inputControl = `
-        <div style="display:flex; flex-direction:column; gap:5px; margin-right:4px;">
-          <div style="display:flex; align-items:center; gap:5px;">
-            <span style="font-size:11px; color:var(--gold); min-width:28px;">Lạy:</span>
-            <input type="number" id="combo_bows" value="18" min="0" max="2000"
-              style="width:58px; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:4px 6px; border-radius:6px; font-size:12px; text-align:center; font-weight:600;"
+        <div class="task-ctrl-group task-ctrl-combo">
+          <div class="task-combo-row">
+            <span class="ctrl-label" style="font-size:11px; color:var(--gold); min-width:28px;">Lạy:</span>
+            <input type="number" id="combo_bows" class="task-input-num" value="18" min="0" max="2000"
               placeholder="Số lạy"
               title="Nhập số lạy tùy ý"
               ${isAnyRunning ? 'disabled' : ''}>
-            <select onchange="if(this.value){ document.getElementById('combo_bows').value = this.value; }"
-              style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:4px 4px; border-radius:6px; font-size:11px; cursor:pointer;"
+            <select class="task-select-hint" onchange="if(this.value){ document.getElementById('combo_bows').value = this.value; }"
               ${isAnyRunning ? 'disabled' : ''}>
               <option value="" disabled selected>Gợi ý ▼</option>
               <option value="18">18 lạy</option>
@@ -2180,15 +2178,13 @@ export function renderDashboardHTML() {
               <option value="1000">1.000 lạy</option>
             </select>
           </div>
-          <div style="display:flex; align-items:center; gap:5px;">
-            <span style="font-size:11px; color:var(--gold); min-width:28px;">Hạt:</span>
-            <input type="number" id="combo_beads" value="108" min="0" max="20000"
-              style="width:58px; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:4px 6px; border-radius:6px; font-size:12px; text-align:center; font-weight:600;"
+          <div class="task-combo-row">
+            <span class="ctrl-label" style="font-size:11px; color:var(--gold); min-width:28px;">Hạt:</span>
+            <input type="number" id="combo_beads" class="task-input-num" value="108" min="0" max="20000"
               placeholder="Số hạt"
               title="Nhập số hạt niệm tùy ý (1 chuỗi = 108 hạt)"
               ${isAnyRunning ? 'disabled' : ''}>
-            <select onchange="if(this.value){ document.getElementById('combo_beads').value = this.value; }"
-              style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:4px 4px; border-radius:6px; font-size:11px; cursor:pointer;"
+            <select class="task-select-hint" onchange="if(this.value){ document.getElementById('combo_beads').value = this.value; }"
               ${isAnyRunning ? 'disabled' : ''}>
               <option value="" disabled selected>Gợi ý ▼</option>
               ${(journal?.beads || 0) < 10800 ? `<option value="${10800 - (journal?.beads || 0)}">Cày đủ 100 chuỗi (còn ${10800 - (journal?.beads || 0)} hạt 🏆)</option>` : ''}
@@ -2217,14 +2213,12 @@ export function renderDashboardHTML() {
       }
 
       inputControl = `
-        <div style="display:flex; align-items:center; gap:5px; margin-right:4px;">
-          <input type="number" id="count_${escapeHTML(t.id)}" value="${t.defaultCount || 1}" min="1" max="20000"
-            style="width:58px; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 6px; border-radius:6px; font-size:12px; text-align:center; font-weight:600;"
+        <div class="task-ctrl-group">
+          <input type="number" id="count_${escapeHTML(t.id)}" class="task-input-num" value="${t.defaultCount || 1}" min="1" max="20000"
             placeholder="Số lượng"
             title="Nhập số lượng tùy ý"
             ${isAnyRunning ? 'disabled' : ''}>
-          <select onchange="if(this.value){ document.getElementById('count_${escapeHTML(t.id)}').value = this.value; }"
-            style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 6px; border-radius:6px; font-size:12px; cursor:pointer; max-width:145px;"
+          <select class="task-select-hint" onchange="if(this.value){ document.getElementById('count_${escapeHTML(t.id)}').value = this.value; }"
             ${isAnyRunning ? 'disabled' : ''}>
             <option value="" disabled selected>Gợi ý ▼</option>
             ${smartOption}
@@ -2235,15 +2229,15 @@ export function renderDashboardHTML() {
     } else if (t.hasDuration) {
       const defaultDurationMin = t.id === 'meditate' ? 60 : 5;
       inputControl = `
-        <div style="display:flex; align-items:center; gap:5px; margin-right:4px;">
-          <input type="number" id="duration_min_${escapeHTML(t.id)}" value="${defaultDurationMin}" min="1" max="120"
-            style="width:50px; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 6px; border-radius:6px; font-size:12px; text-align:center; font-weight:600;"
-            placeholder="Phút"
-            title="Nhập số phút ngồi thiền"
-            ${isAnyRunning ? 'disabled' : ''}>
-          <span style="font-size:11px; color:var(--text-dim); margin-right:2px;">phút</span>
-          <select onchange="if(this.value){ document.getElementById('duration_min_${escapeHTML(t.id)}').value = this.value; }"
-            style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 6px; border-radius:6px; font-size:12px; cursor:pointer;"
+        <div class="task-ctrl-group">
+          <div class="task-duration-wrap">
+            <input type="number" id="duration_min_${escapeHTML(t.id)}" class="task-input-num" value="${defaultDurationMin}" min="1" max="120"
+              placeholder="Phút"
+              title="Nhập số phút ngồi thiền"
+              ${isAnyRunning ? 'disabled' : ''}>
+            <span class="unit-text" style="font-size:11px; color:var(--text-dim); margin-right:2px;">phút</span>
+          </div>
+          <select class="task-select-hint" onchange="if(this.value){ document.getElementById('duration_min_${escapeHTML(t.id)}').value = this.value; }"
             ${isAnyRunning ? 'disabled' : ''}>
             <option value="" disabled selected>Gợi ý ▼</option>
             <option value="5">5 phút</option>
@@ -2256,9 +2250,8 @@ export function renderDashboardHTML() {
       `;
     } else if (t.hasWish) {
       inputControl = `
-        <div style="display:flex; align-items:center; gap:5px; margin-right:4px;">
-          <select id="wish_${escapeHTML(t.id)}"
-            style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 8px; border-radius:6px; font-size:12px; cursor:pointer; font-weight:600; max-width:155px;"
+        <div class="task-ctrl-group task-ctrl-single">
+          <select id="wish_${escapeHTML(t.id)}" class="task-select-full"
             title="Chọn chữ thư pháp muốn xin từ Thầy đồ"
             ${isAnyRunning ? 'disabled' : ''}>
             <option value="all" ${(!t.defaultWish || t.defaultWish === 'all') ? 'selected' : ''}>📜 Xin đủ 12 chữ (Trọn bộ)</option>
@@ -2268,9 +2261,8 @@ export function renderDashboardHTML() {
       `;
     } else if (t.hasPlace) {
       inputControl = `
-        <div style="display:flex; align-items:center; gap:5px; margin-right:4px;">
-          <select id="place_${escapeHTML(t.id)}"
-            style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 8px; border-radius:6px; font-size:12px; cursor:pointer; font-weight:600; max-width:160px;"
+        <div class="task-ctrl-group task-ctrl-single">
+          <select id="place_${escapeHTML(t.id)}" class="task-select-full"
             title="Chọn địa điểm muốn đến trên bản đồ chùa"
             ${isAnyRunning ? 'disabled' : ''}>
             ${TEMPLE_MAP.places.map(p => `<option value="${escapeHTML(p.id)}">${escapeHTML(p.name)} (${escapeHTML(p.zone)})</option>`).join('')}
@@ -2768,6 +2760,60 @@ export function renderDashboardHTML() {
       gap: 6px;
       flex-shrink: 0;
     }
+    .task-ctrl-group {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-right: 2px;
+    }
+    .task-ctrl-combo {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-right: 2px;
+    }
+    .task-combo-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .task-duration-wrap {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .task-input-num {
+      width: 58px;
+      background: #1c150e;
+      color: var(--gold);
+      border: 1px solid var(--card-border);
+      padding: 5px 6px;
+      border-radius: 6px;
+      font-size: 12px;
+      text-align: center;
+      font-weight: 600;
+    }
+    .task-select-hint {
+      background: #1c150e;
+      color: var(--gold);
+      border: 1px solid var(--card-border);
+      padding: 5px 6px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      max-width: 145px;
+    }
+    .task-select-full {
+      background: #1c150e;
+      color: var(--gold);
+      border: 1px solid var(--card-border);
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      font-weight: 600;
+      max-width: 160px;
+    }
     .task-actions input[type="number"]:focus,
     .task-actions select:focus {
       border-color: var(--gold) !important;
@@ -3147,23 +3193,94 @@ export function renderDashboardHTML() {
       .task-info {
         min-width: 100%;
       }
+      /* Bảng điều khiển tác vụ trên mobile: Sắp xếp bộ nút theo dạng lưới (Grid) 2 cột cân đối */
       .task-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
         width: 100%;
-        justify-content: space-between;
-        margin-top: 6px;
+        margin-top: 8px;
         border-top: 1px dashed rgba(255,255,255,0.08);
         padding-top: 8px;
-        flex-wrap: wrap;
+      }
+      .task-ctrl-group {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
         gap: 8px;
+        width: 100%;
+        margin-right: 0;
       }
-      .task-actions select, .task-actions input {
-        font-size: 13px;
+      .task-ctrl-combo {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+        margin-right: 0;
       }
-      .btn-task {
-        padding: 8px 14px;
-        font-size: 13px;
+      .task-combo-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        width: 100%;
+        align-items: center;
+      }
+      .task-combo-row .ctrl-label {
+        grid-column: 1 / -1;
+      }
+      .task-ctrl-single {
+        grid-column: 1 / -1;
+        display: block;
+        width: 100%;
+      }
+      .task-duration-wrap {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .task-duration-wrap input {
         flex: 1;
+        width: 100% !important;
+      }
+      .task-input-num {
+        width: 100% !important;
+        box-sizing: border-box;
+        padding: 8px 8px !important;
+        font-size: 13px !important;
+        height: 38px;
+      }
+      .task-select-hint {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box;
+        padding: 8px 8px !important;
+        font-size: 13px !important;
+        height: 38px;
+      }
+      .task-select-full {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box;
+        padding: 8px 10px !important;
+        font-size: 13px !important;
+        height: 38px;
+      }
+      .task-actions .btn-task {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 9px 12px;
+        font-size: 13px;
         justify-content: center;
+        font-weight: 600;
+        height: 38px;
+      }
+      .task-actions .btn-run {
+        grid-column: 1;
+      }
+      .task-actions .btn-stop {
+        grid-column: 2;
       }
       .tier-header {
         padding: 10px 12px;

@@ -38,4 +38,9 @@ test('REPORT UI: renders compact task list with internal scrollbox and no verbos
   assert.ok(html.includes('function clearTaskSearch('), 'Script must define clearTaskSearch');
   assert.ok(html.includes('function applyTaskFilters('), 'Script must define applyTaskFilters');
   assert.ok(html.includes('function restoreTaskFilters('), 'Script must define restoreTaskFilters');
+
+  // 6. Mobile responsive layout: task action controls arranged in 2-column grid
+  assert.ok(html.includes('.task-actions {'), 'Must define .task-actions');
+  assert.ok(html.includes('.task-ctrl-group'), 'Must define .task-ctrl-group');
+  assert.ok(html.includes('grid-template-columns: 1fr 1fr;'), 'Mobile CSS must use 2-column grid layout for task actions');
 });
