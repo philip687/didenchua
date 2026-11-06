@@ -170,3 +170,4 @@ Chúng em đã phát triển sẵn Client mẫu tại:
 1. **Khả năng tự động hóa vượt trội**: `niemphat.online` có cấu trúc API phân tách vô cùng chuẩn mực, giúp việc xây dựng bot tự chơi hoặc bot làm nhiệm vụ hàng ngày trở nên **ổn định hơn rất nhiều so với `didenchua.online`** (không phụ thuộc gói packet WebSocket thô sơ).
 2. **Tiềm năng tích hợp**: Hoàn toàn có thể phát triển thêm CLI hoặc web dashboard riêng cho `niemphat.online` tương tự như giao diện của `didenchua`.
 3. **An toàn Git**: Nhánh `research/niemphat-online` được tạo độc lập song song với `main`, mọi mã nguồn và file nghiên cứu được lưu cục bộ an toàn, tuân thủ tuyệt đối quy định không push khi chưa có lệnh.
+

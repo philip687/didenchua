@@ -335,3 +335,4 @@ export class NiemPhatClient {
     return results;
   }
 }
+
