@@ -2,6 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { runAllQuests } from './src/tasks/all.js';
 import {
@@ -51,6 +52,97 @@ try {
 } catch {}
 if (!CSRF_TOKEN) {
   CSRF_TOKEN = crypto.randomBytes(32).toString('hex');
+}
+
+// Quản lý thông tin phiên bản hệ thống dựa theo commit tail (Git commit hash / Render SHA)
+let cachedAppVersion = null;
+
+export function getAppVersion() {
+  if (cachedAppVersion) return cachedAppVersion;
+
+  let baseVersion = '1.0.0';
+  try {
+    const pkgPath = path.join(process.cwd(), 'package.json');
+    if (fs.existsSync(pkgPath)) {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+      if (pkg.version) baseVersion = String(pkg.version).trim();
+    }
+  } catch (_) {}
+
+  let commitHash = '';
+  const envSha = (
+    process.env.RENDER_GIT_COMMIT
+    || process.env.GIT_COMMIT
+    || process.env.GITHUB_SHA
+    || process.env.COMMIT_REF
+    || process.env.VERCEL_GIT_COMMIT_SHA
+    || ''
+  ).trim();
+
+  if (envSha) {
+    commitHash = envSha.slice(0, 7);
+  }
+
+  if (!commitHash) {
+    try {
+      const gitOut = execSync('git rev-parse --short HEAD', {
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: 1500
+      });
+      if (gitOut && gitOut.trim()) {
+        commitHash = gitOut.trim();
+      }
+    } catch (_) {}
+  }
+
+  if (!commitHash) {
+    try {
+      const headPath = path.join(process.cwd(), '.git', 'HEAD');
+      if (fs.existsSync(headPath)) {
+        const head = fs.readFileSync(headPath, 'utf-8').trim();
+        if (head.startsWith('ref: ')) {
+          const refRel = head.slice(5).trim();
+          const refPath = path.join(process.cwd(), '.git', ...refRel.split('/'));
+          if (fs.existsSync(refPath)) {
+            commitHash = fs.readFileSync(refPath, 'utf-8').trim().slice(0, 7);
+          } else {
+            const packedPath = path.join(process.cwd(), '.git', 'packed-refs');
+            if (fs.existsSync(packedPath)) {
+              const lines = fs.readFileSync(packedPath, 'utf-8').split('\n');
+              for (const line of lines) {
+                const parts = line.trim().split(' ');
+                if (parts.length === 2 && parts[1] === refRel) {
+                  commitHash = parts[0].slice(0, 7);
+                  break;
+                }
+              }
+            }
+          }
+        } else if (head.length >= 7) {
+          commitHash = head.slice(0, 7);
+        }
+      }
+    } catch (_) {}
+  }
+
+  const shortCommit = commitHash || '31b5cd4';
+  const fullCommit = (envSha && envSha.length >= 7) ? envSha : shortCommit;
+  const versionString = `v${baseVersion}-${shortCommit}`;
+
+  const versionData = {
+    baseVersion,
+    commit: shortCommit,
+    fullCommit,
+    displayVersion: versionString,
+    githubCommitUrl: `https://github.com/philip687/didenchua/commit/${fullCommit}`
+  };
+
+  if (process.env.NODE_ENV === 'production') {
+    cachedAppVersion = versionData;
+  }
+
+  return versionData;
 }
 
 // Hàm escape HTML chống XSS (Priority 2)
@@ -1753,6 +1845,7 @@ export const QUEST_METADATA = {
 
 // Tạo mã HTML Dashboard an toàn chống XSS (Priority 2 & SYSTEM_LOG_REPORT)
 export function renderDashboardHTML() {
+  const appVersion = getAppVersion();
   const isRunning = state.isRunning;
   const isStopping = state.isStopping;
   const isAnyRunning = isRunning || isStopping;
@@ -2263,7 +2356,8 @@ export function renderDashboardHTML() {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="csrf-token" content="${escapeHTML(CSRF_TOKEN)}">
-  <title>An Tự Duyên - Trung Tâm Điều Hành & Báo Cáo Công Đức</title>
+  <meta name="version" content="${escapeHTML(appVersion.displayVersion)}">
+  <title>An Tự Duyên - Trung Tâm Điều Hành & Báo Cáo Công Đức (${escapeHTML(appVersion.displayVersion)})</title>
   <style>
     :root {
       --bg: #15100c;
@@ -2279,9 +2373,68 @@ export function renderDashboardHTML() {
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
     body { background: var(--bg); color: var(--text); padding: 20px; line-height: 1.5; }
     .container { max-width: 960px; margin: 0 auto; }
-    header { display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
+    header {
+      display: flex;
+      flex-direction: column;
+      padding: 18px 24px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      margin-bottom: 20px;
+      gap: 16px;
+    }
+    .header-top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      gap: 15px;
+    }
     .who h1 { font-size: 20px; color: var(--gold); display: flex; align-items: center; gap: 8px; }
     .who p { font-size: 13px; color: var(--text-dim); }
+    .header-version {
+      display: inline-flex;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .version-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(233, 194, 122, 0.08);
+      border: 1px solid rgba(233, 194, 122, 0.28);
+      color: var(--gold);
+      padding: 5px 13px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      letter-spacing: 0.3px;
+      text-decoration: none;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+    }
+    .version-badge:hover {
+      background: rgba(233, 194, 122, 0.18);
+      border-color: var(--gold);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 10px rgba(233, 194, 122, 0.15);
+      color: #fff;
+    }
+    .version-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--success);
+      display: inline-block;
+      box-shadow: 0 0 6px var(--success);
+      animation: pulseDot 2s infinite ease-in-out;
+    }
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
     .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     button.btn { background: var(--gold); color: #1c150e; border: none; padding: 10px 18px; border-radius: 10px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; transition: 0.2s; }
     button.btn:hover:not(:disabled) { background: #ffd98d; transform: translateY(-1px); }
@@ -2771,6 +2924,13 @@ export function renderDashboardHTML() {
         align-items: stretch;
         gap: 12px;
       }
+      .header-top-bar {
+        align-items: flex-start;
+      }
+      .version-badge {
+        font-size: 11px;
+        padding: 4px 10px;
+      }
       .who h1 {
         font-size: 17px;
         flex-wrap: wrap;
@@ -3081,9 +3241,16 @@ export function renderDashboardHTML() {
 <body>
   <div class="container">
     <header>
-      <div class="who">
-        <h1>🪷 ${escapeHTML(displayName)} ${userTag}</h1>
-        <p>Cấp bậc: <b>${reportValue(me.level || j.level)} (Lv.${reportValue(me.lv ?? j.lv)})</b> · Chuỗi lên chùa: <b>${reportValue(me.days ?? j.days)} ngày liên tục</b></p>
+      <div class="header-top-bar">
+        <div class="who">
+          <h1>🪷 ${escapeHTML(displayName)} ${userTag}</h1>
+          <p>Cấp bậc: <b>${reportValue(me.level || j.level)} (Lv.${reportValue(me.lv ?? j.lv)})</b> · Chuỗi lên chùa: <b>${reportValue(me.days ?? j.days)} ngày liên tục</b></p>
+        </div>
+        <div class="header-version" id="reportHeaderVersion">
+          <a href="${escapeHTML(appVersion.githubCommitUrl)}" target="_blank" rel="noopener noreferrer" class="version-badge" title="Mã commit: ${escapeHTML(appVersion.fullCommit)} · Nhấn để xem commit trên GitHub">
+            <span class="version-dot"></span>${escapeHTML(appVersion.displayVersion)}
+          </a>
+        </div>
       </div>
       <div class="actions">
         <label style="display:inline-flex; align-items:center; gap:6px; background:#221a14; border:1px solid #4a3828; padding:8px 12px; border-radius:10px; cursor:pointer; font-size:13px; color:#ffd54f; user-select:none;" title="Chế độ Siêu Tốc: Tối ưu hoá nhịp gửi gói tin, nén tối đa các khoảng dừng vô ích, hoàn thành nhiệm vụ chỉ trong vài giây">
@@ -3610,7 +3777,7 @@ export function renderDashboardHTML() {
     </div>
 
     <footer>
-      <p>Hệ thống tự động hóa công đức chùa An Tự Duyên · Múi giờ: Asia/Ho_Chi_Minh (UTC+7) · Lưu trữ: Bộ nhớ tạm phiên làm việc (In-memory buffer) · <a href="/health">Health Monitor</a></p>
+      <p>Hệ thống tự động hóa công đức chùa An Tự Duyên · Phiên bản: <b>${escapeHTML(appVersion.displayVersion)}</b> · Múi giờ: Asia/Ho_Chi_Minh (UTC+7) · Lưu trữ: Bộ nhớ tạm phiên làm việc (In-memory buffer) · <a href="/health">Health Monitor</a></p>
     </footer>
   </div>
 
@@ -3956,9 +4123,12 @@ const server = http.createServer(async (req, res) => {
 
   // 1. Health check & Ping Keep-Alive (hỗ trợ /health, alias /heath tránh lỗi chính tả, và /ping)
   if (url.pathname === '/health' || url.pathname === '/heath' || url.pathname === '/ping') {
+    const appVersion = getAppVersion();
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({
       status: 'ok',
+      version: appVersion.displayVersion,
+      commit: appVersion.commit,
       timestamp: new Date().toISOString(),
       uptimeSeconds: Math.round(process.uptime()),
       running: state.isRunning,
@@ -4268,7 +4438,8 @@ if (isDirectRun && process.env.NODE_ENV !== 'test') {
   process.on('SIGINT', () => handleExit('SIGINT'));
 
   server.listen(PORT, HOST, async () => {
-    log.temple('🚀', `Server Dashboard đang lắng nghe tại: http://${HOST}:${PORT}`);
+    const appVersion = getAppVersion();
+    log.temple('🚀', `Server Dashboard đang lắng nghe tại: http://${HOST}:${PORT} (${appVersion.displayVersion})`);
     log.info(`Sẵn sàng phục vụ Render Cloud Web Service trên cổng ${PORT}`);
 
     // Nạp dữ liệu từ file cache bộ nhớ (không kết nối game, chống tranh session khi khởi động)
