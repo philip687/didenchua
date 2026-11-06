@@ -1958,7 +1958,6 @@ export function renderDashboardHTML() {
                 <span class="quest-name">${escapeHTML(title)}</span>
                 <span class="quest-reward-pill">+${escapeHTML(q.reward)} điểm</span>
               </div>
-              ${desc ? `<div class="quest-desc">${escapeHTML(desc)}</div>` : ''}
               ${tip ? `<div class="quest-tip">${escapeHTML(tip)}</div>` : ''}
             </div>
           </div>
@@ -1978,7 +1977,11 @@ export function renderDashboardHTML() {
       </div>`;
   }).join('') || '<p class="empty">Đang đồng bộ nhiệm vụ từ máy chủ chùa…</p>';
 
-  const questsHTML = questsSummaryHTML + questsListHTML;
+  const questsHTML = questsSummaryHTML + `
+    <div class="quests-scroll-box" style="max-height: 380px; overflow-y: auto; padding-right: 4px;">
+      ${questsListHTML}
+    </div>
+  `;
 
   // 10 Nhiệm vụ tuần (Weekly Quests)
   const weeklyQuestsHTML = (me.weekly || []).map(q => {
@@ -2277,15 +2280,13 @@ export function renderDashboardHTML() {
     }
 
     return `
-      <div class="task-row ${isThisRunning ? 'active-task' : ''}">
+      <div class="task-row ${isThisRunning ? 'active-task' : ''}" data-group="${escapeHTML(t.group)}" data-title="${escapeHTML(t.title.toLowerCase())}">
         <div class="task-info">
           <div class="task-icon">${escapeHTML(t.icon)}</div>
           <div class="task-texts">
-            <b>${escapeHTML(t.title)}</b>
-            <small>${escapeHTML(t.desc)}</small>
-            <div class="task-badges">
-              <span class="badge" style="background:rgba(233,194,122,0.15); color:var(--gold);">${escapeHTML(t.reward)}</span>
-              <span class="badge" style="background:rgba(255,255,255,0.06); color:var(--text-dim);">${escapeHTML(t.badge)}</span>
+            <div class="task-name-row">
+              <b class="task-title-text">${escapeHTML(t.title)}</b>
+              <span class="badge badge-reward-chip">${escapeHTML(t.reward)}</span>
               ${questBadge}
             </div>
           </div>
@@ -2303,11 +2304,12 @@ export function renderDashboardHTML() {
     `;
   };
 
-  const dailyTasksHTML = TASKS_CATALOG.filter(t => t.group === 'daily').map(renderTaskRow).join('');
-  const milestoneTasksHTML = TASKS_CATALOG.filter(t => t.group === 'milestone').map(renderTaskRow).join('');
-  const spiritualTasksHTML = TASKS_CATALOG.filter(t => t.group === 'spiritual').map(renderTaskRow).join('');
-  const extraTasksHTML = TASKS_CATALOG.filter(t => t.group === 'extra').map(renderTaskRow).join('');
-  const zenAiTasksHTML = TASKS_CATALOG.filter(t => t.group === 'zen-ai').map(renderTaskRow).join('');
+  const dailyCount = TASKS_CATALOG.filter(t => t.group === 'daily').length;
+  const milestoneCount = TASKS_CATALOG.filter(t => t.group === 'milestone').length;
+  const spiritualCount = TASKS_CATALOG.filter(t => t.group === 'spiritual').length;
+  const extraCount = TASKS_CATALOG.filter(t => t.group === 'extra').length;
+  const zenAiCount = TASKS_CATALOG.filter(t => t.group === 'zen-ai').length;
+  const allTasksHTML = TASKS_CATALOG.map(renderTaskRow).join('');
 
   // Khối thông báo trạng thái & Log trực tiếp khi đang làm nhiệm vụ
   const bannerBorderColor = isStopping ? '#e06c75' : 'var(--gold)';
@@ -2706,17 +2708,18 @@ export function renderDashboardHTML() {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px 12px;
+      padding: 8px 12px;
       border-radius: 10px;
       background: rgba(0,0,0,0.25);
       border: 1px solid var(--card-border);
-      margin-bottom: 8px;
+      margin-bottom: 0;
       gap: 10px;
       flex-wrap: wrap;
-      transition: border-color 0.2s;
+      transition: border-color 0.2s, background 0.2s;
     }
     .task-row:hover {
       border-color: rgba(233,194,122,0.3);
+      background: rgba(255,255,255,0.02);
     }
     .task-row.active-task {
       border-color: var(--gold);
@@ -2736,23 +2739,28 @@ export function renderDashboardHTML() {
       text-align: center;
       flex-shrink: 0;
     }
-    .task-texts b {
-      display: block;
-      font-size: 13px;
-      color: var(--text);
+    .task-texts {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
     }
-    .task-texts small {
-      display: block;
-      font-size: 11px;
-      color: var(--text-dim);
-      line-height: 1.3;
-    }
-    .task-badges {
+    .task-name-row {
       display: flex;
       align-items: center;
       gap: 6px;
-      margin-top: 3px;
       flex-wrap: wrap;
+    }
+    .task-title-text {
+      font-size: 13px;
+      color: var(--text);
+    }
+    .badge-reward-chip {
+      background: rgba(233,194,122,0.15);
+      color: var(--gold);
+      font-size: 10.5px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
     }
     .task-actions {
       display: flex;
@@ -2765,6 +2773,124 @@ export function renderDashboardHTML() {
       border-color: var(--gold) !important;
       outline: none;
       box-shadow: 0 0 6px rgba(233, 194, 122, 0.3);
+    }
+
+    /* Thanh bộ lọc Tag & Tìm kiếm nhanh cho Bảng nhiệm vụ */
+    .task-filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .task-tags-scroll {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .task-tag-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 11px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-dim);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(233,194,122,0.2);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .task-tag-chip:hover {
+      border-color: var(--gold);
+      color: var(--gold);
+      background: rgba(233,194,122,0.08);
+    }
+    .task-tag-chip.active {
+      background: rgba(233,194,122,0.2);
+      border-color: var(--gold);
+      color: var(--gold);
+      font-weight: 600;
+      box-shadow: 0 0 8px rgba(233,194,122,0.15);
+    }
+    .task-tag-chip .tag-count {
+      font-size: 10px;
+      padding: 1px 5px;
+      border-radius: 10px;
+      background: rgba(0,0,0,0.35);
+      color: inherit;
+    }
+    .task-search-box {
+      position: relative;
+      display: flex;
+      align-items: center;
+      min-width: 220px;
+      flex: 1;
+      max-width: 320px;
+    }
+    .task-search-box input {
+      width: 100%;
+      background: #1c150e;
+      border: 1px solid var(--card-border);
+      color: var(--gold);
+      padding: 6px 28px 6px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .task-search-box input:focus {
+      border-color: var(--gold);
+      outline: none;
+      box-shadow: 0 0 6px rgba(233,194,122,0.3);
+    }
+    .task-search-box .btn-clear-search {
+      position: absolute;
+      right: 7px;
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 12px;
+      padding: 2px;
+      line-height: 1;
+    }
+    .task-search-box .btn-clear-search:hover {
+      color: var(--gold);
+    }
+
+    /* Khung cuộn nội bộ cho Nhiệm vụ & Quest */
+    .tasks-scroll-box {
+      max-height: 480px;
+      overflow-y: auto;
+      padding-right: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .tasks-scroll-box::-webkit-scrollbar,
+    .quests-scroll-box::-webkit-scrollbar {
+      width: 6px;
+    }
+    .tasks-scroll-box::-webkit-scrollbar-track,
+    .quests-scroll-box::-webkit-scrollbar-track {
+      background: rgba(0,0,0,0.25);
+      border-radius: 4px;
+    }
+    .tasks-scroll-box::-webkit-scrollbar-thumb,
+    .quests-scroll-box::-webkit-scrollbar-thumb {
+      background: rgba(233,194,122,0.3);
+      border-radius: 4px;
+    }
+    .tasks-scroll-box::-webkit-scrollbar-thumb:hover,
+    .quests-scroll-box::-webkit-scrollbar-thumb:hover {
+      background: var(--gold);
     }
 
     /* Giao diện đóng mở (Collapse & Expand) cho Mobile & Desktop */
@@ -2992,9 +3118,31 @@ export function renderDashboardHTML() {
       .stat-box span {
         font-size: 11px;
       }
-      .task-row {
-        padding: 10px;
+      .task-filter-bar {
+        flex-direction: column;
+        align-items: stretch;
         gap: 8px;
+      }
+      .task-search-box {
+        min-width: 100%;
+        max-width: 100%;
+      }
+      .task-tags-scroll {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        width: 100%;
+        padding-bottom: 4px;
+        -webkit-overflow-scrolling: touch;
+      }
+      .task-tag-chip {
+        flex-shrink: 0;
+      }
+      .tasks-scroll-box {
+        max-height: 420px;
+      }
+      .task-row {
+        padding: 8px 10px;
+        gap: 6px;
       }
       .task-info {
         min-width: 100%;
@@ -3565,84 +3713,49 @@ export function renderDashboardHTML() {
       </div>
     </div>
 
-    <!-- BẢNG ĐIỀU KHIỂN TỪNG NHIỆM VỤ & DANH SÁCH TOÀN BỘ (5 TẦNG KHOA HỌC) -->
+    <!-- BẢNG ĐIỀU KHIỂN TỪNG NHIỆM VỤ & DANH SÁCH TOÀN BỘ (PHÂN LOẠI TAG & SCROLL GỌN) -->
     <div class="card" id="card_tasks" style="margin-bottom: 20px;">
       <div class="card-header-toggle" onclick="toggleSection('card_tasks')">
         <h2>
-          <span>🎯 Bảng Điều Khiển Nhiệm Vụ & Tác Vụ Riêng Lẻ (5 Tầng)</span>
-          <small style="font-size:12px; color:var(--text-dim); font-weight:normal;">Chạy ngẫu hứng · Kèm nút Dừng & Live Log</small>
+          <span>🎯 Bảng Điều Khiển Nhiệm Vụ & Tác Vụ Riêng Lẻ (${TASKS_CATALOG.length} Tác Vụ)</span>
+          <small style="font-size:12px; color:var(--text-dim); font-weight:normal;">Lọc theo Tag · Tìm kiếm nhanh · Cuộn gọn gàng</small>
         </h2>
         <span class="chevron-icon">▼</span>
       </div>
       <div class="collapsible-content">
-        <p style="font-size:12px; color:var(--text-dim); margin-bottom:14px; line-height:1.6;">
-          Sau khi chu trình tự động lúc 00:05 hoàn tất, bạn có thể bấm <b>[⚡ Chạy]</b> riêng lẻ bất kỳ nhiệm vụ nào bên dưới bất cứ khi nào vào chùa. Quá trình chạy sẽ stream nhật ký trực tiếp vào hộp log phía trên. Bấm <b>[🛑 Dừng]</b> để ngắt tác vụ an toàn.
-        </p>
-
-        <div style="display:flex; flex-direction:column; gap: 12px;">
-          <!-- TẦNG 1 -->
-          <div class="tier-box" id="tier_1">
-            <div class="tier-header" onclick="toggleSection('tier_1')">
-              <div class="tier-title"><span>📋</span> TẦNG 1: NHIỆM VỤ HÀNG NGÀY (QUEST HÔM NAY - 13 TÁC VỤ)</div>
-              <div class="tier-meta">
-                <span class="chevron-icon">▼</span>
-              </div>
-            </div>
-            <div class="tier-body">
-              ${dailyTasksHTML}
-            </div>
+        <!-- Thanh lọc Tag & Tìm kiếm nhanh -->
+        <div class="task-filter-bar">
+          <div class="task-tags-scroll">
+            <button type="button" class="task-tag-chip active" data-category="all" onclick="filterTasksByCategory('all')">
+              ✨ Tất Cả <span class="tag-count">${TASKS_CATALOG.length}</span>
+            </button>
+            <button type="button" class="task-tag-chip" data-category="daily" onclick="filterTasksByCategory('daily')">
+              📋 Quest Ngày <span class="tag-count">${dailyCount}</span>
+            </button>
+            <button type="button" class="task-tag-chip" data-category="milestone" onclick="filterTasksByCategory('milestone')">
+              🎯 Mốc Tu Tập <span class="tag-count">${milestoneCount}</span>
+            </button>
+            <button type="button" class="task-tag-chip" data-category="spiritual" onclick="filterTasksByCategory('spiritual')">
+              🛖 Tâm Linh <span class="tag-count">${spiritualCount}</span>
+            </button>
+            <button type="button" class="task-tag-chip" data-category="extra" onclick="filterTasksByCategory('extra')">
+              🪷 Công Quả <span class="tag-count">${extraCount}</span>
+            </button>
+            <button type="button" class="task-tag-chip" data-category="zen-ai" onclick="filterTasksByCategory('zen-ai')">
+              🧘 Thiền & AI <span class="tag-count">${zenAiCount}</span>
+            </button>
           </div>
-
-          <!-- TẦNG 2 -->
-          <div class="tier-box" id="tier_2">
-            <div class="tier-header" onclick="toggleSection('tier_2')">
-              <div class="tier-title"><span>🎯</span> TẦNG 2: MỐC TU TẬP & THÀNH TỰU VĨNH VIỄN (6 TÁC VỤ)</div>
-              <div class="tier-meta">
-                <span class="chevron-icon">▼</span>
-              </div>
-            </div>
-            <div class="tier-body">
-              ${milestoneTasksHTML}
-            </div>
+          <div class="task-search-box">
+            <input type="text" id="taskSearchInput" placeholder="🔍 Tìm nhanh nhiệm vụ..." oninput="filterTasksLive()" autocomplete="off" />
+            <button type="button" class="btn-clear-search" id="btnClearSearch" onclick="clearTaskSearch()" style="display:none;" title="Xóa tìm kiếm">✕</button>
           </div>
+        </div>
 
-          <!-- TẦNG 3 -->
-          <div class="tier-box" id="tier_3">
-            <div class="tier-header" onclick="toggleSection('tier_3')">
-              <div class="tier-title"><span>🛖</span> TẦNG 3: KHÔNG GIAN TÂM LINH (AM RIÊNG & PHÁP ĐƯỜNG - 4 TÁC VỤ)</div>
-              <div class="tier-meta">
-                <span class="chevron-icon">▼</span>
-              </div>
-            </div>
-            <div class="tier-body">
-              ${spiritualTasksHTML}
-            </div>
-          </div>
-
-          <!-- TẦNG 4 -->
-          <div class="tier-box" id="tier_4">
-            <div class="tier-header" onclick="toggleSection('tier_4')">
-              <div class="tier-title"><span>🪷</span> TẦNG 4: VƯỜN SEN & TÙY HỶ CÔNG ĐỨC (4 TÁC VỤ)</div>
-              <div class="tier-meta">
-                <span class="chevron-icon">▼</span>
-              </div>
-            </div>
-            <div class="tier-body">
-              ${extraTasksHTML}
-            </div>
-          </div>
-
-          <!-- TẦNG 5 -->
-          <div class="tier-box" id="tier_5">
-            <div class="tier-header" onclick="toggleSection('tier_5')">
-              <div class="tier-title"><span>🧘</span> TẦNG 5: TĨNH TÂM THIỀN ĐỊNH & TRÍ TUỆ AI (2 TÁC VỤ)</div>
-              <div class="tier-meta">
-                <span class="chevron-icon">▼</span>
-              </div>
-            </div>
-            <div class="tier-body">
-              ${zenAiTasksHTML}
-            </div>
+        <!-- Khung cuộn nhiệm vụ cố định, tránh cuộn tràn trang -->
+        <div class="tasks-scroll-box" id="tasksContainer">
+          ${allTasksHTML}
+          <div id="taskFilterEmpty" class="empty" style="display:none; padding: 24px 12px; text-align:center;">
+            Không tìm thấy nhiệm vụ phù hợp với từ khóa hoặc nhóm đã chọn.
           </div>
         </div>
       </div>
@@ -4110,8 +4223,80 @@ export function renderDashboardHTML() {
       });
     }
 
+    let currentTaskCategory = 'all';
+
+    function filterTasksByCategory(category) {
+      currentTaskCategory = category;
+      document.querySelectorAll('.task-tag-chip').forEach(chip => {
+        if (chip.getAttribute('data-category') === category) {
+          chip.classList.add('active');
+        } else {
+          chip.classList.remove('active');
+        }
+      });
+      try {
+        localStorage.setItem('ddc_task_cat', category);
+      } catch (e) {}
+      applyTaskFilters();
+    }
+
+    function filterTasksLive() {
+      const query = (document.getElementById('taskSearchInput')?.value || '').trim();
+      const clearBtn = document.getElementById('btnClearSearch');
+      if (clearBtn) {
+        clearBtn.style.display = query.length > 0 ? 'block' : 'none';
+      }
+      applyTaskFilters();
+    }
+
+    function clearTaskSearch() {
+      const input = document.getElementById('taskSearchInput');
+      if (input) {
+        input.value = '';
+        input.focus();
+      }
+      const clearBtn = document.getElementById('btnClearSearch');
+      if (clearBtn) clearBtn.style.display = 'none';
+      applyTaskFilters();
+    }
+
+    function applyTaskFilters() {
+      const query = (document.getElementById('taskSearchInput')?.value || '').toLowerCase().trim();
+      const rows = document.querySelectorAll('#tasksContainer .task-row');
+      let visibleCount = 0;
+
+      rows.forEach(row => {
+        const group = row.getAttribute('data-group') || '';
+        const title = row.getAttribute('data-title') || '';
+        const matchesCategory = currentTaskCategory === 'all' || group === currentTaskCategory;
+        const matchesQuery = !query || title.includes(query);
+
+        if (matchesCategory && matchesQuery) {
+          row.style.display = 'flex';
+          visibleCount++;
+        } else {
+          row.style.display = 'none';
+        }
+      });
+
+      const emptyEl = document.getElementById('taskFilterEmpty');
+      if (emptyEl) {
+        emptyEl.style.display = visibleCount === 0 ? 'block' : 'none';
+      }
+    }
+
+    function restoreTaskFilters() {
+      try {
+        const savedCat = localStorage.getItem('ddc_task_cat');
+        if (savedCat) {
+          filterTasksByCategory(savedCat);
+        }
+      } catch (e) {}
+    }
+
     restoreCollapseStates();
     restoreProfileTab();
+    restoreTaskFilters();
   </script>
 </body>
 </html>`;
