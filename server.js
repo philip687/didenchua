@@ -286,7 +286,7 @@ export const TASKS_CATALOG = [
     group: 'daily',
     questId: 'lay',
     title: 'Lạy Phật Trang Nghiêm',
-    desc: 'Cúi lạy Phật sám hối đủ số lượng nhiệm vụ hôm nay (hoặc 1 lạy nếu không có quest)',
+    desc: 'Cúi lạy Phật sám hối đủ số lượng nhiệm vụ hôm nay (1 lượt bấm = 3 lạy)',
     icon: '🙇',
     reward: '+15-30đ',
     badge: 'Nhiệm vụ ngày'
@@ -437,7 +437,7 @@ export const TASKS_CATALOG = [
     id: 'lay',
     group: 'milestone',
     title: 'Lạy Phật Sám Hối',
-    desc: 'Trang nghiêm cúi lạy Phật sám hối (nhập số lạy tùy ý hoặc chọn gợi ý)',
+    desc: 'Trang nghiêm cúi lạy Phật sám hối (1 lượt bấm = 3 lạy, tự động chờ hoàn tất từng lượt)',
     icon: '🙇',
     reward: 'Mốc lạy',
     badge: 'Thành tựu',

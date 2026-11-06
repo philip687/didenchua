@@ -45,6 +45,25 @@ test('CHECKPOINT_HARVEST: doLay automatically claims daily quest and journals at
   assert.ok(journalPackets.length >= 2, 'Must request journal updates at checkpoints');
 });
 
+test('CHECKPOINT_HARVEST: doLay enforces 3-bows per UI click and waits lock duration on each action', async () => {
+  const client = new DiDenChuaClient();
+  const sleeps = [];
+  const sentPackets = [];
+
+  client.send = (pkt) => { sentPackets.push(pkt); };
+  client.sleep = async (ms) => { sleeps.push(ms); };
+
+  // Yêu cầu 9 lạy -> tương ứng đúng 3 lần bấm (mỗi lần 3 lạy)
+  await client.doLay(9, { intervalMs: 5050 });
+
+  const layEmotes = sentPackets.filter(p => p.t === 'emote' && p.e === 'lay');
+  assert.equal(layEmotes.length, 3, '9 lạy phải tương ứng đúng 3 lần gửi emote');
+
+  // Kiểm tra thời gian chờ khóa nút lạy: phải chờ đủ 5050ms cho cả 3 lượt (kể cả lượt cuối)
+  const cooldownSleeps = sleeps.filter(ms => ms === 5050);
+  assert.equal(cooldownSleeps.length, 3, 'Cả 3 lượt lạy đều phải chờ đủ thời gian hoàn tất 3 lạy trước khi tiếp tục');
+});
+
 test('CHECKPOINT_HARVEST: doMeditate divides long session into safe chunks, stands up, claims, and resumes', async () => {
   const client = new DiDenChuaClient({ turbo: true });
   const sentPackets = [];

@@ -573,14 +573,14 @@ export class DiDenChuaClient {
 
   async doLay(count = 108, options = {}) {
     this.checkAborted();
-    log.temple('🙏', `Bắt đầu lạy Phật sám hối (${count} lạy trang nghiêm - thu thập an toàn từng chặng)…`);
+    // Máy chủ quy định: mỗi gói { t: 'emote', e: 'lay' } tương ứng 1 lần bấm trên UI, tự động thực hiện 3 lạy ($n.bows += 3).
+    // Trong suốt thời gian nhân vật đang lạy (~5.000ms), UI khóa nút lạy và không thể bấm thêm.
+    const emotesNeeded = Math.ceil(count / 3);
+    log.temple('🙏', `Bắt đầu lạy Phật sám hối (${count} lạy ~ ${emotesNeeded} lượt bấm, 1 lượt = 3 lạy - tuân thủ nhịp lạy trang nghiêm)…`);
     // Đảm bảo đứng tại Chánh điện để máy chủ ghi nhận nhiệm vụ lạy (lay / lay27)
     this.send({ t: 'visit', zone: 'Chánh điện' });
     await this.sleep(this.isTurbo() ? 80 : 300);
 
-    // Máy chủ quy định: mỗi gói { t: 'emote', e: 'lay' } tự động cộng 3 lạy ($n.bows += 3).
-    // Cooldown máy chủ chuẩn xác là 5.000ms. Để lạy 'count' lạy, cần Math.ceil(count / 3) lần gửi.
-    const emotesNeeded = Math.ceil(count / 3);
     const checkpointBowsInterval = options.chunkSize || 9;
 
     const activeLay = (this.merit?.me?.quests || []).find(q => q.id === 'lay' || q.id.startsWith('lay'));
@@ -601,9 +601,14 @@ export class DiDenChuaClient {
       for (let i = 1; i <= emotesNeeded; i++) {
         this.checkAborted();
         const currentBows = Math.min(i * 3, count);
-        log.info(`...[${currentBows}/${count} lạy] Thành kính cúi lạy Phật đài...`);
+        log.info(`...[Lượt ${i}/${emotesNeeded}: ${currentBows}/${count} lạy] Thành kính cúi lạy Phật đài...`);
         this.send({ t: 'emote', e: 'lay' });
         sentEmotes = i;
+
+        // 1 lần bấm trên UI thực hiện 3 lạy, mất khoảng 5.050ms để hoàn tất hoạt ảnh.
+        // Bắt buộc chờ đủ thời gian này vì trong lúc đang lạy không thể bấm thêm nút lạy.
+        const layCooldown = options.intervalMs ?? 5050;
+        await this.sleep(layCooldown);
 
         // Thu thập từng phần (Checkpoint Harvest) khi chạm mốc quest ngày, định kỳ mỗi 9 lạy (~15s), hoặc khi kết thúc
         const isDailyQuestReached = (currentBows >= dailyQuestBows) && activeLay && !activeLay.claimed;
@@ -628,7 +633,7 @@ export class DiDenChuaClient {
           }
 
           if (!claimedAny && !isFinalEmote) {
-            log.temple('🙏', `[Chốt an toàn chặng: ${currentBows}/${count} lạy] Đã gửi ${currentBows} lạy tới máy chủ. Đang kiểm tra ghi nhận...`);
+            log.temple('🙏', `[Chốt an toàn chặng: ${currentBows}/${count} lạy] Đã hoàn thành ${currentBows} lạy. Đang kiểm tra ghi nhận từ máy chủ...`);
           }
 
           this.send({ t: 'journal' });
@@ -680,12 +685,6 @@ export class DiDenChuaClient {
               }
             }
           }
-        }
-
-        if (i < emotesNeeded) {
-          // Bắt buộc tuân thủ nghiêm ngặt Cooldown 5.050ms của máy chủ (ngăn chặn triệt để lỗi ngắt kết nối 1008)
-          const layCooldown = options.intervalMs ?? 5050;
-          await this.sleep(layCooldown);
         }
       }
       log.success(`🎉 HOÀN TẤT: Đã hoàn thành gửi ${sentEmotes * 3}/${count} lạy sám hối và chốt toàn bộ công đức.`);
