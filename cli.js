@@ -57,7 +57,7 @@ DANH SÁCH LỆNH CHẠY TỪNG NHIỆM VỤ:
   npm run lay [số lạy]  : Lạy Phật sám hối (mặc định 108 lạy mở danh hiệu "Trăm lạy")
   npm run tham          : Đi thăm đủ 10 khu vực trong chùa (mở danh hiệu "Thăm khắp chùa")
   npm run chores        : Làm công quả trọn gói (quét sân, phóng sinh cá, thắp đèn, chăm mèo)
-  npm run mo [số tiếng] : Gõ mõ tụng kinh (mặc định 30 lần, vd: node cli.js mo 50)
+  npm run mo [số tiếng] : Gõ mõ tụng kinh (mặc định 108 tiếng, vd: node cli.js mo 108 hoặc npm run mo 300)
   npm run chuoi [số hạt]: Lăn chuỗi tràng hạt niệm Phật (mặc định 20 hạt, vd: 108 hạt)
   npm run chu [chữ]     : Xin chữ Thầy đồ (mặc định 'all' để xin đủ 12 chữ cất vào Tủ chữ)
   npm run tangkinh      : Viếng Tàng Kinh Các lắng nghe trọn bộ 6 bài kinh điển giác ngộ
@@ -198,7 +198,8 @@ async function main() {
       break;
 
     case 'mo':
-      await runMo(args[0] ? parseInt(args[0], 10) : 30);
+    case 'tung':
+      await runMo(args[0] ? parseInt(args[0], 10) : 108);
       break;
 
     case 'beads':

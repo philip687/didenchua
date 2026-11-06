@@ -19,6 +19,7 @@
     "chores": "node cli.js chores",
     "viec": "node cli.js chores",
     "mo": "node cli.js mo",
+    "tung": "node cli.js tung",
     "beads": "node cli.js beads",
     "chuoi": "node cli.js beads",
     "bell": "node cli.js bell",

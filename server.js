@@ -204,10 +204,20 @@ export const TASKS_CATALOG = [
     group: 'daily',
     questId: 'tung',
     title: 'Gõ Mõ Tụng Kinh',
-    desc: 'Đến Chánh điện gõ mõ tụng kinh hoàn thành nhiệm vụ ngày (108 tiếng)',
+    desc: 'Đến Chánh điện gõ mõ tụng kinh hoàn thành nhiệm vụ ngày (108 tiếng hoặc tự chọn)',
     icon: '🪵',
     reward: '+30 điểm',
-    badge: 'Nhiệm vụ ngày'
+    badge: 'Nhiệm vụ ngày',
+    hasCount: true,
+    defaultCount: 108,
+    countOptions: [
+      { value: 30, label: '30 tiếng (Khởi tâm)' },
+      { value: 54, label: '54 tiếng (Nửa khóa)' },
+      { value: 108, label: '108 tiếng (Chuẩn khóa lễ 🏆)' },
+      { value: 216, label: '216 tiếng (2 khóa lễ)' },
+      { value: 300, label: '300 tiếng (Sám hối)' },
+      { value: 1080, label: '1.080 tiếng (Đại khóa lễ 🏆)' }
+    ]
   },
   {
     id: 'tuoi',
@@ -385,17 +395,20 @@ export const TASKS_CATALOG = [
     id: 'mo',
     group: 'milestone',
     title: 'Gõ Mõ Tụng Kinh Tự Do',
-    desc: 'Gõ mõ theo nhịp thong thả tự nhiên (nhập số tiếng tùy ý)',
+    desc: 'Gõ mõ theo nhịp thong thả tự nhiên (nhập số tiếng tùy ý hoặc chọn gợi ý)',
     icon: '🪵',
     reward: 'Tụng kinh',
     badge: 'Tu tập',
     hasCount: true,
-    defaultCount: 15,
+    defaultCount: 108,
     countOptions: [
-      { value: 15, label: '15 tiếng' },
-      { value: 30, label: '30 tiếng' },
-      { value: 60, label: '60 tiếng' },
-      { value: 108, label: '108 tiếng (Khóa lễ)' }
+      { value: 30, label: '30 tiếng (Khởi tâm)' },
+      { value: 54, label: '54 tiếng (Nửa khóa)' },
+      { value: 108, label: '108 tiếng (Chuẩn khóa lễ 🏆)' },
+      { value: 216, label: '216 tiếng (2 khóa lễ)' },
+      { value: 300, label: '300 tiếng (Sám hối)' },
+      { value: 540, label: '540 tiếng (Tinh tấn)' },
+      { value: 1080, label: '1.080 tiếng (Đại khóa lễ 🏆)' }
     ]
   },
   {
@@ -868,11 +881,13 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           const needLay = activeLay && !activeLay.claimed ? Math.max(1, activeLay.need - (activeLay.have || 0)) : 1;
           await client.doLay(needLay);
           break;
-        case 'tung':
+        case 'tung': {
           const activeTung = (client.merit?.me?.quests || []).find(q => q.id === 'tung');
-          const needTung = activeTung && !activeTung.claimed ? Math.max(108, activeTung.need - (activeTung.have || 0)) : 108;
+          const defaultNeed = activeTung && !activeTung.claimed ? Math.max(1, activeTung.need - (activeTung.have || 0)) : 108;
+          const needTung = (runOptions.count && runOptions.count > 0) ? runOptions.count : defaultNeed;
           await client.doMo(needTung);
           break;
+        }
         case 'tuoi':
           await client.doGarden({ autoWaterOthers: true });
           break;
@@ -932,7 +947,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           await client.doPet();
           break;
         case 'mo':
-          await client.doMo(runOptions.count || 15);
+          await client.doMo(runOptions.count || 108);
           break;
         case 'beads':
         case 'chuoi':
@@ -2046,6 +2061,17 @@ export function renderDashboardHTML() {
         </div>
       `;
     } else if (t.hasCount) {
+      let smartOption = '';
+      if (t.id === 'beads' && (journal?.beads || 0) < 10800) {
+        smartOption = `<option value="${10800 - (journal?.beads || 0)}">Cày đủ 100 chuỗi (còn ${Math.ceil((10800 - (journal?.beads || 0)) / 108)} chuỗi = ${10800 - (journal?.beads || 0)} hạt 🏆)</option>`;
+      } else if (t.id === 'tung') {
+        const tungQ = (me?.quests || []).find(q => q.id === 'tung');
+        if (tungQ && !tungQ.claimed && Number(tungQ.have || 0) < Number(tungQ.need || 108)) {
+          const rem = Math.max(1, Number(tungQ.need || 108) - Number(tungQ.have || 0));
+          smartOption = `<option value="${rem}">Làm đủ nhiệm vụ ngày (còn ${rem} tiếng 🎯)</option>`;
+        }
+      }
+
       inputControl = `
         <div style="display:flex; align-items:center; gap:5px; margin-right:4px;">
           <input type="number" id="count_${escapeHTML(t.id)}" value="${t.defaultCount || 1}" min="1" max="20000"
@@ -2057,7 +2083,7 @@ export function renderDashboardHTML() {
             style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 6px; border-radius:6px; font-size:12px; cursor:pointer; max-width:145px;"
             ${isAnyRunning ? 'disabled' : ''}>
             <option value="" disabled selected>Gợi ý ▼</option>
-            ${t.id === 'beads' && (journal?.beads || 0) < 10800 ? `<option value="${10800 - (journal?.beads || 0)}">Cày đủ 100 chuỗi (còn ${Math.ceil((10800 - (journal?.beads || 0)) / 108)} chuỗi = ${10800 - (journal?.beads || 0)} hạt 🏆)</option>` : ''}
+            ${smartOption}
             ${(t.countOptions || []).map(opt => `<option value="${opt.value}">${escapeHTML(opt.label)}</option>`).join('')}
           </select>
         </div>

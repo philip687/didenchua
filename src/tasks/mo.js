@@ -1,7 +1,7 @@
 import { DiDenChuaClient } from '../client.js';
 import { log } from '../logger.js';
 
-export async function runMo(count = 30) {
+export async function runMo(count = 108) {
   const client = new DiDenChuaClient();
   try {
     await client.connect();
@@ -15,7 +15,7 @@ export async function runMo(count = 30) {
 }
 
 if (process.argv[1]?.endsWith('mo.js')) {
-  const count = process.argv[2] ? parseInt(process.argv[2], 10) : 30;
+  const count = process.argv[2] ? parseInt(process.argv[2], 10) : 108;
   runMo(count).then(() => process.exit(0));
 }
 
