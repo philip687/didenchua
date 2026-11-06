@@ -604,6 +604,10 @@ export class DiDenChuaClient {
     const isSmartCapEnabled = options.smartCap === true;
     const maxZeroAttempts = options.maxZeroAttempts || 3;
     let zeroProgressCount = 0;
+    // Lấy mốc số lạy hiện tại của máy chủ trước khi bắt đầu (nếu chưa có trong bộ nhớ)
+    if (this.connected && !this.journal && options.intervalMs !== 0) {
+      await this.requestFreshJournal(1500).catch(() => null);
+    }
     let lastObservedBows = this.journal?.bows ?? null;
     let lastObservedMerit = this.merit?.me?.total ?? null;
     let lastQuestHave = activeLay?.have ?? null;
@@ -660,27 +664,26 @@ export class DiDenChuaClient {
             break;
           }
 
-          // 2. 🛡️ Kiểm tra phản hồi & Tự ngắt thông minh (chỉ khi options.smartCap === true)
-          if (isSmartCapEnabled && !isFinalEmote) {
-            // Yêu cầu gói journal MỚI từ máy chủ (chờ phản hồi thực tế, không dùng cache cũ)
-            // Nếu options.intervalMs được đặt là 0 (chế độ mock / test), cho phép chờ ngắn
+          // 2. 🛡️ Kiểm tra phản hồi & xác thực ghi nhận thực tế từ máy chủ
+          if (!isFinalEmote) {
             const replyTimeout = (options.intervalMs === 0) ? 150 : JOURNAL_REPLY_TIMEOUT_MS;
-            const freshJournal = await this.requestFreshJournal(replyTimeout);
+            let freshJournal = await this.requestFreshJournal(replyTimeout);
+            let curBows = (freshJournal || this.journal)?.bows ?? null;
+            let curMerit = this.merit?.me?.total ?? null;
 
-            const curBows = (freshJournal || this.journal)?.bows ?? null;
-            const curMerit = this.merit?.me?.total ?? null;
-            const curQuestHave = (this.merit?.me?.quests || []).find(q => q.id === 'lay' || q.id.startsWith('lay'))?.have ?? null;
-            const curWLayHave = (this.merit?.me?.weekly || []).find(q => q.id === 'wLay')?.have ?? null;
-
-            // Nếu máy chủ chưa kịp trả gói journal mới (freshJournal === null):
-            // Giữ nguyên trạng thái, KHÔNG tính là lỗi "máy chủ không ghi nhận" để tránh dừng oan.
-            if (!freshJournal && options.intervalMs !== 0) {
-              log.info(`  ⏳ [Chặng ${currentBows}/${count} lạy] Đang chờ gói phản hồi nhật ký từ máy chủ...`);
-              continue;
+            // Nếu máy chủ chưa kịp tăng, áp dụng cơ chế Chờ & Đồng bộ lại (Patience wait)
+            if (lastObservedBows !== null && curBows !== null && curBows <= lastObservedBows && options.intervalMs !== 0) {
+              log.info(`  ⏳ [Chặng ${currentBows}/${count} lạy] Máy chủ đang xử lý hàng đợi, tạm dừng 2s để chờ đồng bộ...`);
+              await this.sleep(2000);
+              freshJournal = await this.requestFreshJournal(replyTimeout);
+              curBows = (freshJournal || this.journal)?.bows ?? null;
+              curMerit = this.merit?.me?.total ?? null;
             }
 
             const hasBowsProgress = (lastObservedBows !== null && curBows !== null && curBows > lastObservedBows);
             const hasMeritProgress = (lastObservedMerit !== null && curMerit !== null && curMerit > lastObservedMerit);
+            const curQuestHave = (this.merit?.me?.quests || []).find(q => q.id === 'lay' || q.id.startsWith('lay'))?.have ?? null;
+            const curWLayHave = (this.merit?.me?.weekly || []).find(q => q.id === 'wLay')?.have ?? null;
             const hasQuestProgress = (lastQuestHave !== null && curQuestHave !== null && curQuestHave > lastQuestHave);
             const hasWLayProgress = (lastWLayHave !== null && curWLayHave !== null && curWLayHave > lastWLayHave);
 
@@ -688,25 +691,34 @@ export class DiDenChuaClient {
 
             if (hasAnyProgress) {
               zeroProgressCount = 0;
+              const deltaBows = (lastObservedBows !== null && curBows !== null) ? (curBows - lastObservedBows) : 0;
+              log.success(`[Chốt an toàn chặng: ${currentBows}/${count} lạy] Máy chủ đã ghi nhận thành công! (Số lạy trên máy chủ: ${curBows}${deltaBows > 0 ? ` · +${deltaBows} lạy chặng này` : ''}). Tiếp tục...`);
               if (curBows !== null) lastObservedBows = curBows;
               if (curMerit !== null) lastObservedMerit = curMerit;
               if (curQuestHave !== null) lastQuestHave = curQuestHave;
               if (curWLayHave !== null) lastWLayHave = curWLayHave;
             } else if (lastObservedBows !== null || lastQuestHave !== null) {
-              zeroProgressCount++;
-              log.info(`  ⏳ [Chặng ${currentBows}/${count} lạy] Máy chủ chưa ghi nhận tiến độ mới (Lần thử không tiến triển: ${zeroProgressCount}/${maxZeroAttempts})`);
-
-              if (zeroProgressCount >= maxZeroAttempts) {
-                const layCooldownMs = options.intervalMs ?? LAY_COOLDOWN_MS;
-                const timeSavedMinutes = Math.round(((emotesNeeded - i) * layCooldownMs) / 60000);
-                log.temple('🛑', `[Lạy Phật] TỰ ĐỘNG DỪNG SỚM THÔNG MINH: Máy chủ đã bão hòa / không còn ghi nhận thêm số lạy sau ${maxZeroAttempts} chặng kiểm tra.`);
-                log.warn(`-> Đã dừng an toàn tại ${currentBows}/${count} lạy. Tiết kiệm ${timeSavedMinutes > 0 ? `~${timeSavedMinutes} phút` : 'thời gian'} treo máy vô ích!`);
-                break;
+              // Máy chủ vẫn chưa ghi nhận sau khi đã chờ
+              if (isSmartCapEnabled) {
+                zeroProgressCount++;
+                log.info(`  ⏳ [Chặng ${currentBows}/${count} lạy] Máy chủ chưa ghi nhận tiến độ mới (Lần thử không tiến triển: ${zeroProgressCount}/${maxZeroAttempts})`);
+                if (zeroProgressCount >= maxZeroAttempts) {
+                  const layCooldownMs = options.intervalMs ?? LAY_COOLDOWN_MS;
+                  const timeSavedMinutes = Math.round(((emotesNeeded - i) * layCooldownMs) / 60000);
+                  log.temple('🛑', `[Lạy Phật] TỰ ĐỘNG DỪNG SỚM THÔNG MINH: Máy chủ đã bão hòa / không còn ghi nhận thêm số lạy sau ${maxZeroAttempts} chặng kiểm tra.`);
+                  log.warn(`-> Đã dừng an toàn tại ${currentBows}/${count} lạy. Tiết kiệm ${timeSavedMinutes > 0 ? `~${timeSavedMinutes} phút` : 'thời gian'} treo máy vô ích!`);
+                  break;
+                }
+              } else {
+                log.info(`  ℹ️ [Chặng ${currentBows}/${count} lạy] Đã đồng bộ trạng thái với máy chủ (${curBows ?? 'đang cập nhật'} lạy). Tiếp tục tiến trình...`);
+                if (curBows !== null) lastObservedBows = curBows;
               }
+            } else if (curBows !== null) {
+              lastObservedBows = curBows;
+              log.success(`✅ [Chốt an toàn chặng: ${currentBows}/${count} lạy] Máy chủ xác nhận tiến độ (Tổng số lạy máy chủ: ${curBows} lạy). Tiếp tục...`);
+            } else {
+              log.info(`  ⏳ [Chặng ${currentBows}/${count} lạy] Đang chờ gói phản hồi nhật ký từ máy chủ, tiếp tục giữ kết nối an toàn...`);
             }
-          } else {
-            // Khi smart cap tắt hoặc là emote cuối, vẫn gửi yêu cầu cập nhật journal như bình thường
-            this.send({ t: 'journal' });
           }
         }
       }
@@ -1103,8 +1115,6 @@ export class DiDenChuaClient {
             log.temple('🪵', `[Chốt an toàn chặng: ${sent}/${count} tiếng mõ] Đã gửi số tiếng mõ tới máy chủ. Đang kiểm tra ghi nhận...`);
           }
 
-          this.send({ t: 'journal' });
-
           // 1. Luôn kiểm tra toast thông báo giới hạn từ máy chủ
           const recentToasts = this.recentToasts || [];
           const saturationToast = recentToasts.find(t =>
@@ -1116,9 +1126,10 @@ export class DiDenChuaClient {
             break;
           }
 
-          // 2. 🛡️ Tự ngắt thông minh nếu máy chủ ngừng ghi nhận (chỉ khi options.smartCap === true)
-          if (isSmartCapEnabled && !isFinalStrike) {
-            await this.sleep(this.isTurbo() ? 50 : 100);
+          // 2. 🛡️ Kiểm tra phản hồi & xác thực ghi nhận thực tế từ máy chủ
+          if (!isFinalStrike) {
+            const replyTimeout = (options.intervalMs === 0) ? 150 : JOURNAL_REPLY_TIMEOUT_MS;
+            await this.requestFreshJournal(replyTimeout);
 
             const curMerit = this.merit?.me?.total ?? null;
             const curQuestHave = (this.merit?.me?.quests || []).find(q => q.id === 'tung')?.have ?? null;
@@ -1132,18 +1143,22 @@ export class DiDenChuaClient {
 
             if (hasAnyProgress) {
               zeroProgressCount = 0;
+              log.success(`[Chốt an toàn chặng: ${sent}/${count} tiếng mõ] Máy chủ đã ghi nhận thành công! Tiếp tục...`);
               if (curMerit !== null) lastObservedMerit = curMerit;
               if (curQuestHave !== null) lastQuestHave = curQuestHave;
               if (curWTungHave !== null) lastWTungHave = curWTungHave;
             } else if (lastObservedMerit !== null || lastQuestHave !== null) {
-              zeroProgressCount++;
-              log.info(`  ⏳ [Chặng ${sent}/${count} tiếng] Máy chủ chưa ghi nhận thêm tiến độ (Lần thử không tiến triển: ${zeroProgressCount}/${maxZeroAttempts})`);
-
-              if (zeroProgressCount >= maxZeroAttempts) {
-                const timeSavedMinutes = Math.round(((count - sent) / batchSize * intervalMs) / 60000);
-                log.temple('🛑', `[Gõ mõ] TỰ ĐỘNG DỪNG SỚM THÔNG MINH: Máy chủ đã bão hòa / không còn ghi nhận sau ${maxZeroAttempts} chặng kiểm tra.`);
-                log.warn(`-> Đã dừng an toàn tại ${sent}/${count} tiếng. Tiết kiệm ${timeSavedMinutes > 0 ? `~${timeSavedMinutes} phút` : 'thời gian'} treo máy vô ích!`);
-                break;
+              if (isSmartCapEnabled) {
+                zeroProgressCount++;
+                log.info(`  ⏳ [Chặng ${sent}/${count} tiếng] Máy chủ chưa ghi nhận thêm tiến độ (Lần thử không tiến triển: ${zeroProgressCount}/${maxZeroAttempts})`);
+                if (zeroProgressCount >= maxZeroAttempts) {
+                  const timeSavedMinutes = Math.round(((count - sent) / batchSize * intervalMs) / 60000);
+                  log.temple('🛑', `[Gõ mõ] TỰ ĐỘNG DỪNG SỚM THÔNG MINH: Máy chủ đã bão hòa / không còn ghi nhận sau ${maxZeroAttempts} chặng kiểm tra.`);
+                  log.warn(`-> Đã dừng an toàn tại ${sent}/${count} tiếng. Tiết kiệm ${timeSavedMinutes > 0 ? `~${timeSavedMinutes} phút` : 'thời gian'} treo máy vô ích!`);
+                  break;
+                }
+              } else {
+                log.info(`  -> Đã đồng bộ trạng thái gõ mõ với máy chủ. Tiếp tục tiến trình...`);
               }
             }
           }
@@ -1233,8 +1248,6 @@ export class DiDenChuaClient {
             log.temple('📿', `[Chốt an toàn chặng: ${sent}/${count} hạt (~${curRounds} chuỗi)] Đã gửi số hạt niệm tới máy chủ. Đang kiểm tra ghi nhận...`);
           }
 
-          this.send({ t: 'journal' });
-
           // 1. Luôn kiểm tra toast thông báo giới hạn từ máy chủ
           const recentToasts = this.recentToasts || [];
           const saturationToast = recentToasts.find(t =>
@@ -1246,17 +1259,25 @@ export class DiDenChuaClient {
             break;
           }
 
-          // 2. 🛡️ Tự ngắt thông minh nếu máy chủ ngừng ghi nhận (chỉ khi options.smartCap === true)
-          if (isSmartCapEnabled && !isFinalBead) {
-            await this.sleep(this.isTurbo() ? 50 : 120);
+          // 2. 🛡️ Kiểm tra phản hồi & xác thực ghi nhận thực tế từ máy chủ
+          if (!isFinalBead) {
+            const replyTimeout = (options.intervalMs === 0) ? 150 : JOURNAL_REPLY_TIMEOUT_MS;
+            let freshJournal = await this.requestFreshJournal(replyTimeout);
+            let curBeads = (freshJournal || this.journal)?.beads ?? null;
+            let curMerit = this.merit?.me?.total ?? null;
 
-            const curBeads = this.journal?.beads ?? null;
-            const curMerit = this.merit?.me?.total ?? null;
-            const curQuestHave = (this.merit?.me?.quests || []).find(q => q.id === 'chuoi' || q.id === 'beads' || q.id.startsWith('chuoi'))?.have ?? null;
-            const curWChuoiHave = (this.merit?.me?.weekly || []).find(q => q.id === 'wChuoi' || q.id === 'wBeads')?.have ?? null;
+            if (lastObservedBeads !== null && curBeads !== null && curBeads <= lastObservedBeads && options.intervalMs !== 0) {
+              log.info(`  ⏳ [Chặng ${sent}/${count} hạt] Máy chủ đang xử lý hàng đợi, tạm dừng 2s để chờ đồng bộ...`);
+              await this.sleep(2000);
+              freshJournal = await this.requestFreshJournal(replyTimeout);
+              curBeads = (freshJournal || this.journal)?.beads ?? null;
+              curMerit = this.merit?.me?.total ?? null;
+            }
 
             const hasBeadsProgress = (lastObservedBeads !== null && curBeads !== null && curBeads > lastObservedBeads);
             const hasMeritProgress = (lastObservedMerit !== null && curMerit !== null && curMerit > lastObservedMerit);
+            const curQuestHave = (this.merit?.me?.quests || []).find(q => q.id === 'chuoi' || q.id === 'beads' || q.id.startsWith('chuoi'))?.have ?? null;
+            const curWChuoiHave = (this.merit?.me?.weekly || []).find(q => q.id === 'wChuoi' || q.id === 'wBeads')?.have ?? null;
             const hasQuestProgress = (lastQuestHave !== null && curQuestHave !== null && curQuestHave > lastQuestHave);
             const hasWProgress = (lastWChuoiHave !== null && curWChuoiHave !== null && curWChuoiHave > lastWChuoiHave);
 
@@ -1264,20 +1285,29 @@ export class DiDenChuaClient {
 
             if (hasAnyProgress) {
               zeroProgressCount = 0;
+              const deltaBeads = (lastObservedBeads !== null && curBeads !== null) ? (curBeads - lastObservedBeads) : 0;
+              log.success(`[Chốt an toàn chặng: ${sent}/${count} hạt] Máy chủ đã ghi nhận thành công! (Số hạt trên máy chủ: ${curBeads}${deltaBeads > 0 ? ` · +${deltaBeads} hạt chặng này` : ''}). Tiếp tục...`);
               if (curBeads !== null) lastObservedBeads = curBeads;
               if (curMerit !== null) lastObservedMerit = curMerit;
               if (curQuestHave !== null) lastQuestHave = curQuestHave;
               if (curWChuoiHave !== null) lastWChuoiHave = curWChuoiHave;
             } else if (lastObservedBeads !== null || lastQuestHave !== null) {
-              zeroProgressCount++;
-              log.info(`  ⏳ [Chặng ${sent}/${count} hạt] Máy chủ chưa ghi nhận thêm tiến độ (Lần thử không tiến triển: ${zeroProgressCount}/${maxZeroAttempts})`);
-
-              if (zeroProgressCount >= maxZeroAttempts) {
-                const timeSavedMinutes = Math.round(((count - sent) / batchSize * intervalMs) / 60000);
-                log.temple('🛑', `[Tràng hạt] TỰ ĐỘNG DỪNG SỚM THÔNG MINH: Máy chủ đã bão hòa / không còn ghi nhận sau ${maxZeroAttempts} chặng kiểm tra.`);
-                log.warn(`-> Đã dừng an toàn tại ${sent}/${count} hạt. Tiết kiệm ${timeSavedMinutes > 0 ? `~${timeSavedMinutes} phút` : 'thời gian'} treo máy vô ích!`);
-                break;
+              if (isSmartCapEnabled) {
+                zeroProgressCount++;
+                log.info(`  ⏳ [Chặng ${sent}/${count} hạt] Máy chủ chưa ghi nhận thêm tiến độ (Lần thử không tiến triển: ${zeroProgressCount}/${maxZeroAttempts})`);
+                if (zeroProgressCount >= maxZeroAttempts) {
+                  const timeSavedMinutes = Math.round(((count - sent) / batchSize * intervalMs) / 60000);
+                  log.temple('🛑', `[Tràng hạt] TỰ ĐỘNG DỪNG SỚM THÔNG MINH: Máy chủ đã bão hòa / không còn ghi nhận sau ${maxZeroAttempts} chặng kiểm tra.`);
+                  log.warn(`-> Đã dừng an toàn tại ${sent}/${count} hạt. Tiết kiệm ${timeSavedMinutes > 0 ? `~${timeSavedMinutes} phút` : 'thời gian'} treo máy vô ích!`);
+                  break;
+                }
+              } else {
+                log.info(`  -> Tiến độ trên máy chủ hiện tại: ${curBeads ?? 'đang cập nhật'} hạt. Tiếp tục tiến trình...`);
+                if (curBeads !== null) lastObservedBeads = curBeads;
               }
+            } else if (curBeads !== null) {
+              lastObservedBeads = curBeads;
+              log.success(`[Chốt an toàn chặng: ${sent}/${count} hạt] Máy chủ xác nhận tiến độ (Tổng số hạt máy chủ: ${curBeads} hạt). Tiếp tục...`);
             }
           }
         }
