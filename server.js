@@ -2635,9 +2635,12 @@ export function renderDashboardHTML() {
       </a>
       <div class="nav-actions">
         <span class="badge badge-status" id="serverClock">⏰ --:--:-- (UTC+7)</span>
-        <span class="badge ${isRunning ? 'badge-ready' : 'badge-done'}" id="botStatusBadge">
-          ${isRunning ? '🟡 Đang thực thi: ' + escapeHTML(state.runningTaskName || 'Tác vụ') : '🟢 Sẵn sàng'}
+        <span class="badge ${isStopping ? 'badge-ready' : (isRunning ? 'badge-ready' : 'badge-done')}" id="botStatusBadge">
+          ${isStopping ? '⏳ Đang dừng an toàn...' : (isRunning ? '🟡 Đang thực thi: ' + escapeHTML(state.runningTaskName || 'Tác vụ') : '🟢 Sẵn sàng')}
         </span>
+        <button type="button" class="btn btn-danger btn-sm" onclick="stopTask()" id="headerStopBtn" style="${isRunning ? 'display:inline-flex;' : 'display:none;'}" ${isStopping ? 'disabled' : ''}>
+          ${isStopping ? '⏳ Đang Dừng...' : '🛑 Dừng Tác Vụ'}
+        </button>
         <label class="turbo-toggle" title="Kích hoạt chế độ siêu tốc (bỏ qua độ trễ người thật)">
           <input type="checkbox" id="turboModeToggle" onchange="toggleTurboMode(this.checked)">
           <span>⚡ Siêu Tốc (Turbo)</span>
@@ -2696,17 +2699,20 @@ export function renderDashboardHTML() {
     <section class="auto-engine-card">
       <div class="auto-engine-info">
         <div class="auto-badge ${autoEnabled ? 'auto-badge-on' : 'auto-badge-off'}" id="autoEngineBadge">
-          ${autoEnabled ? '🟢 CỖ MÁY TỰ CHƠI AUTO: ĐANG HOẠT ĐỘNG (24/7)' : '⚪ CỖ MÁY TỰ CHƠI AUTO: ĐANG TẮT'}
+          ${autoEnabled ? '🟢 CỖ MÁY TỰ CHƠI AUTO: ĐANG HOẠT ĐỘNG (24/7)' : '⚪ CỖ MÁY TỰ CHƠI AUTO: ĐÃ TẠM DỪNG'}
         </div>
-        <div class="auto-desc">
+        <div class="auto-desc" id="autoEngineDesc">
           ${autoEnabled
             ? 'Cỗ máy đang tự động kiểm tra nhiệm vụ ngày (00:05 UTC+7), quét hoàn thành việc còn thiếu mỗi 15 phút và giữ thức Render.'
-            : 'Nhấn nút bật bên cạnh để cỗ máy tự động chơi toàn diện trên cloud Render mà không cần can thiệp.'}
+            : 'Chế độ Auto đang tạm dừng. Bấm [▶️ Tiếp Tục Auto] để cỗ máy tiếp tục tự động làm nhiệm vụ 24/7.'}
         </div>
       </div>
       <div class="auto-engine-actions">
         <button type="button" class="btn ${autoEnabled ? 'btn-danger' : 'btn-success'}" onclick="toggleAutoMode()" id="autoToggleBtn">
-          ${autoEnabled ? '🛑 Tắt Chế Độ Auto' : '🤖 Bật Tự Động Chơi (Auto)'}
+          ${autoEnabled ? '⏸️ Tạm Dừng Auto' : '▶️ Tiếp Tục Auto'}
+        </button>
+        <button type="button" class="btn btn-danger" onclick="stopTask()" id="stopTaskBtn" ${!isRunning || isStopping ? 'disabled' : ''}>
+          ${isStopping ? '⏳ Đang Dừng An Toàn...' : '🛑 Dừng Tác Vụ'}
         </button>
         <button type="button" class="btn btn-primary" onclick="runTask('all')" ${isAnyRunning ? 'disabled' : ''}>
           ⚡ Chạy Nhanh Toàn Bộ
@@ -2716,9 +2722,6 @@ export function renderDashboardHTML() {
         </button>
         <button type="button" class="btn" onclick="runTask('ngoi-daily')" ${isAnyRunning ? 'disabled' : ''}>
           🧘 Thiền 5 Phút
-        </button>
-        <button type="button" class="btn btn-danger" onclick="stopTask()" ${!isRunning || isStopping ? 'disabled' : ''}>
-          🛑 Dừng Tác Vụ
         </button>
       </div>
     </section>
@@ -3030,6 +3033,16 @@ export function renderDashboardHTML() {
 
     // Stop Task API
     async function stopTask() {
+      const stopBtn = document.getElementById('stopTaskBtn');
+      const headerStopBtn = document.getElementById('headerStopBtn');
+      if (stopBtn) {
+        stopBtn.disabled = true;
+        stopBtn.textContent = '⏳ Đang Dừng An Toàn...';
+      }
+      if (headerStopBtn) {
+        headerStopBtn.disabled = true;
+        headerStopBtn.textContent = '⏳ Đang Dừng...';
+      }
       try {
         const resp = await fetch('/api/stop', {
           method: 'POST',
@@ -3039,11 +3052,17 @@ export function renderDashboardHTML() {
           }
         });
         const data = await resp.json();
-        if (resp.ok) {
-          alert(data.message || 'Đã gửi lệnh dừng an toàn.');
-        }
+        console.log('[Stop]', data.message);
       } catch (err) {
         alert('Lỗi khi gửi lệnh dừng: ' + err.message);
+        if (stopBtn) {
+          stopBtn.disabled = false;
+          stopBtn.textContent = '🛑 Dừng Tác Vụ';
+        }
+        if (headerStopBtn) {
+          headerStopBtn.disabled = false;
+          headerStopBtn.textContent = '🛑 Dừng Tác Vụ';
+        }
       }
     }
 
@@ -3068,8 +3087,10 @@ export function renderDashboardHTML() {
       }
     }
 
-    // Toggle Auto Play API
+    // Toggle Auto Play API (Dừng Auto / Tiếp Tục Auto)
     async function toggleAutoMode() {
+      const btn = document.getElementById('autoToggleBtn');
+      if (btn) btn.disabled = true;
       try {
         const resp = await fetch('/api/auto/toggle', {
           method: 'POST',
@@ -3080,12 +3101,17 @@ export function renderDashboardHTML() {
         });
         const data = await resp.json();
         if (data.ok) {
-          window.location.reload();
+          updateAutoUI(data.autoEnabled);
+          if (data.stopped) {
+            updateRunningUI(false, null, false);
+          }
         } else {
           alert(data.error || 'Lỗi khi chuyển đổi chế độ Auto');
         }
       } catch (err) {
         alert('Lỗi kết nối: ' + err.message);
+      } finally {
+        if (btn) btn.disabled = false;
       }
     }
 
@@ -3103,10 +3129,35 @@ export function renderDashboardHTML() {
       }
     }
 
-    function updateRunningUI(running, taskName) {
+    function updateAutoUI(autoEnabled) {
+      const badge = document.getElementById('autoEngineBadge');
+      const desc = document.getElementById('autoEngineDesc');
+      const btn = document.getElementById('autoToggleBtn');
+
+      if (badge) {
+        badge.className = 'auto-badge ' + (autoEnabled ? 'auto-badge-on' : 'auto-badge-off');
+        badge.textContent = autoEnabled
+          ? '🟢 CỖ MÁY TỰ CHƠI AUTO: ĐANG HOẠT ĐỘNG (24/7)'
+          : '⚪ CỖ MÁY TỰ CHƠI AUTO: ĐÃ TẠM DỪNG';
+      }
+      if (desc) {
+        desc.textContent = autoEnabled
+          ? 'Cỗ máy đang tự động kiểm tra nhiệm vụ ngày (00:05 UTC+7), quét hoàn thành việc còn thiếu mỗi 15 phút và giữ thức Render.'
+          : 'Chế độ Auto đang tạm dừng. Bấm [▶️ Tiếp Tục Auto] để cỗ máy tiếp tục tự động làm nhiệm vụ 24/7.';
+      }
+      if (btn) {
+        btn.className = 'btn ' + (autoEnabled ? 'btn-danger' : 'btn-success');
+        btn.textContent = autoEnabled ? '⏸️ Tạm Dừng Auto' : '▶️ Tiếp Tục Auto';
+      }
+    }
+
+    function updateRunningUI(running, taskName, isStopping) {
       const badge = document.getElementById('botStatusBadge');
       if (badge) {
-        if (running) {
+        if (isStopping) {
+          badge.className = 'badge badge-ready';
+          badge.textContent = '⏳ Đang dừng an toàn...';
+        } else if (running) {
           badge.className = 'badge badge-ready';
           badge.textContent = '🟡 Đang thực thi: ' + (taskName || 'Tác vụ');
         } else {
@@ -3114,10 +3165,28 @@ export function renderDashboardHTML() {
           badge.textContent = '🟢 Sẵn sàng';
         }
       }
-      document.querySelectorAll('button:not(#autoToggleBtn)').forEach(btn => {
-        if (!btn.classList.contains('btn-danger') || !btn.textContent.includes('Dừng')) {
-          btn.disabled = running;
+
+      const stopBtn = document.getElementById('stopTaskBtn');
+      if (stopBtn) {
+        stopBtn.disabled = !running || Boolean(isStopping);
+        stopBtn.textContent = isStopping ? '⏳ Đang Dừng An Toàn...' : '🛑 Dừng Tác Vụ';
+      }
+
+      const headerStopBtn = document.getElementById('headerStopBtn');
+      if (headerStopBtn) {
+        headerStopBtn.disabled = Boolean(isStopping);
+        headerStopBtn.textContent = isStopping ? '⏳ Đang Dừng...' : '🛑 Dừng Tác Vụ';
+        headerStopBtn.style.display = running ? 'inline-flex' : 'none';
+      }
+
+      document.querySelectorAll('button').forEach(btn => {
+        if (btn.id === 'autoToggleBtn' || btn.id === 'stopTaskBtn' || btn.id === 'headerStopBtn') return;
+        if (btn.id === 'refreshBtn' || btn.getAttribute('onclick')?.includes('refreshData')) {
+          btn.disabled = running || Boolean(isStopping);
+          return;
         }
+        if (btn.classList.contains('btn-danger') && btn.textContent.includes('Dừng')) return;
+        btn.disabled = running || Boolean(isStopping);
       });
     }
 
@@ -3131,7 +3200,7 @@ export function renderDashboardHTML() {
     }, 1000);
 
     // Status Polling
-    let pollingInterval = 4000;
+    let pollingInterval = 3000;
     async function pollStatus() {
       try {
         const resp = await fetch('/api/status', {
@@ -3140,13 +3209,19 @@ export function renderDashboardHTML() {
         if (resp.ok) {
           const data = await resp.json();
           const running = Boolean(data.isRunning);
-          if (running !== isTaskRunning) {
+          const stopping = Boolean(data.isStopping);
+          const auto = Boolean(data.autoEnabled);
+
+          updateAutoUI(auto);
+
+          if (running !== isTaskRunning || stopping) {
+            const wasRunning = isTaskRunning;
             isTaskRunning = running;
-            if (!running) {
+            if (!running && !stopping && wasRunning) {
               window.location.reload();
               return;
             }
-            updateRunningUI(running, data.runningTaskName);
+            updateRunningUI(running, data.runningTaskName, stopping);
           }
           if (Array.isArray(data.liveTaskLogs)) {
             const box = document.getElementById('terminalBox');
@@ -3158,9 +3233,9 @@ export function renderDashboardHTML() {
           }
         }
       } catch {}
-      setTimeout(pollStatus, isTaskRunning ? 2000 : 5000);
+      setTimeout(pollStatus, isTaskRunning ? 2000 : 4000);
     }
-    setTimeout(pollStatus, 3000);
+    setTimeout(pollStatus, 2000);
   </script>
 </body>
 </html>`;
@@ -3187,8 +3262,8 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 1b. API Bật/Tắt chế độ tự chơi Auto
-  if (url.pathname === '/api/auto/toggle') {
+  // 1b. API Bật/Tắt chế độ tự chơi Auto (hỗ trợ toggle, pause, resume)
+  if (url.pathname === '/api/auto/toggle' || url.pathname === '/api/auto/pause' || url.pathname === '/api/auto/resume' || url.pathname === '/api/auto/stop' || url.pathname === '/api/auto/start') {
     if (req.method !== 'POST') {
       res.writeHead(405, { 'Content-Type': 'application/json; charset=utf-8', 'Allow': 'POST' });
       res.end(JSON.stringify({ ok: false, error: 'Phương thức không được hỗ trợ. Bắt buộc dùng POST.' }));
@@ -3200,19 +3275,47 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    state.autoEnabled = !state.autoEnabled;
-    addWebLog(`🤖 Chế độ Tự Động Chơi (Auto Engine): ${state.autoEnabled ? 'ĐÃ BẬT' : 'ĐÃ TẮT'}`, state.autoEnabled ? 'success' : 'warn', '🤖');
+    let targetState;
+    if (url.pathname === '/api/auto/pause' || url.pathname === '/api/auto/stop') {
+      targetState = false;
+    } else if (url.pathname === '/api/auto/resume' || url.pathname === '/api/auto/start') {
+      targetState = true;
+    } else {
+      targetState = !state.autoEnabled;
+    }
+
+    state.autoEnabled = targetState;
     saveCachedState();
 
-    if (state.autoEnabled && !state.isRunning && !state.isStopping) {
-      executeRoutine('Auto Bot (Kích hoạt từ Dashboard)', { fast: true }).catch(console.error);
+    let stoppedTask = false;
+    if (!state.autoEnabled) {
+      if (state.isRunning && !state.isStopping) {
+        state.isStopping = true;
+        stoppedTask = true;
+        addWebLog('🛑 Đã tạm dừng chế độ Tự Động Chơi (Auto Engine) và ngắt tác vụ đang thực thi...', 'warn', '🛑');
+        if (state.activeClient) {
+          try {
+            state.activeClient.abort('Người dùng đã tạm dừng Auto trên Dashboard.');
+          } catch (abortErr) {
+            log.warn('Lỗi khi gọi client.abort:', abortErr.message);
+          }
+        }
+      } else {
+        addWebLog('⏸️ Đã tạm dừng chế độ Tự Động Chơi (Auto Engine).', 'warn', '⏸️');
+      }
+    } else {
+      addWebLog('▶️ Đã tiếp tục chế độ Tự Động Chơi (Auto Engine 24/7).', 'success', '▶️');
+      if (!state.isRunning && !state.isStopping) {
+        executeRoutine('Auto Bot (Tiếp tục Auto từ Dashboard)', { fast: true }).catch(console.error);
+      }
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({
       ok: true,
       autoEnabled: state.autoEnabled,
-      message: `Đã ${state.autoEnabled ? 'bật' : 'tắt'} chế độ tự động chơi.`
+      stopped: stoppedTask,
+      message: state.autoEnabled ? 'Đã tiếp tục chế độ tự động chơi.' : 'Đã tạm dừng chế độ tự động chơi.'
     }));
     return;
   }

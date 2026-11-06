@@ -151,7 +151,25 @@ export class DiDenChuaClient {
   }
 
   async sleep(ms) {
-    return new Promise(r => setTimeout(r, ms));
+    this.checkAborted();
+    return new Promise((resolve, reject) => {
+      let timer = null;
+      const onAbort = () => {
+        if (timer) clearTimeout(timer);
+        this.abortResolvers.delete(onAbort);
+        reject(new Error('Tác vụ đã bị dừng bởi người dùng.'));
+      };
+      this.abortResolvers.add(onAbort);
+
+      timer = setTimeout(() => {
+        this.abortResolvers.delete(onAbort);
+        if (this.aborted) {
+          reject(new Error('Tác vụ đã bị dừng bởi người dùng.'));
+        } else {
+          resolve();
+        }
+      }, ms);
+    });
   }
 
   async humanDelay(msg = '') {
@@ -169,12 +187,19 @@ export class DiDenChuaClient {
     }
   }
 
-  setAbort() {
+  abort(reason = 'Người dùng đã dừng tác vụ') {
     this.aborted = true;
-    for (const r of this.abortResolvers) {
-      try { r(); } catch {}
+    for (const cancelFn of Array.from(this.abortResolvers)) {
+      try {
+        cancelFn();
+      } catch {}
     }
     this.abortResolvers.clear();
+    this.close();
+  }
+
+  setAbort() {
+    this.abort();
   }
 
   async api(path, { method = 'GET', body, headers = {} } = {}) {
@@ -427,7 +452,7 @@ export class DiDenChuaClient {
   }
 
   send(pkt) {
-    if (!pkt) return;
+    if (this.aborted || !pkt) return;
     for (const listener of this.messageListeners) {
       try { listener(pkt); } catch {}
     }
