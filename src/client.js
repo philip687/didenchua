@@ -566,7 +566,7 @@ export class DiDenChuaClient {
     // Máy chủ quy định: mỗi gói { t: 'emote', e: 'lay' } tự động cộng 3 lạy ($n.bows += 3).
     // Cooldown máy chủ chuẩn xác là 5.000ms. Để lạy 'count' lạy, cần Math.ceil(count / 3) lần gửi.
     const emotesNeeded = Math.ceil(count / 3);
-    const checkpointBowsInterval = options.chunkSize || 27;
+    const checkpointBowsInterval = options.chunkSize || 9;
 
     const activeLay = (this.merit?.me?.quests || []).find(q => q.id === 'lay' || q.id.startsWith('lay'));
     const dailyQuestBows = (activeLay && !activeLay.claimed) ? (activeLay.need || 27) : 27;
@@ -580,15 +580,17 @@ export class DiDenChuaClient {
         this.send({ t: 'emote', e: 'lay' });
         sentEmotes = i;
 
-        // Thu thập từng phần (Checkpoint Harvest) khi chạm mốc quest ngày, định kỳ 27 lạy, hoặc khi kết thúc
+        // Thu thập từng phần (Checkpoint Harvest) khi chạm mốc quest ngày, định kỳ mỗi 9 lạy (~15s), hoặc khi kết thúc
         const isDailyQuestReached = (currentBows >= dailyQuestBows) && activeLay && !activeLay.claimed;
         const isIntervalReached = (currentBows % checkpointBowsInterval === 0);
         const isFinalEmote = (i === emotesNeeded);
 
         if (isDailyQuestReached || isIntervalReached || isFinalEmote) {
+          let claimedAny = false;
           if (activeLay && !activeLay.claimed && currentBows >= (activeLay.need || 18)) {
             this.send({ t: 'claim', q: activeLay.id });
             activeLay.claimed = true;
+            claimedAny = true;
             log.success(`🙏 [Chốt an toàn chặng: ${currentBows}/${count} lạy] -> Thu thập ngay phần thưởng nhiệm vụ Lạy Phật (+${activeLay.reward || 15}đ công đức)!`);
           }
 
@@ -596,7 +598,12 @@ export class DiDenChuaClient {
           if (wLay && !wLay.claimed && (wLay.have || 0) + currentBows >= (wLay.need || 108)) {
             this.send({ t: 'claim', q: 'wLay' });
             wLay.claimed = true;
+            claimedAny = true;
             log.success(`🙏 [Chốt an toàn chặng: ${currentBows}/${count} lạy] -> Thu thập ngay nhiệm vụ tuần Lạy Phật (+${wLay.reward || 100}đ công đức)!`);
+          }
+
+          if (!claimedAny && !isFinalEmote) {
+            log.temple('🙏', `[Chốt an toàn chặng: ${currentBows}/${count} lạy] Đã đồng bộ ${currentBows} lạy vào máy chủ chùa. Tiếp tục lạy...`);
           }
 
           this.send({ t: 'journal' });
