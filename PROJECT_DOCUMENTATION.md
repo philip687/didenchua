@@ -134,10 +134,10 @@ Khi nhấp vào nhân vật của mình trên Chùa An Tự Duyên, giao diện 
 Tab này phản ánh trung thực toàn bộ căn lành, công đức tích lũy và thời khóa nhật tụng:
 
 - **Thông Tin Định Danh**:
-  - Pháp danh / Tên: `Hoa Hiền` (Mặc định cấu hình)
+  - Pháp danh / Tên: `<configured display name>`
   - Cấp bậc tu tập: **An lạc (Lv.4)**
   - Danh hiệu đeo trên đầu: **Trăm chuỗi hạt** 🏆
-  - Tài khoản hệ thống: `@thichkngan`
+  - Tài khoản hệ thống: `<configured account>`
   - Tâm niệm (Bio): *"Nam Mô A Di Đà Phật · Thân tâm thường an lạc"*
   - Tiến trình công đức: **1.839 / 3.000 điểm** (còn 1.161 điểm lên cấp Tịnh độ).
 
@@ -273,9 +273,9 @@ Tài khoản hiện đã đạt xuất sắc **10 / 17 danh hiệu**:
 ### 4.4. TAB 4: BẢN ĐỒ CHÙA & THÔNG TIN TÀI KHOẢN
 
 - **Thông Tin Định Danh**:
-  - Tên đăng nhập: `@thichkngan`
-  - CID (Account ID): `thichkngan`
-  - Mã khôi phục: `c332df6e-1e07-48a3-b46d-f5dc8d6c04a4`
+  - Tên đăng nhập: `<configured account>`
+  - CID (Account ID): cấu hình qua biến môi trường `CID`
+  - Mã khôi phục: không lưu trong tài liệu
   - Trạng thái: Đã bảo vệ công đức an toàn trên máy chủ.
 - **Tính Năng Bản Đồ**: Cung cấp tổng quan khuôn viên chùa 3D, hỗ trợ dịch chuyển tức thời (teleport) đến 17 thắng cảnh.
 
@@ -452,7 +452,7 @@ File máy chủ [`server.js`](file:///Users/tyson/Library/CloudStorage/GoogleDri
 ┌────────────────────────────────────────────────────────────────────────┐
 │  🪷 AN TỰ DUYÊN · BẢNG ĐIỀU KHIỂN TU TẬP 24/7             [00:05 CRON] │
 ├────────────────────────────────────────────────────────────────────────┤
-│  [ẢNH ĐẠI DIỆN 3D]   Hoa Hiền · An lạc (Lv.4) · @thichkngan            │
+│  [ẢNH ĐẠI DIỆN 3D]   <configured account> · An lạc (Lv.4)               │
 │                      Công đức: 1.839 / 3.000 (61.3%)                   │
 │                      [Xem 4 Tab Hồ Sơ Tu Tập]  [Đổi Danh Hiệu]         │
 ├────────────────────────────────────────────────────────────────────────┤
@@ -477,7 +477,7 @@ File máy chủ [`server.js`](file:///Users/tyson/Library/CloudStorage/GoogleDri
   ```json
   { "status": "ok", "service": "didenchua-bot", "uptime": 86400, "time": "2026-11-05T22:48:00+07:00" }
   ```
-- `GET /cron` hoặc `POST /cron`: Kích hoạt chu trình làm nhiệm vụ tự động (tương thích UptimeRobot và Cron-job.org).
+- `POST /cron`: Kích hoạt chu trình làm nhiệm vụ tự động. Bắt buộc header `Authorization: Bearer <AUTH_TOKEN>`; không hỗ trợ GET để tránh crawler/prefetch kích hoạt nhầm.
 - `GET /events`: Luồng Server-Sent Events (SSE) đẩy nhật ký trực tiếp xuống trình duyệt không cần reload trang.
 - `POST /api/run`: Thực thi tác vụ theo ID với tham số tùy chọn:
   ```json
@@ -494,8 +494,8 @@ Cấu hình được quản lý tập trung tại [`config.json`](file:///Users/
 
 ```json
 {
-  "cid": "thichkngan",
-  "name": "Hoa Hiền",
+  "cid": "YOUR_ACCOUNT_CID",
+  "name": "Phật Tử Tịnh Tâm",
   "kind": "tieu",
   "robe": "nau",
   "skin": "dong",
@@ -540,9 +540,10 @@ Dự án đã tích hợp sẵn tệp khai báo [`render.yaml`](file:///Users/ty
    - **Start Command**: `node server.js`
    - **Plan**: `Free`
 4. Cài đặt các biến môi trường quan trọng:
-   - `CID`: `thichkngan` (Bắt buộc)
-   - `NAME`: `Hoa Hiền`
+   - `CID`: `YOUR_ACCOUNT_CID` (Bắt buộc)
+   - `NAME`: `phat-tu`
    - `ROOM`: `chua-1`
+   - `AUTH_TOKEN`: `YOUR_SECRET_TOKEN` (Bắt buộc để gọi `/cron`, `/run` hoặc API quản trị)
    - `TELEGRAM_BOT_TOKEN`: *(Tùy chọn nhận tin nhắn báo cáo)*
    - `TELEGRAM_CHAT_ID`: *(Tùy chọn nhận tin nhắn báo cáo)*
 5. Bấm **Apply** để hoàn tất triển khai!
@@ -551,7 +552,7 @@ Dự án đã tích hợp sẵn tệp khai báo [`render.yaml`](file:///Users/ty
 > **Giải pháp chống ngủ đông (Render Free Tier Spindown Prevention):**  
 > Do gói Free của Render sẽ ngủ sau 15 phút không có ai truy cập, bạn chỉ cần tạo 1 lịch hẹn miễn phí tại [cron-job.org](https://cron-job.org) hoặc [UptimeRobot](https://uptimerobot.com):
 > - **Ping giữ server thức 24/7**: Ping URL `https://<ten-app>.onrender.com/health` mỗi 10 phút.
-> - **Kích hoạt tự động lúc 00:05**: Gọi URL `https://<ten-app>.onrender.com/cron` vào lúc `00:05` sáng hàng ngày (giờ Việt Nam).
+> - **Kích hoạt tự động lúc 00:05**: Gửi `POST` tới `https://<ten-app>.onrender.com/cron` vào lúc `00:05` sáng hàng ngày (giờ Việt Nam), kèm header `Authorization: Bearer <AUTH_TOKEN>`.
 
 ---
 
@@ -562,7 +563,7 @@ Tập tin [`src/notify.js`](file:///Users/tyson/Library/CloudStorage/GoogleDrive
 ```
 🪷 BÁO CÁO THỜI KHÓA TU TẬP CHÙA AN TỰ DUYÊN 🪷
 ────────────────────────────────────────
-👤 Phật tử: Hoa Hiền (@thichkngan)
+👤 Phật tử: <configured account>
 🏅 Danh hiệu: Trăm chuỗi hạt 🏆
 ✨ Cấp bậc: An lạc (Lv.4)
 📈 Công đức: 1.839 / 3.000 điểm

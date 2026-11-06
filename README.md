@@ -166,7 +166,7 @@ Hệ thống đã được thiết kế sẵn một **Web Dashboard giao diện 
 - ⚡ **Nút bấm "Chạy Ngay" trên web**: Bấm 1 nút trên điện thoại để bot lập tức làm nhiệm vụ.
 - ⏰ **Tự động canh 00:05 sáng (giờ VN)**: Tự động chạy chu trình 3 giai đoạn mỗi ngày.
 - 📲 **Báo cáo tự động qua Telegram / Discord**: Tự động gửi tin nhắn tổng kết công đức và chúc mừng danh hiệu mới về điện thoại của bạn.
-- 🔌 **API & Webhook Cron**: Hỗ trợ endpoint `/cron` hoặc `/run` để kết hợp với UptimeRobot hoặc Cron-job.org.
+- 🔌 **API & Webhook Cron**: Hỗ trợ `POST /cron` hoặc `POST /run` với `Authorization: Bearer <AUTH_TOKEN>` để kết hợp với UptimeRobot hoặc Cron-job.org.
 
 ---
 
@@ -191,7 +191,7 @@ Hệ thống đã được thiết kế sẵn một **Web Dashboard giao diện 
    - `CID`: `YOUR_ACCOUNT_CID` (Bắt buộc - CID tài khoản của bạn)
    - `NAME`: `phat-tu` (Tùy chọn - Tên hiển thị)
    - `ROOM`: `chua-1` (Tùy chọn - Phòng chùa mặc định)
-   - `AUTH_TOKEN`: `YOUR_SECRET_TOKEN` (Tùy chọn - Mã bí mật bảo vệ API/Cron)
+   - `AUTH_TOKEN`: `YOUR_SECRET_TOKEN` (Bắt buộc khi chạy Render - mã bí mật bảo vệ API/Cron)
    - *(Tùy chọn nhận tin nhắn Telegram)*:
      - `TELEGRAM_BOT_TOKEN`: Token bot Telegram của bạn
      - `TELEGRAM_CHAT_ID`: Chat ID Telegram của bạn
@@ -200,7 +200,9 @@ Hệ thống đã được thiết kế sẵn một **Web Dashboard giao diện 
 > [!TIP]
 > **Giữ Render luôn hoạt động hoặc đánh thức lúc 00:05:**
 > Do gói Free của Render sẽ tự động tạm ngủ (sleep) sau 15 phút nếu không có ai truy cập web, bạn chỉ cần tạo 1 lịch hẹn miễn phí tại [cron-job.org](https://cron-job.org) hoặc [UptimeRobot](https://uptimerobot.com):
+> - **Method**: `POST`
 > - **URL**: `https://<ten-app-cua-ban>.onrender.com/cron`
+> - **Header**: `Authorization: Bearer YOUR_SECRET_TOKEN`
 > - **Thời gian**: Hàng ngày lúc `00:05` (hoặc ping mỗi 10 phút để giữ server thức 24/7).
 
 ---

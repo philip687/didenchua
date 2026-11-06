@@ -112,7 +112,9 @@ test('FeedbackTracker: executeUntilCapped stops after reaching cap', async () =>
   // Lần 1: +5, Lần 2: +5, Lần 3: zero #1, Lần 4: zero #2 -> STOP
   assert.equal(callCount, 4);
   assert.equal(result.totalMeritYield, 10);
-  assert.equal(result.isCapped, true);
+  assert.equal(result.recognizedIterations, 2);
+  assert.equal(result.terminalStatus, 'no_recognition');
+  assert.equal(result.isCapped, false);
   assert.match(result.stoppedReason, /không còn ghi nhận thêm tiến độ/);
 });
 
@@ -170,4 +172,115 @@ test('AutonomousBot: Accumulation milestone caps & Standby check', async () => {
 
   assert.equal(bot.isAllAccumulationFinished(), true);
   assert.equal(BotState.STANDBY_WAIT, 'STANDBY_WAIT');
+});
+
+test('FeedbackTracker: max iterations safety limit is not marked as confirmed server cap', async () => {
+  const tracker = new FeedbackTracker({ settleDelayMs: 5 });
+
+  const mockClient = {
+    checkAborted: () => {},
+    clearRecentFeedback: () => {},
+    recentGains: [{ n: 1, why: 'Công đức đều đặn' }],
+    recentToasts: [],
+    merit: { me: { total: 100, today: 10, quests: [] } },
+    journal: {},
+    chores: {},
+    sleep: async () => new Promise(res => setTimeout(res, 2))
+  };
+
+  const actionDef = {
+    name: 'perpetual_action',
+    fn: async () => {},
+    maxZeroAttempts: 2,
+    maxIterations: 3,
+    intervalMs: 2
+  };
+
+  const result = await tracker.executeUntilCapped(mockClient, actionDef);
+  assert.equal(result.iterations, 3);
+  assert.equal(result.recognizedIterations, 3);
+  assert.equal(result.terminalStatus, 'max_iterations');
+  assert.equal(result.isCapped, false);
+});
+
+test('FeedbackTracker: action error is marked as action_error, not server cap', async () => {
+  const tracker = new FeedbackTracker({ settleDelayMs: 5 });
+
+  const mockClient = {
+    checkAborted: () => {},
+    clearRecentFeedback: () => {},
+    recentGains: [],
+    recentToasts: [],
+    merit: { me: { total: 100, today: 10, quests: [] } },
+    journal: {},
+    chores: {},
+    sleep: async () => new Promise(res => setTimeout(res, 2))
+  };
+
+  const actionDef = {
+    name: 'failing_action',
+    fn: async () => {
+      throw new Error('Mạng bị gián đoạn');
+    },
+    maxZeroAttempts: 2,
+    maxIterations: 5,
+    intervalMs: 2
+  };
+
+  const result = await tracker.executeUntilCapped(mockClient, actionDef);
+  assert.equal(result.terminalStatus, 'action_error');
+  assert.equal(result.isCapped, false);
+  assert.equal(result.recognizedIterations, 0);
+});
+
+test('AutonomousBot: close code 1008 triggers bot stop', async () => {
+  const { AutonomousBot, BotState } = await import('../src/auto/autonomous_bot.js');
+
+  const listeners = {};
+  const mockWs = {
+    addEventListener: (event, handler) => {
+      listeners[event] = handler;
+    }
+  };
+
+  const mockClient = {
+    ws: mockWs,
+    config: {},
+    abort: () => {}
+  };
+
+  const bot = new AutonomousBot({ client: mockClient });
+  await bot.initClient();
+
+  assert.ok(listeners['close']);
+  listeners['close']({ code: 1008, reason: 'Chùa đang mở ở nơi khác' });
+
+  assert.equal(bot.stopRequested, true);
+  assert.equal(bot.state, BotState.STOPPED);
+});
+
+test('AutonomousBot: once mode closes client in finally block', async () => {
+  const { AutonomousBot } = await import('../src/auto/autonomous_bot.js');
+
+  let isClosed = false;
+  const mockClient = {
+    connected: true,
+    config: {},
+    ws: null,
+    checkAborted: () => {},
+    sleep: async () => {},
+    printStatus: () => {},
+    claimAllQuests: async () => ({ claimed: [], unverified: [] }),
+    close: () => { isClosed = true; }
+  };
+
+  const bot = new AutonomousBot({ client: mockClient, mode: 'once' });
+  // Mock run methods
+  bot.runDailyProbingPhase = async () => {};
+  bot.checkAndRunScheduledTasks = async () => {};
+  bot.runClaimPhase = async () => {};
+  bot.runAccumulationPhase = async () => {};
+
+  await bot.start();
+  assert.equal(isClosed, true);
 });

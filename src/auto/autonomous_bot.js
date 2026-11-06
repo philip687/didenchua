@@ -1,4 +1,4 @@
-import { DiDenChuaClient } from '../client.js';
+import { DiDenChuaClient, CHANH_DIEN_SEATS } from '../client.js';
 import { log } from '../logger.js';
 import { FeedbackTracker } from './feedback_tracker.js';
 import {
@@ -418,12 +418,17 @@ export class AutonomousBot {
           description: 'Lạy Phật sám hối theo hiệp 18 lạy'
         };
         const res = await this.tracker.executeUntilCapped(this.client, layAction, { intervalMs: 600 });
-        const bowsGained = Math.min(res.iterations * 18, remainingBows);
+        // Only recognized action batches count. Zero-recognition retries are
+        // deliberately excluded so a cap probe cannot inflate the milestone.
+        const bowsGained = Math.min((res.recognizedIterations || 0) * 18, remainingBows);
         this.dailyAccumulated.bows += bowsGained;
 
-        if (this.dailyAccumulated.bows >= this.milestoneTargets.bows || res.isCapped) {
+        const stoppedByServer = ['server_saturation', 'no_recognition'].includes(res.terminalStatus);
+        if (this.dailyAccumulated.bows >= this.milestoneTargets.bows || stoppedByServer) {
           this.accumulationsCapped.add('bows');
           log.temple('🏁', `[Lạy Phật] Hoàn tất mốc (${this.dailyAccumulated.bows}/${this.milestoneTargets.bows} lạy) hoặc máy chủ hết ghi nhận thêm.`);
+        } else if (res.terminalStatus === 'action_error' || res.terminalStatus === 'max_iterations') {
+          log.warn(`[Lạy Phật] Chưa thể xác nhận đủ mốc; trạng thái dừng: ${res.terminalStatus}.`);
         }
       }
       await this.client.humanDelay('nghỉ ngơi sau hiệp lạy Phật');
@@ -446,11 +451,16 @@ export class AutonomousBot {
           description: `Lăn tràng hạt niệm Phật ${beadsBatch} hạt`
         };
         const res = await this.tracker.executeUntilCapped(this.client, beadsAction, { intervalMs: 600 });
-        this.dailyAccumulated.beads += Math.min(res.iterations * beadsBatch, remainingBeads);
+        // Count only batches with observed feedback; iteration count includes
+        // retries that intentionally produced no recognition.
+        this.dailyAccumulated.beads += Math.min((res.recognizedIterations || 0) * beadsBatch, remainingBeads);
 
-        if (this.dailyAccumulated.beads >= this.milestoneTargets.beads || res.isCapped) {
+        const stoppedByServer = ['server_saturation', 'no_recognition'].includes(res.terminalStatus);
+        if (this.dailyAccumulated.beads >= this.milestoneTargets.beads || stoppedByServer) {
           this.accumulationsCapped.add('beads');
           log.temple('🏁', `[Tràng hạt] Hoàn tất mốc (${this.dailyAccumulated.beads}/${this.milestoneTargets.beads} hạt) hoặc máy chủ hết ghi nhận thêm.`);
+        } else if (res.terminalStatus === 'action_error' || res.terminalStatus === 'max_iterations') {
+          log.warn(`[Tràng hạt] Chưa thể xác nhận đủ mốc; trạng thái dừng: ${res.terminalStatus}.`);
         }
       }
       await this.client.humanDelay('thong thả nghỉ tay sau khi niệm hạt');
@@ -472,11 +482,16 @@ export class AutonomousBot {
           description: `Gõ mõ tụng kinh ${moBatch} tiếng`
         };
         const res = await this.tracker.executeUntilCapped(this.client, moAction, { intervalMs: 500 });
-        this.dailyAccumulated.mo += Math.min(res.iterations * moBatch, remainingMo);
+        // Do not treat the safety-limit iterations as server-acknowledged
+        // tiếng mõ; only recognized batches are eligible for the target.
+        this.dailyAccumulated.mo += Math.min((res.recognizedIterations || 0) * moBatch, remainingMo);
 
-        if (this.dailyAccumulated.mo >= this.milestoneTargets.mo || res.isCapped) {
+        const stoppedByServer = ['server_saturation', 'no_recognition'].includes(res.terminalStatus);
+        if (this.dailyAccumulated.mo >= this.milestoneTargets.mo || stoppedByServer) {
           this.accumulationsCapped.add('mo');
           log.temple('🏁', `[Gõ mõ] Hoàn tất mốc (${this.dailyAccumulated.mo}/${this.milestoneTargets.mo} tiếng) hoặc máy chủ hết ghi nhận thêm.`);
+        } else if (res.terminalStatus === 'action_error' || res.terminalStatus === 'max_iterations') {
+          log.warn(`[Gõ mõ] Chưa thể xác nhận đủ mốc; trạng thái dừng: ${res.terminalStatus}.`);
         }
       }
     }
@@ -487,8 +502,9 @@ export class AutonomousBot {
       try {
         await this.client.doGarden({ autoWaterOthers: true, maxWaterOthers: this.milestoneTargets.maxWaterOthers });
         this.accumulationsCapped.add('garden');
-      } catch {
-        this.accumulationsCapped.add('garden');
+      } catch (error) {
+        // A failed garden request is not evidence that the garden is capped.
+        log.warn(`[Vườn hoa] Chưa thể xác nhận hoàn tất: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
@@ -520,7 +536,33 @@ export class AutonomousBot {
     log.temple('🪷', '   [16:30 UTC+7: Thắp đèn Chánh điện] | [20:00 UTC+7: Đố vui trực tiếp] | [00:01 UTC+7: Reset]');
     log.temple('🪷', '========================================================================\n');
 
+    // Chuyển nhân vật vào Chánh điện và an tọa trên bồ đoàn
+    const sitOnCushion = () => {
+      try {
+        this.client.send({ t: 'visit', zone: 'Chánh điện' });
+        const taken = this.client.takenSeats || new Set();
+        const seat = Array.isArray(CHANH_DIEN_SEATS) ? (CHANH_DIEN_SEATS.find(s => !taken.has(s.id)) || CHANH_DIEN_SEATS[0]) : null;
+        if (seat) {
+          const sitPayload = {
+            t: 'state',
+            x: seat.x,
+            y: seat.y,
+            z: seat.z,
+            ry: seat.ry,
+            s: 2,
+            seat: seat.id
+          };
+          this.client.send(sitPayload);
+          this.client.send({ t: 'sit', seat: seat.id });
+        }
+      } catch {}
+    };
+
+    sitOnCushion();
+    log.temple('🧘', 'Đã an tọa trên bồ đoàn Chánh điện, bắt đầu thời khóa tĩnh tọa thiền định chờ sự kiện...');
+
     let standbyMinutesWaited = 0;
+    let secondsSinceLastMeditateReport = 0;
 
     while (!this.stopRequested) {
       this.client.checkAborted();
@@ -537,20 +579,39 @@ export class AutonomousBot {
       // 2. Kiểm tra khung giờ Thắp đèn Chánh điện (16:30 - 21:30 UTC+7)
       if (isLampTime(now) && !this.lampDoneToday) {
         log.temple('🪔', `[16:30 UTC+7] Đúng giờ mở đèn Chánh điện! Thức dậy xuất định thắp đèn...`);
+        try {
+          this.client.send({ t: 'stand' });
+          this.client.send({ t: 'state', s: 0 });
+        } catch {}
         await this.checkAndRunScheduledTasks();
-        log.info('-> Đã hoàn thành thắp đèn Chánh điện chiều tối. Quay trở lại trạng thái tĩnh tâm...');
+        sitOnCushion();
+        log.info('-> Đã hoàn thành thắp đèn Chánh điện chiều tối. Quay trở lại an tọa tĩnh tâm...');
       }
 
       // 3. Kiểm tra khung giờ Đố vui Phật pháp trực tiếp (20:00 UTC+7)
       if (isQuizTime(now) && !this.liveQuizDoneToday) {
         log.temple('🏆', `[20:00 UTC+7] Đúng giờ Đố vui trực tiếp! Thức dậy bước vào Chánh điện thi đấu...`);
+        try {
+          this.client.send({ t: 'stand' });
+          this.client.send({ t: 'state', s: 0 });
+        } catch {}
         await this.checkAndRunScheduledTasks();
-        log.info('-> Đã hoàn tất Đố vui Phật pháp. Quay trở lại trạng thái tĩnh tâm...');
+        sitOnCushion();
+        log.info('-> Đã hoàn tất Đố vui Phật pháp. Quay trở lại an tọa tĩnh tâm...');
       }
 
       // 4. Nghỉ 10 giây mỗi nhịp (heartbeat vẫn chạy ngầm 15s/lần)
       await this.client.sleep(10000);
       standbyMinutesWaited += 10 / 60;
+      secondsSinceLastMeditateReport += 10;
+
+      // Mỗi 60 giây ghi nhận phút ngồi thiền vào máy chủ
+      if (secondsSinceLastMeditateReport >= 60) {
+        secondsSinceLastMeditateReport = 0;
+        try {
+          this.client.send({ t: 'meditate', sec: 60 });
+        } catch {}
+      }
 
       // Mỗi 15 phút log một dòng thông báo thời gian còn lại đến sự kiện kế tiếp
       if (standbyMinutesWaited >= 15) {
@@ -587,25 +648,39 @@ export class AutonomousBot {
 
     // Chế độ 'probe': Chỉ thăm dò chẩn đoán trạng thái
     if (this.options.mode === 'probe') {
-      log.info('Đang chạy ở chế độ [probe] - Thăm dò chẩn đoán ghi nhận:');
-      const actions = this.getCandidateDailyActions();
-      for (const act of actions) {
-        this.client.checkAborted();
-        const p = await this.tracker.probeAction(this.client, act.name, act.fn);
-        const icon = p.hasRecognition ? '✅' : '⏳';
-        console.log(`${icon} [${act.name}]: Ghi nhận=${p.hasRecognition}, Delta công đức=+${p.deltaMerit}, Capped=${p.isCapped}`);
+      try {
+        log.info('Đang chạy ở chế độ [probe] - Thăm dò chẩn đoán ghi nhận:');
+        const actions = this.getCandidateDailyActions();
+        for (const act of actions) {
+          this.client.checkAborted();
+          const p = await this.tracker.probeAction(this.client, act.name, act.fn);
+          const icon = p.hasRecognition ? '✅' : '⏳';
+          console.log(`${icon} [${act.name}]: Ghi nhận=${p.hasRecognition}, Delta công đức=+${p.deltaMerit}, Capped=${p.isCapped}`);
+        }
+      } finally {
+        // Finite modes must release the WebSocket; daemon mode intentionally
+        // keeps it open for standby/event watching.
+        this.client.close();
       }
       return;
     }
 
     // Chế độ 'once': Chạy 1 chu kỳ hoàn chỉnh rồi dừng
     if (this.options.mode === 'once') {
-      await this.runDailyProbingPhase();
-      await this.checkAndRunScheduledTasks();
-      await this.runClaimPhase();
-      await this.runAccumulationPhase();
-      this.client.printStatus();
-      log.success('Đã hoàn thành 1 chu kỳ tự chơi hoàn chỉnh (bao gồm các mốc tích luỹ).');
+      try {
+        await this.runDailyProbingPhase();
+        await this.runClaimPhase();
+        // Claim daily rewards before time-gated work so the execution order
+        // matches the documented state machine and preserves the daily closeout.
+        await this.checkAndRunScheduledTasks();
+        await this.runAccumulationPhase();
+        this.client.printStatus();
+        log.success('Đã hoàn thành 1 chu kỳ tự chơi hoàn chỉnh (bao gồm các mốc tích luỹ).');
+      } finally {
+        // Without this cleanup a one-shot CLI can retain the live socket and
+        // timers after its work has finished.
+        this.client.close();
+      }
       return;
     }
 
@@ -613,10 +688,18 @@ export class AutonomousBot {
     while (!this.stopRequested) {
       try {
         await this.runDailyProbingPhase();
-        await this.checkAndRunScheduledTasks();
         await this.runClaimPhase();
+        // Keep daemon and one-shot modes on the same phase ordering.
+        await this.checkAndRunScheduledTasks();
         await this.runAccumulationPhase();
-        await this.runStandbyWatchMode();
+        if (this.isAllAccumulationFinished()) {
+          await this.runStandbyWatchMode();
+        } else {
+          // Do not enter standby while a milestone action failed or was only
+          // stopped by a safety limit; retry it on the next daemon cycle.
+          log.warn('Chưa đủ bằng chứng để vào standby; sẽ thử lại chu kỳ tích luỹ sau 10 giây.');
+          await this.client.sleep(10000);
+        }
       } catch (err) {
         if (this.stopRequested) break;
         log.error('Lỗi trong vòng lặp tự chơi:', err.message);

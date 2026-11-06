@@ -53,12 +53,13 @@ function verifyAuth(req) {
     } catch {}
   }
 
-  // 2. Nếu môi trường không cấu hình AUTH_TOKEN (chạy local dev), cho phép
+  // 2. Cron/API luôn phải có token cấu hình; dashboard vẫn đi qua nhánh CSRF ở trên.
+  // Không dùng query string vì URL thường bị lưu trong log, lịch sử và proxy.
   if (!AUTH_TOKEN) {
-    return true;
+    return false;
   }
 
-  // 3. Kiểm tra token từ các HTTP headers an toàn hoặc query param (dành cho GET webhook/cron)
+  // 3. Chỉ nhận token từ các HTTP headers an toàn.
   let providedToken = '';
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -67,11 +68,6 @@ function verifyAuth(req) {
     providedToken = String(req.headers['x-api-key']).trim();
   } else if (req.headers['x-cron-secret']) {
     providedToken = String(req.headers['x-cron-secret']).trim();
-  } else if (req.url) {
-    try {
-      const u = new URL(req.url, 'http://localhost');
-      providedToken = (u.searchParams.get('token') || u.searchParams.get('secret') || u.searchParams.get('key') || '').trim();
-    } catch {}
   }
 
   if (!providedToken) {
@@ -692,10 +688,14 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
         case 'auto':
         case 'selfplay':
           log.temple('🤖', `[${runId}] Khởi động Cỗ máy Tự chơi Thông minh (Autonomous Bot)...`);
-          const autoBot = new AutonomousBot({ client, mode: 'once' });
+          // Reuse the already connected client, but pass its resolved config so
+          // dashboard runs honour milestone targets and register the 1008
+          // single-session guard before any Auto action is sent.
+          const autoBot = new AutonomousBot({ client, mode: 'once', config: client.config });
+          await autoBot.initClient();
           await autoBot.runDailyProbingPhase();
-          await autoBot.checkAndRunScheduledTasks();
           await autoBot.runClaimPhase();
+          await autoBot.checkAndRunScheduledTasks();
           await autoBot.runAccumulationPhase();
           break;
         case 'ngoi-daily':
@@ -984,8 +984,27 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
         verificationStatus = 'verified';
         verificationDetail = 'Đã lưu trang phục và pháp bảo mới vào hồ sơ nhân vật.';
       } else if (taskId === 'auto' || taskId === 'selfplay') {
-        verificationStatus = 'verified';
-        verificationDetail = `Cỗ máy Tự chơi đã hoàn tất chu kỳ tự nhận diện công đức và tích luỹ theo mốc (+${postMeritTotal - preMeritTotal} công đức).`;
+        // A completed JavaScript routine only proves that requests returned;
+        // mark Auto verified only when the post-run snapshot shows a change.
+        const autoQuestChanged = postQuests.some((postQ) => {
+          const preQ = preQuests.find((preQItem) => preQItem.id === postQ.id);
+          return Boolean(preQ && (
+            postQ.have > preQ.have
+            || (postQ.claimed && !preQ.claimed)
+          ));
+        });
+        const autoSnapshotChanged = postMeritTotal > preMeritTotal
+          || postBows > preBows
+          || postBeads > preBeads
+          || postIncense > preIncense
+          || postLanterns > preLanterns
+          || postSitMin > preSitMin
+          || postVisited > preVisited
+          || autoQuestChanged;
+        verificationStatus = autoSnapshotChanged ? 'verified' : 'unverified';
+        verificationDetail = autoSnapshotChanged
+          ? `Snapshot máy chủ ghi nhận thay đổi sau chu kỳ Tự chơi (+${postMeritTotal - preMeritTotal} công đức).`
+          : 'Chu kỳ Tự chơi đã gửi xong nhưng snapshot sau chạy chưa chứng minh thay đổi từ máy chủ.';
       } else if (taskItem?.questId) {
         const preQ = preQuests.find(q => q.id === taskItem.questId);
         const postQ = postQuests.find(q => q.id === taskItem.questId);
@@ -2339,7 +2358,7 @@ function renderDashboardHTML() {
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
             <div>
               <b style="font-size:16px; color:var(--gold);">${escapeHTML(displayName)}</b>
-              <span style="font-size:12px; color:var(--text-dim); margin-left:6px;">(@${escapeHTML(rawUser || 'thichkngan')})</span>
+              <span style="font-size:12px; color:var(--text-dim); margin-left:6px;">(@${escapeHTML(rawUser || 'phat-tu')})</span>
               <div style="font-size:12px; color:var(--text-dim); margin-top:2px;">
                 Cấp bậc: <b style="color:var(--text);">${reportValue(me.level || j.level)} (Lv.${reportValue(me.lv ?? j.lv)})</b> · Danh hiệu: <b style="color:var(--gold);">${escapeHTML(activeTitleName)}</b>
               </div>
@@ -2537,7 +2556,7 @@ function renderDashboardHTML() {
           <div style="background:rgba(0,0,0,0.25); border:1px solid var(--card-border); padding:14px; border-radius:12px; margin-top:16px;">
             <h3 style="color:var(--gold); font-size:13px; margin-bottom:8px;">🔐 Thông Tin Tài Khoản & Kết Nối Máy Chủ</h3>
             <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; font-size:12px;">
-              <div>Tài khoản: <b style="color:var(--gold);">@${escapeHTML(rawUser || 'thichkngan')}</b></div>
+              <div>Tài khoản: <b style="color:var(--gold);">@${escapeHTML(rawUser || 'phat-tu')}</b></div>
               <div>Pháp danh: <b>${escapeHTML(displayName)}</b></div>
               <div>Phòng hiện tại: <b>chua-1</b></div>
               <div>Máy chủ WebSocket: <b>wss://didenchua.com:443/ws</b></div>
@@ -2917,7 +2936,12 @@ function renderDashboardHTML() {
           if (data.isStopping) {
             const taskNameEl = document.getElementById('runningTaskTitle');
             if (taskNameEl) {
-              taskNameEl.innerHTML = '<span class="pulse-dot" style="background:#e06c75;"></span> 🛑 ĐANG DỪNG AN TOÀN: ' + (data.runningTaskName || '') + ' (Đang ngắt kết nối an toàn...)';
+              const dot = document.createElement('span');
+              dot.className = 'pulse-dot';
+              dot.style.background = '#e06c75';
+              taskNameEl.textContent = '';
+              taskNameEl.appendChild(dot);
+              taskNameEl.appendChild(document.createTextNode(' 🛑 ĐANG DỪNG AN TOÀN: ' + (data.runningTaskName || '') + ' (Đang ngắt kết nối an toàn...)'));
               taskNameEl.style.color = '#e06c75';
             }
             const stopBtns = document.querySelectorAll('.btn-stop, #stopMainBtn, #stopHeaderBtn');
@@ -3091,7 +3115,8 @@ const server = http.createServer(async (req, res) => {
 
   // 2. API lấy trạng thái JSON (Priority 1: Bảo vệ trạng thái tài khoản)
   if (url.pathname === '/api/status') {
-    if (AUTH_TOKEN && !verifyAuth(req)) {
+    // Snapshot tài khoản và log có dữ liệu riêng tư, kể cả khi chạy local.
+    if (!verifyAuth(req)) {
       res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ ok: false, error: 'Yêu cầu không được phép (thiếu hoặc sai token xác thực).' }));
       return;
@@ -3192,16 +3217,16 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 5. API Kích hoạt chạy nhiệm vụ (Hỗ trợ POST và GET cho Webhook/Cron từ xa)
+  // 5. API kích hoạt chạy nhiệm vụ: chỉ POST để tránh kích hoạt ngoài ý muốn khi crawler/prefetch mở URL.
   if (url.pathname === '/api/run' || url.pathname === '/run' || url.pathname === '/cron') {
-    if (req.method !== 'POST' && req.method !== 'GET') {
+    if (req.method !== 'POST') {
       res.writeHead(405, {
         'Content-Type': 'application/json; charset=utf-8',
-        'Allow': 'POST, GET'
+        'Allow': 'POST'
       });
       res.end(JSON.stringify({
         ok: false,
-        error: 'Phương thức không được hỗ trợ. Dùng POST hoặc GET để tạo tác vụ.'
+        error: 'Phương thức không được hỗ trợ. Bắt buộc dùng POST để tạo tác vụ.'
       }));
       return;
     }

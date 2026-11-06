@@ -1258,7 +1258,21 @@ export class DiDenChuaClient {
       log.info(`-> Gửi yêu cầu nhận thưởng chuỗi nhiệm vụ: "${q.title}" (+${q.reward} công đức)...`);
       this.send({ t: 'claim', q: q.id });
       await this.sleep(700);
-      claimed.push(q);
+
+      // Chained claims need the same server confirmation as the first batch;
+      // sending a claim is not evidence that the reward was accepted.
+      const latestGroups = [
+        ...(this.merit?.me?.quests || []),
+        ...(this.merit?.me?.weekly || []),
+        ...(this.merit?.me?.newbie || [])
+      ];
+      const latest = latestGroups.find(item => item.id === q.id);
+      if (latest?.claimed) {
+        claimed.push(q);
+      } else {
+        unverified.push(q);
+        log.warn(`[CHƯA XÁC MINH] Nhiệm vụ chuỗi "${q.title}" chưa có xác nhận từ máy chủ.`);
+      }
     }
 
     return { claimed, unverified };

@@ -7,12 +7,9 @@ const SATURATION_PATTERNS = [
   /đã đạt giới hạn/i,
   /hết lượt/i,
   /ngày mai quay lại/i,
-  /đã nhận thưởng/i,
   /chỉ thắp đèn từ/i,
   /chỉ mở lúc/i,
   /không thể thắp thêm/i,
-  /không còn/i,
-  /đã hoàn thành/i,
   /tối đa trong ngày/i,
   /chờ đợt sau/i
 ];
@@ -156,7 +153,9 @@ export class FeedbackTracker {
       choreChanged,
       toasts: [...recentToasts],
       saturationReason,
-      isCapped: Boolean(saturationReason) || (!hasRecognition)
+      // Lack of a delta is only an observation. Repeated lack of recognition
+      // is handled by executeUntilCapped and is not itself proof of a cap.
+      isCapped: Boolean(saturationReason)
     };
   }
 
@@ -186,6 +185,7 @@ export class FeedbackTracker {
         questDeltas: [],
         journalDeltas: {},
         isCapped: true,
+        terminalStatus: 'action_error',
         saturationReason: actionError.message
       };
     }
@@ -227,9 +227,11 @@ export class FeedbackTracker {
 
     let zeroRecognitionCount = 0;
     let iteration = 0;
+    let recognizedIterations = 0;
     let totalMeritYield = 0;
     let totalQuestsUpdated = 0;
     let stopReason = '';
+    let terminalStatus = 'running';
     const executionHistory = [];
 
     while (iteration < maxIterations) {
@@ -249,15 +251,26 @@ export class FeedbackTracker {
         totalQuestsUpdated += probe.questDeltas.length;
       }
 
+      if (probe.success === false) {
+        // An execution error must not be reported as a server saturation.
+        terminalStatus = 'action_error';
+        stopReason = probe.error || 'Action execution failed.';
+        break;
+      }
+
       // Xử lý thông điệp chạm ngưỡng cụ thể từ toast
       if (probe.saturationReason) {
         stopReason = `Máy chủ báo: "${probe.saturationReason}"`;
+        terminalStatus = 'server_saturation';
         log.temple('🛑', `[${description}] Chạm ngưỡng ghi nhận: ${stopReason}`);
         break;
       }
 
       // Đánh giá mức độ ghi nhận
       if (probe.hasRecognition) {
+        // Count only attempts with observed server feedback. Raw iterations
+        // also include zero-recognition retries and must not become progress.
+        recognizedIterations++;
         zeroRecognitionCount = 0; // Đặt lại bộ đếm vì vẫn còn ghi nhận
         const detailParts = [];
         if (probe.deltaMerit > 0) detailParts.push(`+${probe.deltaMerit} công đức`);
@@ -274,6 +287,7 @@ export class FeedbackTracker {
         
         if (zeroRecognitionCount >= maxZeroAttempts) {
           stopReason = `Máy chủ không còn ghi nhận thêm tiến độ sau ${maxZeroAttempts} lần thực hiện`;
+          terminalStatus = 'no_recognition';
           log.temple('🏁', `[${description}] Hoàn tất tích luỹ (Đã bão hòa/Capped): ${stopReason}`);
           break;
         }
@@ -284,6 +298,7 @@ export class FeedbackTracker {
 
     if (iteration >= maxIterations && !stopReason) {
       stopReason = `Đã đạt giới hạn an toàn tối đa (${maxIterations} lượt) của hệ thống`;
+      terminalStatus = 'max_iterations';
       log.warn(`[${description}] Tạm dừng: ${stopReason}`);
     }
 
@@ -291,10 +306,14 @@ export class FeedbackTracker {
       actionName: name,
       description,
       iterations: iteration,
+      recognizedIterations,
       totalMeritYield,
       totalQuestsUpdated,
       stoppedReason: stopReason,
-      isCapped: true,
+      terminalStatus,
+      // Preserve the field for callers, but only an explicit server message
+      // is strong enough to be labelled as a confirmed cap.
+      isCapped: terminalStatus === 'server_saturation',
       lastFeedback: executionHistory[executionHistory.length - 1]
     };
   }
