@@ -83,3 +83,13 @@ test('renderDashboardHTML: disables quick buttons when a task is currently runni
 
   state.isRunning = false;
 });
+
+test('renderDashboardHTML: inline script must be valid JavaScript with zero syntax errors', async () => {
+  const vm = await import('node:vm');
+  const html = renderDashboardHTML();
+  const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
+  assert.ok(scriptMatch, 'Dashboard must contain a <script> block');
+  assert.doesNotThrow(() => {
+    new vm.Script(scriptMatch[1]);
+  }, 'Inline script must compile without SyntaxError');
+});

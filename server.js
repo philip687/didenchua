@@ -34,9 +34,23 @@ const PUBLIC_APP_URL = (
   || 'https://didenchua-bot.onrender.com'
 ).replace(/\/+$/, '');
 
+// File lưu trữ bộ nhớ đệm trạng thái (Persistence Cache) để khi mở report không phải kết nối game
+const CACHE_STATE_FILE = path.join(process.cwd(), '.cached_state.json');
+
 // Cấu hình mã bảo mật & xác thực (Priority 1)
 const AUTH_TOKEN = (process.env.AUTH_TOKEN || process.env.CRON_SECRET || process.env.ADMIN_KEY || '').trim();
-const CSRF_TOKEN = crypto.randomBytes(32).toString('hex');
+let CSRF_TOKEN = '';
+try {
+  if (fs.existsSync(CACHE_STATE_FILE)) {
+    const raw = JSON.parse(fs.readFileSync(CACHE_STATE_FILE, 'utf-8'));
+    if (raw && typeof raw.csrfToken === 'string' && raw.csrfToken.length === 64) {
+      CSRF_TOKEN = raw.csrfToken;
+    }
+  }
+} catch {}
+if (!CSRF_TOKEN) {
+  CSRF_TOKEN = crypto.randomBytes(32).toString('hex');
+}
 
 // Hàm escape HTML chống XSS (Priority 2)
 function escapeHTML(str) {
@@ -63,13 +77,26 @@ function verifyAuth(req) {
     } catch {}
   }
 
-  // 2. Cron/API luôn phải có token cấu hình; dashboard vẫn đi qua nhánh CSRF ở trên.
+  // 2. Cho phép Same-Origin fetch từ trình duyệt (Sec-Fetch-Site là header cấm spoofing của browser)
+  const secFetchSite = req.headers['sec-fetch-site'];
+  const reqHost = req.headers['host'];
+  const reqOrigin = req.headers['origin'];
+  if (secFetchSite === 'same-origin' && reqHost && reqOrigin) {
+    try {
+      const originHost = new URL(reqOrigin).host;
+      if (originHost === reqHost) {
+        return true;
+      }
+    } catch {}
+  }
+
+  // 3. Cron/API bên ngoài luôn phải có token cấu hình; dashboard browser đã đi qua nhánh CSRF / Same-Origin ở trên.
   // Không dùng query string vì URL thường bị lưu trong log, lịch sử và proxy.
   if (!AUTH_TOKEN) {
     return false;
   }
 
-  // 3. Chỉ nhận token từ các HTTP headers an toàn.
+  // 4. Chỉ nhận token từ các HTTP headers an toàn.
   let providedToken = '';
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -546,9 +573,6 @@ const state = {
   currentLogs: []
 };
 
-// File lưu trữ bộ nhớ đệm trạng thái (Persistence Cache) để khi mở report không phải kết nối game
-const CACHE_STATE_FILE = path.join(process.cwd(), '.cached_state.json');
-
 function loadCachedState() {
   try {
     if (fs.existsSync(CACHE_STATE_FILE)) {
@@ -600,7 +624,8 @@ function saveCachedState() {
       journal: state.journal,
       activeRun: state.activeRun || null,
       currentLogs: state.currentLogs.slice(0, 50),
-      runHistory: state.runHistory.slice(0, 15)
+      runHistory: state.runHistory.slice(0, 15),
+      csrfToken: CSRF_TOKEN
     }, null, 2), 'utf-8');
   } catch (err) {
     log.warn('Không thể lưu file cache trạng thái:', err.message);
@@ -1003,7 +1028,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
       }
 
       // Tự động nhận thưởng nếu nhiệm vụ này hoàn thành quest ngày hoặc quest tuần
-      if (['bell', 'vow', 'incense', 'lay-daily', 'lay', 'greet', 'lantern-daily', 'chores-daily', 'xam', 'chores', 'quet', 'farm-bows-beads', 'tung', 'tuoi', 'chu', 'garden', 'tuyhy', 'secrets', 'meditate', 'ngoi-daily', 'quiz', 'am', 'khoe'].includes(taskId)) {
+      if (['bell', 'vow', 'incense', 'lay-daily', 'lay', 'greet', 'lantern-daily', 'chores-daily', 'xam', 'chores', 'quet', 'farm-bows-beads', 'tung', 'tuoi', 'chu', 'garden', 'tuyhy', 'secrets', 'meditate', 'ngoi-daily', 'quiz', 'am', 'khoe', 'checkin', 'ca', 'dendau', 'cat', 'wAm', 'chuoi'].includes(taskId)) {
         await client.sleep(1000);
         await client.claimAllQuests();
       }
@@ -3399,7 +3424,7 @@ export function renderDashboardHTML() {
         }
       }
 
-      const allRunBtns = document.querySelectorAll('.btn-run, #runBtn, #autoPlayBtn');
+      const allRunBtns = document.querySelectorAll('.btn-run, .btn-quick-run, .btn-quick-claim, #runBtn, #autoPlayBtn');
       allRunBtns.forEach(b => { b.disabled = true; });
 
       try {
@@ -3413,6 +3438,9 @@ export function renderDashboardHTML() {
         });
         const data = await res.json();
         if (res.ok && data.ok) {
+          location.reload();
+        } else if (res.status === 401) {
+          alert('Phiên làm việc trên máy chủ vừa được khởi động lại. Đang tải lại trang để đồng bộ mã bảo mật mới...');
           location.reload();
         } else {
           alert(data.error || data.message || 'Lỗi khi kích hoạt nhiệm vụ');
@@ -3444,6 +3472,9 @@ export function renderDashboardHTML() {
         if (res.ok && data.ok) {
           // Trang sẽ tự reload khi poll thấy trạng thái dừng
           setTimeout(() => location.reload(), 1200);
+        } else if (res.status === 401) {
+          alert('Phiên làm việc trên máy chủ vừa được khởi động lại. Đang tải lại trang để đồng bộ mã bảo mật mới...');
+          location.reload();
         } else {
           alert(data.error || data.message || 'Lỗi khi gửi yêu cầu dừng');
           stopBtns.forEach(b => { b.disabled = false; b.textContent = '🛑 Dừng'; });
@@ -3455,7 +3486,7 @@ export function renderDashboardHTML() {
     }
 
     async function manualRefresh() {
-      if (!confirm('⚠️ LƯU Ý KẾT NỐI MÁY CHỦ CHÙA:\nLàm mới dữ liệu từ chùa sẽ kết nối máy chủ trong vài giây để lấy snapshot công đức mới nhất.\nNếu bạn đang tự chơi game trên điện thoại/máy tính, phiên game có thể bị ngắt kết nối.\n\nBạn có chắc chắn muốn làm mới từ chùa lúc này không?')) {
+      if (!confirm('⚠️ LƯU Ý KẾT NỐI MÁY CHỦ CHÙA:\\nLàm mới dữ liệu từ chùa sẽ kết nối máy chủ trong vài giây để lấy snapshot công đức mới nhất.\\nNếu bạn đang tự chơi game trên điện thoại/máy tính, phiên game có thể bị ngắt kết nối.\\n\\nBạn có chắc chắn muốn làm mới từ chùa lúc này không?')) {
         return;
       }
       const csrfMeta = document.querySelector('meta[name="csrf-token"]');
@@ -3474,6 +3505,9 @@ export function renderDashboardHTML() {
         });
         const data = await res.json();
         if (res.ok && data.ok) {
+          location.reload();
+        } else if (res.status === 401) {
+          alert('Phiên làm việc trên máy chủ vừa được khởi động lại. Đang tải lại trang để đồng bộ mã bảo mật mới...');
           location.reload();
         } else {
           alert(data.error || data.message || 'Lỗi khi làm mới dữ liệu');
