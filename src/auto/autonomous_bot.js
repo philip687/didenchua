@@ -20,7 +20,8 @@ export const BotState = {
   PROBING_DAILY: 'PROBING_DAILY',
   CLAIMING_REWARDS: 'CLAIMING_REWARDS',
   CHECK_SCHEDULED: 'CHECK_SCHEDULED',
-  ACCUMULATING_IDLE: 'ACCUMULATING_IDLE',
+  ACCUMULATING_MILESTONES: 'ACCUMULATING_MILESTONES',
+  STANDBY_WAIT: 'STANDBY_WAIT',
   SCHEDULED_EVENT: 'SCHEDULED_EVENT',
   STOPPED: 'STOPPED'
 };
@@ -46,6 +47,26 @@ export class AutonomousBot {
     this.dailyActionsDone = new Set();
     this.lampDoneToday = false;
     this.liveQuizDoneToday = false;
+
+    // Cấu hình mốc tích luỹ (Milestone Targets) - Không làm vô hạn, chỉ làm đến mốc hoặc khi hết ghi nhận
+    const milestoneCfg = this.options.config?.milestoneFarming || {};
+    this.milestoneTargets = {
+      bows: milestoneCfg.dailyBows ?? 108,      // Mốc lạy Phật (mặc định 108 lạy = Trăm lạy)
+      beads: milestoneCfg.dailyBeads ?? 108,   // Mốc tràng hạt (mặc định 108 hạt = 1 chuỗi tròn)
+      mo: milestoneCfg.dailyMo ?? 30,          // Mốc gõ mõ (mặc định 30 tiếng định tâm)
+      maxWaterOthers: this.options.config?.maxWaterOthers ?? 40 // Mốc tưới hoa
+    };
+
+    // Tiến độ tích luỹ đã đạt trong ngày
+    this.dailyAccumulated = {
+      bows: 0,
+      beads: 0,
+      mo: 0,
+      watered: 0
+    };
+
+    // Tập hợp các việc tích luỹ đã đạt mốc hoặc hết nhận được ghi nhận từ máy chủ
+    this.accumulationsCapped = new Set();
   }
 
   /**
@@ -228,12 +249,26 @@ export class AutonomousBot {
   checkDayRollover() {
     const vn = getVNTime();
     if (this.currentDayVN !== vn.dateStr) {
-      log.temple('🌅', `Bắt đầu ngày mới: ${vn.dateStr} (Giờ VN: ${vn.timeStr}). Làm mới bộ đếm công việc.`);
+      log.temple('🌅', `Bắt đầu ngày mới: ${vn.dateStr} (Giờ VN: ${vn.timeStr}). Làm mới bộ đếm công việc & mốc tích luỹ.`);
       this.currentDayVN = vn.dateStr;
       this.dailyActionsDone.clear();
+      this.accumulationsCapped.clear();
+      this.dailyAccumulated = { bows: 0, beads: 0, mo: 0, watered: 0 };
       this.lampDoneToday = false;
       this.liveQuizDoneToday = false;
     }
+  }
+
+  /**
+   * Kiểm tra xem toàn bộ các hoạt động tích luỹ đã đạt mốc hoặc hết ghi nhận hay chưa
+   */
+  isAllAccumulationFinished() {
+    return (
+      this.accumulationsCapped.has('bows') &&
+      this.accumulationsCapped.has('beads') &&
+      this.accumulationsCapped.has('mo') &&
+      this.accumulationsCapped.has('garden')
+    );
   }
 
   /**
@@ -353,96 +388,176 @@ export class AutonomousBot {
   }
 
   /**
-   * Giai đoạn 4: Sau khi hết toàn bộ nhiệm vụ, bắt đầu treo các nhiệm vụ tích luỹ dài hạn
-   * - Lạy Phật (tích 108 lạy & tích công đức vô hạn)
-   * - Lăn tràng hạt niệm Phật (tích hạt niệm Phật)
-   * - Gõ mõ tụng niệm
-   * - Ngồi thiền tĩnh tâm
-   * - Tuần tra tưới hoa chùa khi luống khô
+   * Giai đoạn 4: Thực hiện các hoạt động tích luỹ theo mốc nhất định (Milestone Targets)
+   * Không làm tới vô hạn: Mỗi việc chỉ làm đến khi đạt mốc hoặc khi máy chủ hết ghi nhận thêm (Capped)
+   * - Lạy Phật (mốc 108 lạy = Trăm lạy)
+   * - Lăn tràng hạt niệm Phật (mốc 108 hạt = Tròn chuỗi)
+   * - Gõ mõ định tâm (mốc 30 tiếng)
+   * - Tuần tra vườn hoa chùa (chỉ tưới khi còn luống hoa khô)
    */
-  async runIdleAccumulationLoop() {
-    this.state = BotState.ACCUMULATING_IDLE;
+  async runAccumulationPhase() {
+    this.state = BotState.ACCUMULATING_MILESTONES;
+    this.checkDayRollover();
+
+    log.temple('🎯', '\n=== GIAI ĐOẠN 4: THỰC HIỆN HOẠT ĐỘNG TÍCH LUỸ THEO MỐC CHỈ TIÊU ===');
+    log.info(`Chỉ tiêu mốc hôm nay: [Lạy Phật: ${this.milestoneTargets.bows} lạy] [Tràng hạt: ${this.milestoneTargets.beads} hạt] [Gõ mõ: ${this.milestoneTargets.mo} tiếng]`);
+
+    // 1. Tích luỹ Lạy Phật (Mốc 108 lạy hoặc khi máy chủ hết ghi nhận)
+    if (!this.accumulationsCapped.has('bows')) {
+      const remainingBows = this.milestoneTargets.bows - this.dailyAccumulated.bows;
+      if (remainingBows <= 0) {
+        this.accumulationsCapped.add('bows');
+        log.success(`🙏 Đã đạt đủ mốc lạy Phật hôm nay (${this.dailyAccumulated.bows}/${this.milestoneTargets.bows} lạy).`);
+      } else {
+        log.info(`-> Tích luỹ Lạy Phật (Hiện tại: ${this.dailyAccumulated.bows}/${this.milestoneTargets.bows} lạy, còn thiếu ${remainingBows} lạy)...`);
+        const layAction = {
+          name: 'Lạy Phật tích luỹ',
+          fn: async () => await this.client.doLay(18),
+          maxZeroAttempts: 2,
+          maxIterations: Math.ceil(remainingBows / 18) + 1,
+          description: 'Lạy Phật sám hối theo hiệp 18 lạy'
+        };
+        const res = await this.tracker.executeUntilCapped(this.client, layAction, { intervalMs: 600 });
+        const bowsGained = Math.min(res.iterations * 18, remainingBows);
+        this.dailyAccumulated.bows += bowsGained;
+
+        if (this.dailyAccumulated.bows >= this.milestoneTargets.bows || res.isCapped) {
+          this.accumulationsCapped.add('bows');
+          log.temple('🏁', `[Lạy Phật] Hoàn tất mốc (${this.dailyAccumulated.bows}/${this.milestoneTargets.bows} lạy) hoặc máy chủ hết ghi nhận thêm.`);
+        }
+      }
+      await this.client.humanDelay('nghỉ ngơi sau hiệp lạy Phật');
+    }
+
+    // 2. Tích luỹ Lăn tràng hạt niệm Phật (Mốc 108 hạt hoặc khi máy chủ hết ghi nhận)
+    if (!this.accumulationsCapped.has('beads')) {
+      const remainingBeads = this.milestoneTargets.beads - this.dailyAccumulated.beads;
+      if (remainingBeads <= 0) {
+        this.accumulationsCapped.add('beads');
+        log.success(`📿 Đã đạt đủ mốc tràng hạt hôm nay (${this.dailyAccumulated.beads}/${this.milestoneTargets.beads} hạt).`);
+      } else {
+        log.info(`-> Tích luỹ Lăn tràng hạt (Hiện tại: ${this.dailyAccumulated.beads}/${this.milestoneTargets.beads} hạt, còn thiếu ${remainingBeads} hạt)...`);
+        const beadsBatch = Math.min(remainingBeads, 108);
+        const beadsAction = {
+          name: 'Lăn tràng hạt niệm Phật tích luỹ',
+          fn: async () => await this.client.doBeads(beadsBatch),
+          maxZeroAttempts: 2,
+          maxIterations: Math.ceil(remainingBeads / beadsBatch) + 1,
+          description: `Lăn tràng hạt niệm Phật ${beadsBatch} hạt`
+        };
+        const res = await this.tracker.executeUntilCapped(this.client, beadsAction, { intervalMs: 600 });
+        this.dailyAccumulated.beads += Math.min(res.iterations * beadsBatch, remainingBeads);
+
+        if (this.dailyAccumulated.beads >= this.milestoneTargets.beads || res.isCapped) {
+          this.accumulationsCapped.add('beads');
+          log.temple('🏁', `[Tràng hạt] Hoàn tất mốc (${this.dailyAccumulated.beads}/${this.milestoneTargets.beads} hạt) hoặc máy chủ hết ghi nhận thêm.`);
+        }
+      }
+      await this.client.humanDelay('thong thả nghỉ tay sau khi niệm hạt');
+    }
+
+    // 3. Tích luỹ Gõ mõ định tâm (Mốc 30 tiếng hoặc khi máy chủ hết ghi nhận)
+    if (!this.accumulationsCapped.has('mo')) {
+      const remainingMo = this.milestoneTargets.mo - this.dailyAccumulated.mo;
+      if (remainingMo <= 0) {
+        this.accumulationsCapped.add('mo');
+        log.success(`🔔 Đã đạt đủ mốc gõ mõ hôm nay (${this.dailyAccumulated.mo}/${this.milestoneTargets.mo} tiếng).`);
+      } else {
+        const moBatch = Math.min(remainingMo, 15);
+        const moAction = {
+          name: 'Gõ mõ định tâm tích luỹ',
+          fn: async () => await this.client.doMo(moBatch),
+          maxZeroAttempts: 2,
+          maxIterations: Math.ceil(remainingMo / moBatch) + 1,
+          description: `Gõ mõ tụng kinh ${moBatch} tiếng`
+        };
+        const res = await this.tracker.executeUntilCapped(this.client, moAction, { intervalMs: 500 });
+        this.dailyAccumulated.mo += Math.min(res.iterations * moBatch, remainingMo);
+
+        if (this.dailyAccumulated.mo >= this.milestoneTargets.mo || res.isCapped) {
+          this.accumulationsCapped.add('mo');
+          log.temple('🏁', `[Gõ mõ] Hoàn tất mốc (${this.dailyAccumulated.mo}/${this.milestoneTargets.mo} tiếng) hoặc máy chủ hết ghi nhận thêm.`);
+        }
+      }
+    }
+
+    // 4. Tích luỹ Vườn hoa chùa (Tưới nước giúp bạn đồng tu)
+    if (!this.accumulationsCapped.has('garden')) {
+      log.info('-> Kiểm tra các luống hoa chùa cần tưới nước tích công quả...');
+      try {
+        await this.client.doGarden({ autoWaterOthers: true, maxWaterOthers: this.milestoneTargets.maxWaterOthers });
+        this.accumulationsCapped.add('garden');
+      } catch {
+        this.accumulationsCapped.add('garden');
+      }
+    }
+
+    // Thu nhận phần thưởng phát sinh nếu có
+    await this.client.claimAllQuests();
+    this.client.printStatus();
+  }
+
+  /**
+   * Chế độ Tĩnh Tâm Chờ Sự Kiện (Standby / Event Watch Mode)
+   * Khi toàn bộ nhiệm vụ ngày VÀ hoạt động tích luỹ đều đã hoàn thành mốc / hết ghi nhận:
+   * -> DỪNG TOÀN BỘ CÁC THAO TÁC HÀNH ĐỘNG (không lạy, không chuỗi, không mõ để tránh spam máy chủ vô ích)
+   * -> CHỈ DUY TRÌ NHỊP TIM KẾT NỐI (hb 15s) VÀ ĐỒNG HỒ CANH GIỜ SỰ KIỆN:
+   *    - 16:30 UTC+7: Thức dậy thắp đèn Chánh điện
+   *    - 20:00 UTC+7: Thức dậy tham gia Đố vui trực tiếp
+   *    - 00:01 UTC+7: Thức dậy đón ngày mới, khởi động lại toàn bộ chu trình!
+   */
+  async runStandbyWatchMode() {
+    this.state = BotState.STANDBY_WAIT;
     log.temple('🪷', '\n========================================================================');
-    log.temple('🪷', 'TẤT CẢ NHIỆM VỤ ĐÃ HOÀN TẤT & ĐẠT TRẦN! CHUYỂN SANG CHẾ ĐỘ TU TẬP TÍCH LUỸ (IDLE)');
-    log.temple('🪷', 'Hệ thống duy trì: Lạy Phật, Lăn tràng hạt, Tọa thiền & Canh giờ sự kiện');
+    log.temple('🪷', 'TẤT CẢ NHIỆM VỤ NGÀY & HOẠT ĐỘNG TÍCH LUỸ ĐÃ ĐẠT MỐC / HẾT GHI NHẬN TỪ MÁY CHỦ!');
+    log.temple('🪷', `• Lạy Phật   : Đã hoàn tất mốc ${this.dailyAccumulated.bows}/${this.milestoneTargets.bows} lạy (Hoặc máy chủ hết ghi nhận)`);
+    log.temple('🪷', `• Tràng hạt  : Đã hoàn tất mốc ${this.dailyAccumulated.beads}/${this.milestoneTargets.beads} hạt (Hoặc máy chủ hết ghi nhận)`);
+    log.temple('🪷', `• Gõ mõ      : Đã hoàn tất mốc ${this.dailyAccumulated.mo}/${this.milestoneTargets.mo} tiếng`);
+    log.temple('🪷', `• Vườn hoa   : Đã tưới sạch các luống hoa cần chăm sóc`);
+    log.temple('🪷', '=> DỪNG GỬI LỆNH THAO TÁC ĐỂ TRÁNH SPAM VÔ ÍCH.');
+    log.temple('🪷', '=> CHUYỂN SANG CHẾ ĐỘ TĨNH TÂM CHỜ SỰ KIỆN (STANDBY WATCH MODE):');
+    log.temple('🪷', '   Duy trì nhịp tim kết nối (hb 15s), tĩnh tọa an định và canh giờ sự kiện:');
+    log.temple('🪷', '   [16:30 UTC+7: Thắp đèn Chánh điện] | [20:00 UTC+7: Đố vui trực tiếp] | [00:01 UTC+7: Reset]');
     log.temple('🪷', '========================================================================\n');
 
-    let cycle = 0;
+    let standbyMinutesWaited = 0;
 
     while (!this.stopRequested) {
-      cycle++;
       this.client.checkAborted();
-      this.checkDayRollover();
+      const now = new Date();
+      const vn = getVNTime(now);
 
-      const nextEventInfo = getNextScheduledEvent();
-      log.temple('🌿', `[Hiệp tu tập tích luỹ #${cycle}] - Hiện tại: ${nextEventInfo.currentTimeVN}`);
-      if (nextEventInfo.nextEvent) {
-        log.info(`⏳ Mốc sự kiện kế tiếp: "${nextEventInfo.nextEvent.name}" (${nextEventInfo.nextEvent.targetTimeStr}) - Còn ${nextEventInfo.nextEvent.waitFormatted}`);
+      // 1. Kiểm tra chuyển giao ngày mới (00:01 - 00:05 UTC+7)
+      if (isDayResetTime(now) || (this.currentDayVN && this.currentDayVN !== vn.dateStr)) {
+        log.temple('🌅', `Đến thời khắc chuyển giao ngày mới (${vn.dateStr} ${vn.timeStr})! Khởi động lại toàn bộ chu kỳ...`);
+        this.checkDayRollover();
+        break; // Thoát Standby Mode để bắt đầu chu kỳ ngày mới
       }
 
-      // 1. Kiểm tra sự kiện thời gian thực (đèn, đố vui, reset)
-      await this.checkAndRunScheduledTasks();
-
-      // Nếu đang trong khung giờ reset ngày mới (00:01 - 00:05), thoát loop tích luỹ để sang chu kỳ ngày mới
-      if (isDayResetTime()) {
-        log.temple('🌅', 'Phát hiện thời khắc chuyển giao ngày mới! Khởi động lại toàn bộ chu kỳ ngày mới...');
-        break;
+      // 2. Kiểm tra khung giờ Thắp đèn Chánh điện (16:30 - 21:30 UTC+7)
+      if (isLampTime(now) && !this.lampDoneToday) {
+        log.temple('🪔', `[16:30 UTC+7] Đúng giờ mở đèn Chánh điện! Thức dậy xuất định thắp đèn...`);
+        await this.checkAndRunScheduledTasks();
+        log.info('-> Đã hoàn thành thắp đèn Chánh điện chiều tối. Quay trở lại trạng thái tĩnh tâm...');
       }
 
-      // 2. Hoạt động tích luỹ A: Lạy Phật thành kính (18 lạy / hiệp)
-      try {
-        log.info('-> Lạy Phật thành kính tích luỹ phước điền...');
-        await this.client.doLay(18);
-        await this.client.sleep(500);
-      } catch (err) {
-        log.warn('Lỗi hiệp lạy Phật:', err.message);
+      // 3. Kiểm tra khung giờ Đố vui Phật pháp trực tiếp (20:00 UTC+7)
+      if (isQuizTime(now) && !this.liveQuizDoneToday) {
+        log.temple('🏆', `[20:00 UTC+7] Đúng giờ Đố vui trực tiếp! Thức dậy bước vào Chánh điện thi đấu...`);
+        await this.checkAndRunScheduledTasks();
+        log.info('-> Đã hoàn tất Đố vui Phật pháp. Quay trở lại trạng thái tĩnh tâm...');
       }
 
-      // 3. Hoạt động tích luỹ B: Lăn tràng hạt niệm Phật (108 hạt / hiệp)
-      try {
-        log.info('-> Lăn tràng hạt 108 hạt nhất tâm niệm Phật...');
-        await this.client.doBeads(108);
-        await this.client.sleep(500);
-      } catch (err) {
-        log.warn('Lỗi hiệp lăn tràng hạt:', err.message);
-      }
+      // 4. Nghỉ 10 giây mỗi nhịp (heartbeat vẫn chạy ngầm 15s/lần)
+      await this.client.sleep(10000);
+      standbyMinutesWaited += 10 / 60;
 
-      // 4. Hoạt động tích luỹ C: Gõ mõ định tâm (20 tiếng)
-      try {
-        await this.client.doMo(20);
-        await this.client.sleep(400);
-      } catch (err) {}
-
-      // 5. Hoạt động tích luỹ D: Dạo vườn hoa chùa tưới nước luống hoa mới khô
-      try {
-        await this.client.doGarden({ autoWaterOthers: true, maxWaterOthers: 15 });
-      } catch (err) {}
-
-      // 6. Nhận các phần thưởng nhiệm vụ phát sinh nếu có
-      await this.client.claimAllQuests();
-
-      // In bảng tóm tắt công đức định kỳ
-      this.client.printStatus();
-
-      // 7. Hoạt động tích luỹ E: Tĩnh toạ thiền định tĩnh tâm (giữ kết nối heartbeat)
-      const restSeconds = Math.min(this.options.idleCycleMinutes * 60, 300); // 5 phút thiền mỗi hiệp
-      log.temple('🧘', `Tĩnh tọa nhập định ${Math.floor(restSeconds / 60)} phút tĩnh tâm trước hiệp kế tiếp...`);
-
-      // Chia nhỏ thời gian nghỉ để kiểm tra sự kiện thời gian thực và tín hiệu dừng
-      const checkIntervalSec = 10;
-      let waited = 0;
-      while (waited < restSeconds && !this.stopRequested) {
-        this.client.checkAborted();
-        await this.client.sleep(checkIntervalSec * 1000);
-        waited += checkIntervalSec;
-
-        // Nếu vừa chạm khung giờ đố vui hoặc thắp đèn thì đánh thức ngay lập tức!
-        const curDate = new Date();
-        if ((isLampTime(curDate) && !this.lampDoneToday) ||
-            (isQuizTime(curDate) && !this.liveQuizDoneToday) ||
-            isDayResetTime(curDate)) {
-          log.temple('🔔', 'Chuông báo sự kiện đặc biệt! Đánh thức xuất định để làm Phật sự...');
-          break;
+      // Mỗi 15 phút log một dòng thông báo thời gian còn lại đến sự kiện kế tiếp
+      if (standbyMinutesWaited >= 15) {
+        standbyMinutesWaited = 0;
+        const nextEvent = getNextScheduledEvent(now);
+        if (nextEvent.nextEvent) {
+          log.info(`[Tĩnh tâm canh giờ] Hiện tại: ${nextEvent.currentTimeVN} - Sự kiện kế tiếp: "${nextEvent.nextEvent.name}" (còn ${nextEvent.nextEvent.waitFormatted})`);
         }
       }
     }
@@ -488,8 +603,9 @@ export class AutonomousBot {
       await this.runDailyProbingPhase();
       await this.checkAndRunScheduledTasks();
       await this.runClaimPhase();
+      await this.runAccumulationPhase();
       this.client.printStatus();
-      log.success('Đã hoàn thành 1 chu kỳ tự chơi hoàn chỉnh.');
+      log.success('Đã hoàn thành 1 chu kỳ tự chơi hoàn chỉnh (bao gồm các mốc tích luỹ).');
       return;
     }
 
@@ -499,7 +615,8 @@ export class AutonomousBot {
         await this.runDailyProbingPhase();
         await this.checkAndRunScheduledTasks();
         await this.runClaimPhase();
-        await this.runIdleAccumulationLoop();
+        await this.runAccumulationPhase();
+        await this.runStandbyWatchMode();
       } catch (err) {
         if (this.stopRequested) break;
         log.error('Lỗi trong vòng lặp tự chơi:', err.message);

@@ -148,3 +148,26 @@ test('ScheduleEvents: getNextScheduledEvent & formatDuration', () => {
   const formatted = formatDuration(3665000); // 1h 1m 5s
   assert.equal(formatted, '1 giờ 1 phút 5 giây');
 });
+
+test('AutonomousBot: Accumulation milestone caps & Standby check', async () => {
+  const { AutonomousBot, BotState } = await import('../src/auto/autonomous_bot.js');
+
+  const bot = new AutonomousBot({
+    config: {
+      milestoneFarming: { dailyBows: 18, dailyBeads: 54, dailyMo: 15 }
+    }
+  });
+
+  assert.equal(bot.milestoneTargets.bows, 18);
+  assert.equal(bot.milestoneTargets.beads, 54);
+  assert.equal(bot.milestoneTargets.mo, 15);
+  assert.equal(bot.isAllAccumulationFinished(), false);
+
+  bot.accumulationsCapped.add('bows');
+  bot.accumulationsCapped.add('beads');
+  bot.accumulationsCapped.add('mo');
+  bot.accumulationsCapped.add('garden');
+
+  assert.equal(bot.isAllAccumulationFinished(), true);
+  assert.equal(BotState.STANDBY_WAIT, 'STANDBY_WAIT');
+});

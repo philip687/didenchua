@@ -173,13 +173,26 @@ Chụp Snapshot trạng thái sau & Tính toán Delta
                  TỰ ĐỘNG CHUYỂN SANG NHIỆM VỤ TIẾP THEO
 ```
 
-### 3.2. Chế độ treo tích luỹ dài hạn (Lạy Phật, Niệm hạt, Tọa thiền)
-Khi toàn bộ 18 việc ngày đã bão hòa và quà thưởng đã được nhận hết:
-1. **Lạy Phật tích luỹ:** Mỗi hiệp thực hiện 18 lạy (`client.doLay(18)`). Máy chủ chùa ghi nhận 3 lạy mỗi gói tin. Qua các hiệp, số lạy tăng dần lên 108 lạy để mở danh hiệu *Trăm lạy* và tiếp tục tích lũy công đức vô hạn.
-2. **Lăn tràng hạt niệm Phật:** Mỗi hiệp lần 108 hạt (`client.doBeads(108)`). Cứ 108 hạt tạo thành 1 vòng chuỗi tròn vĩnh viễn trong nhật ký chùa.
-3. **Gõ mõ tụng kinh:** 20 tiếng mõ giúp định tâm.
-4. **Tuần tra vườn hoa chùa:** Kiểm tra các luống hoa của đạo hữu đồng tu, tự động tưới nước giúp các luống hoa bị khô (+2 công đức/luống).
-5. **Tọa thiền nhập định:** Duy trì kết nối nhịp tim `hb` 15 giây/lần.
+### 3.2. Chế độ tích luỹ theo mốc & Dừng lại khi hết ghi nhận (Milestone Caps & Standby)
+Các hoạt động tích luỹ **không thể và không được phép chạy vô hạn** vì:
+- Máy chủ chùa có hạn mức công đức và mốc thành tựu trong ngày. Sau khi đạt mốc, việc tiếp tục gửi lệnh sẽ không mang lại thêm điểm nào và gây spam vô ích.
+- Do đó, hệ thống áp dụng **Mốc chỉ tiêu cụ thể** kết hợp cùng **Bộ nhận diện ghi nhận**:
+
+| Hoạt động tích luỹ | Mốc chỉ tiêu trong ngày | Điều kiện dừng ngay lập tức |
+| :--- | :---: | :--- |
+| **🙇 Lạy Phật sám hối** | **108 lạy** *(Đạt danh hiệu "Trăm lạy")* | Đạt đủ 108 lạy **HOẶC** máy chủ không còn tăng điểm công đức / nhật ký sau 2 lần thử. |
+| **📿 Lăn tràng hạt niệm Phật** | **108 hạt** *(Tròn 1 vòng chuỗi hạt)* | Đạt đủ 108 hạt **HOẶC** máy chủ không còn ghi nhận thêm hạt niệm mới. |
+| **🔔 Gõ mõ định tâm** | **30 tiếng** *(Thời khóa tụng niệm)* | Đạt đủ 30 tiếng **HOẶC** máy chủ không còn tăng phản hồi. |
+| **💧 Vườn hoa chùa** | Tối đa 40 - 50 luống hoa bạn đồng tu | Tưới hết các luống hoa khô của đạo hữu **HOẶC** không còn luống hoa nào cần tưới. |
+
+#### Chuyển sang Chế độ Tĩnh Tâm Chờ Sự Kiện (Standby Watch Mode):
+Khi toàn bộ các hoạt động tích luỹ ở trên **đã đạt đủ mốc hoặc hết nhận được ghi nhận từ máy chủ**:
+1. **DỪNG HOÀN TOÀN TẤT CẢ LỆNH THAO TÁC:** Bot không gửi thêm bất kỳ lệnh lạy, chuỗi, hay mõ nào nữa để bảo toàn trạng thái thanh tịnh và không spam máy chủ.
+2. **CHỈ DUY TRÌ NHỊP TIM KẾT NỐI (Heartbeat 15s):** Giữ nhân vật an định trong chùa mà không bị ngắt kết nối.
+3. **CHUYỂN SANG CANH GIỜ SỰ KIỆN:**
+   - Đếm ngược đến **16:30 UTC+7**: Thức dậy thắp đèn dầu Chánh điện $\rightarrow$ Thắp xong quay lại Tĩnh tâm.
+   - Đếm ngược đến **20:00 UTC+7**: Thức dậy tham gia Đố vui trực tiếp $\rightarrow$ Thi đấu xong quay lại Tĩnh tâm.
+   - Đếm ngược đến **00:01 UTC+7**: Thức dậy đón ngày mới $\rightarrow$ Reset mốc tích luỹ và khởi động lại chu trình ngày mới!
 
 ### 3.3. Canh giờ sự kiện chuẩn UTC+7 & Đánh thức ngắt thiền
 - **Thắp đèn Chánh điện (16:30 - 21:30 UTC+7):** Cửa sổ mở đèn dầu Chánh điện để Phật tử dâng đèn tích phước.
@@ -252,3 +265,4 @@ npm test
 ---
 
 > 🙏 **Lời chúc:** Chúc bạn có những phút giây tu tập an lạc, thân tâm thường thanh tịnh, bồ đề tâm kiên cố và công đức ngày một tăng trưởng! Nam Mô A Di Đà Phật.
+

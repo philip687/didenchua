@@ -161,25 +161,33 @@ Toàn bộ thời gian được chuẩn hóa qua `Intl.DateTimeFormat` với mú
 
 ---
 
-## 6. CHẾ ĐỘ TREO TÍCH LUỸ PHƯỚC ĐIỀN DÀI HẠN (IDLE STACKING MODE)
+## 6. CHẾ ĐỘ TÍCH LUỸ THEO MỐC & CHUYỂN SANG TĨNH TÂM CANH GIỜ (MILESTONE CAPS & STANDBY MODE)
 
-Sau khi toàn bộ nhiệm vụ ngày đã hoàn thành và chạm trần, bot tự động kích hoạt vòng lặp tu tập dài hạn:
+Các hoạt động tích luỹ **không thể và không được phép chạy vô hạn** vì máy chủ có hạn mức ghi nhận công đức hàng ngày. Việc gửi lệnh liên tục sau khi máy chủ đã ngừng ghi nhận chỉ gây spam vô ích.
 
+Do đó, hệ thống thiết lập **Mốc chỉ tiêu cụ thể** kết hợp cùng **Bộ nhận diện phản hồi máy chủ**:
+
+### 6.1. Bảng Mốc Chỉ Tiêu & Ngưỡng Dừng Hoạt Động Tích Luỹ
+- **Lạy Phật sám hối:** Mốc chỉ tiêu **108 lạy** (đủ đạt danh hiệu *Trăm lạy*). Nếu đạt mốc **HOẶC** máy chủ không còn ghi nhận sau 2 lần thử $\rightarrow$ **Dừng lạy Phật**.
+- **Lăn tràng hạt niệm Phật:** Mốc chỉ tiêu **108 hạt** (tròn 1 chuỗi hạt). Nếu đạt mốc **HOẶC** máy chủ không còn ghi nhận $\rightarrow$ **Dừng lăn tràng hạt**.
+- **Gõ mõ định tâm:** Mốc chỉ tiêu **30 tiếng**. Nếu đạt mốc **HOẶC** máy chủ không còn ghi nhận $\rightarrow$ **Dừng gõ mõ**.
+- **Tuần tra vườn hoa chùa:** Duyệt qua các luống hoa của đạo hữu đồng tu, tưới nước tích công quả. Khi đã tưới sạch các luống khô $\rightarrow$ **Dừng tưới hoa**.
+
+### 6.2. Chuyển sang Chế Độ Tĩnh Tâm Chờ Sự Kiện (Standby Watch Mode)
+Khi toàn bộ các hoạt động tích luỹ ở trên đã đạt mốc hoặc hết nhận được ghi nhận từ máy chủ:
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                   VÒNG LẶP TU TẬP TÍCH LUỸ (IDLE CYCLE)                │
+│                   CHẾ ĐỘ TĨNH TÂM CHỜ SỰ KIỆN (STANDBY MODE)           │
 │                                                                        │
-│  1. Lạy Phật thành kính (18 lạy / hiệp -> hướng tới trăm lạy)          │
-│  2. Lăn tràng hạt niệm Phật (108 hạt / hiệp -> tích lũy chuỗi tròn)    │
-│  3. Gõ mõ định tâm (20 tiếng tụng niệm)                                │
-│  4. Tuần tra luống hoa chùa (tưới nước tích công đức khi có bạn mới)   │
-│  5. Tự động thu nhận thưởng nhiệm vụ phát sinh                         │
-│  6. Tọa thiền nhập định tĩnh tâm (giữ nhịp tim heartbeat)              │
-│  7. Canh chuông sự kiện (Đánh thức tức thì nếu chạm 16:30, 20:00, 00:01)│
+│  1. Hoàn toàn NGỪNG GỬI LỆNH THAO TÁC (không lạy, không chuỗi, ko mõ)   │
+│  2. Duy trì nhịp tim kết nối (Heartbeat 'hb' mỗi 15 giây) an định      │
+│  3. Tĩnh toạ và theo dõi đồng hồ sự kiện thời gian thực:              │
+│     - 16:30 UTC+7: Thức dậy thắp đèn dầu Chánh điện -> Xong quay lại   │
+│     - 20:00 UTC+7: Thức dậy tham gia Đố vui trực tiếp -> Xong quay lại │
+│     - 00:01 UTC+7: Thức dậy đón ngày mới -> Reset mốc tích luỹ         │
 └────────────────────────────────────────────────────────────────────────┘
 ```
-
-Trong suốt thời gian tọa thiền nhập định, socket gửi heartbeat `t: 'hb'` đều đặn mỗi 15 giây để duy trì kết nối an định và đồng thời kiểm tra đồng hồ mỗi 10 giây. Nếu chạm mốc sự kiện, bot lập tức "xuất định" để làm việc chùa.
+Điều này đảm bảo bot hoạt động nhân văn, đúng chánh niệm, không spam server và sử dụng tài nguyên tối ưu nhất.
 
 ---
 
