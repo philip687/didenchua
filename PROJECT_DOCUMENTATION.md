@@ -589,6 +589,9 @@ Hệ thống hỗ trợ hơn 35 câu lệnh dòng lệnh cực kỳ tiện lợi
 ### 🌟 Lệnh Chạy Toàn Bộ & Chu Trình
 | Lệnh | Ý Nghĩa Thực Hiện |
 | :--- | :--- |
+| `npm run auto` hoặc `node cli.js auto` | **Cỗ máy Tự chơi Thông minh (Autonomous Bot)**: Tự nhận diện ghi nhận, tự đổi việc khi chạm trần, chuyển sang treo tích luỹ (lạy, chuỗi, thiền) và tự canh đúng giờ thắp đèn (16:30 - 21:30) & đố vui (20:00 UTC+7). |
+| `node cli.js auto --once` | Chạy 1 chu kỳ tự chơi hoàn chỉnh rồi dừng. |
+| `node cli.js auto --probe` | Chẩn đoán các việc đang còn ghi nhận hoặc đã bão hòa. |
 | `npm run all` hoặc `npm run quests` | Chạy toàn diện chu trình 5 tầng: làm sạch nhiệm vụ ngày, cày thành tích và ngồi thiền. |
 | `npm run ci` | Chạy nhanh các nhiệm vụ hành động tức thời (~1 phút, phù hợp kiểm tra nhanh). |
 | `npm run farm` | Chỉ cày mốc tích lũy vĩnh viễn (Lạy Phật, Chuỗi hạt, Quét sân) theo chỉ tiêu. |
