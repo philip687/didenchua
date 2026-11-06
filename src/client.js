@@ -4,6 +4,12 @@ import { loadConfig } from '../config.js';
 const WS_URL = 'wss://didenchua.online/ws';
 // Send before the server's reported 20s idle window to tolerate event-loop/network jitter.
 const HEARTBEAT_INTERVAL_MS = 15000;
+// Nhịp lạy chuẩn theo client chính thức didenchua.online:
+// 1 lần bấm "Lạy" = G.lay() (hoạt ảnh layLeft = 5.4s, nút bị khóa khi G.busy) + gửi { t:'emote', e:'lay' } (+3 lạy),
+// và chuỗi lạy có hướng dẫn của game chờ setTimeout(…, 5600) trước lượt kế tiếp.
+export const LAY_COOLDOWN_MS = 5600;
+// Thời gian tối đa chờ máy chủ trả gói journal mới sau khi yêu cầu.
+const JOURNAL_REPLY_TIMEOUT_MS = 3000;
 
 // Danh sách 50 bồ đoàn chính thức tại Chánh điện (tính toán chuẩn xác theo layout 3D của game didenchua.online)
 export const CHANH_DIEN_SEATS = (() => {
@@ -154,6 +160,8 @@ export class DiDenChuaClient {
     this.chores = null;
     this.lanterns = [];
     this.journal = null;
+    // Bộ đếm số gói journal đã nhận, dùng để phân biệt dữ liệu mới với dữ liệu cũ khi kiểm tra ghi nhận.
+    this.journalSeq = 0;
     this.garden = null;
     this.calligraphy = null;
     this.heartbeatTimer = null;
@@ -329,6 +337,7 @@ export class DiDenChuaClient {
 
       case 'journal':
         this.journal = msg.j;
+        this.journalSeq = (this.journalSeq || 0) + 1;
         if (this.journal && this.merit?.me) {
           if (this.journal.name) this.merit.me.name = this.journal.name;
           if (this.journal.user) this.merit.me.user = this.journal.user;
@@ -573,10 +582,12 @@ export class DiDenChuaClient {
 
   async doLay(count = 108, options = {}) {
     this.checkAborted();
-    // Máy chủ quy định: mỗi gói { t: 'emote', e: 'lay' } tương ứng 1 lần bấm trên UI, tự động thực hiện 3 lạy ($n.bows += 3).
-    // Trong suốt thời gian nhân vật đang lạy (~5.000ms), UI khóa nút lạy và không thể bấm thêm.
+    // Quy chuẩn máy chủ didenchua.online:
+    // - Mỗi gói { t: 'emote', e: 'lay' } tương ứng 1 lần bấm nút "Lạy" trên UI game.
+    // - Mỗi lần bấm nhân vật thực hiện 3 lạy trang nghiêm (layLeft = 5.4s hoạt ảnh).
+    // - Nút "Lạy" trên UI game bị khóa (G.busy) trong suốt thời gian lạy và chuỗi có hướng dẫn chờ 5.600ms (LAY_COOLDOWN_MS).
     const emotesNeeded = Math.ceil(count / 3);
-    log.temple('🙏', `Bắt đầu lạy Phật sám hối (${count} lạy ~ ${emotesNeeded} lượt bấm, 1 lượt = 3 lạy - tuân thủ nhịp lạy trang nghiêm)…`);
+    log.temple('🙏', `Bắt đầu lạy Phật sám hối (${count} lạy ~ ${emotesNeeded} lượt bấm, 1 lượt = 3 lạy - tuân thủ nhịp lạy trang nghiêm 5.6s)…`);
     // Đảm bảo đứng tại Chánh điện để máy chủ ghi nhận nhiệm vụ lạy (lay / lay27)
     this.send({ t: 'visit', zone: 'Chánh điện' });
     await this.sleep(this.isTurbo() ? 80 : 300);
@@ -586,9 +597,11 @@ export class DiDenChuaClient {
     const activeLay = (this.merit?.me?.quests || []).find(q => q.id === 'lay' || q.id.startsWith('lay'));
     const dailyQuestBows = (activeLay && !activeLay.claimed) ? (activeLay.need || 27) : 27;
 
-    // 🛡️ Cơ chế Tự Ngắt Thông Minh (Smart Saturation Guard) chống treo máy lãng phí thời gian:
-    // Tự kích hoạt khi đang kết nối trực tiếp với máy chủ game (this.connected === true)
-    const isSmartCapEnabled = options.smartCap ?? (Boolean(this.connected) && !options.force);
+    // 🛡️ Cơ chế Tự Ngắt Thông Minh (Smart Saturation Guard):
+    // Chỉ kích hoạt khi được yêu cầu rõ ràng qua options.smartCap === true.
+    // Đối với các tác vụ người dùng chỉ định số lượng cụ thể (ví dụ 36 lạy, 108 lạy), bot sẽ hoàn thành đầy đủ
+    // số lượt bấm trang nghiêm mà không tự ý ngắt ngang, trừ phi máy chủ trả về thông báo giới hạn rõ ràng (saturationToast).
+    const isSmartCapEnabled = options.smartCap === true;
     const maxZeroAttempts = options.maxZeroAttempts || 3;
     let zeroProgressCount = 0;
     let lastObservedBows = this.journal?.bows ?? null;
@@ -605,12 +618,12 @@ export class DiDenChuaClient {
         this.send({ t: 'emote', e: 'lay' });
         sentEmotes = i;
 
-        // 1 lần bấm trên UI thực hiện 3 lạy, mất khoảng 5.050ms để hoàn tất hoạt ảnh.
-        // Bắt buộc chờ đủ thời gian này vì trong lúc đang lạy không thể bấm thêm nút lạy.
-        const layCooldown = options.intervalMs ?? 5050;
+        // Bắt buộc chờ đủ thời gian hoạt cảnh 3 lạy của nhân vật (~5.600ms chuẩn theo UI game)
+        // Trong suốt thời gian này UI khóa nút lạy và máy chủ áp dụng cooldown.
+        const layCooldown = options.intervalMs ?? LAY_COOLDOWN_MS;
         await this.sleep(layCooldown);
 
-        // Thu thập từng phần (Checkpoint Harvest) khi chạm mốc quest ngày, định kỳ mỗi 9 lạy (~15s), hoặc khi kết thúc
+        // Thu thập từng phần (Checkpoint Harvest) khi chạm mốc quest ngày, định kỳ mỗi 9 lạy (~17s), hoặc khi kết thúc
         const isDailyQuestReached = (currentBows >= dailyQuestBows) && activeLay && !activeLay.claimed;
         const isIntervalReached = (currentBows % checkpointBowsInterval === 0);
         const isFinalEmote = (i === emotesNeeded);
@@ -636,28 +649,35 @@ export class DiDenChuaClient {
             log.temple('🙏', `[Chốt an toàn chặng: ${currentBows}/${count} lạy] Đã hoàn thành ${currentBows} lạy. Đang kiểm tra ghi nhận từ máy chủ...`);
           }
 
-          this.send({ t: 'journal' });
+          // 1. Luôn kiểm tra toast thông báo giới hạn rõ ràng từ máy chủ game
+          const recentToasts = this.recentToasts || [];
+          const saturationToast = recentToasts.find(t =>
+            /đã đạt giới hạn|hết lượt|ngày mai quay lại|tối đa trong ngày|không thể lạy thêm/i.test(t.text)
+          );
+          if (saturationToast) {
+            log.temple('🛑', `[Lạy Phật] Máy chủ thông báo chạm ngưỡng: "${saturationToast.text}".`);
+            log.warn(`-> Tự động dừng sớm an toàn tại ${currentBows}/${count} lạy để chống lãng phí thời gian!`);
+            break;
+          }
 
-          // 🛡️ Kiểm tra phản hồi & Tự ngắt thông minh nếu máy chủ ngừng ghi nhận
+          // 2. 🛡️ Kiểm tra phản hồi & Tự ngắt thông minh (chỉ khi options.smartCap === true)
           if (isSmartCapEnabled && !isFinalEmote) {
-            // 1. Kiểm tra toast thông báo giới hạn từ máy chủ
-            const recentToasts = this.recentToasts || [];
-            const saturationToast = recentToasts.find(t =>
-              /đã đạt giới hạn|hết lượt|ngày mai quay lại|tối đa trong ngày|không thể lạy thêm/i.test(t.text)
-            );
-            if (saturationToast) {
-              log.temple('🛑', `[Lạy Phật] Máy chủ thông báo chạm ngưỡng: "${saturationToast.text}".`);
-              log.warn(`-> Tự động dừng sớm an toàn tại ${currentBows}/${count} lạy để chống lãng phí thời gian!`);
-              break;
-            }
+            // Yêu cầu gói journal MỚI từ máy chủ (chờ phản hồi thực tế, không dùng cache cũ)
+            // Nếu options.intervalMs được đặt là 0 (chế độ mock / test), cho phép chờ ngắn
+            const replyTimeout = (options.intervalMs === 0) ? 150 : JOURNAL_REPLY_TIMEOUT_MS;
+            const freshJournal = await this.requestFreshJournal(replyTimeout);
 
-            // 2. Chờ máy chủ cập nhật gói journal mới nếu có (khoảng trễ ngắn)
-            await this.sleep(this.isTurbo() ? 60 : 150);
-
-            const curBows = this.journal?.bows ?? null;
+            const curBows = (freshJournal || this.journal)?.bows ?? null;
             const curMerit = this.merit?.me?.total ?? null;
             const curQuestHave = (this.merit?.me?.quests || []).find(q => q.id === 'lay' || q.id.startsWith('lay'))?.have ?? null;
             const curWLayHave = (this.merit?.me?.weekly || []).find(q => q.id === 'wLay')?.have ?? null;
+
+            // Nếu máy chủ chưa kịp trả gói journal mới (freshJournal === null):
+            // Giữ nguyên trạng thái, KHÔNG tính là lỗi "máy chủ không ghi nhận" để tránh dừng oan.
+            if (!freshJournal && options.intervalMs !== 0) {
+              log.info(`  ⏳ [Chặng ${currentBows}/${count} lạy] Đang chờ gói phản hồi nhật ký từ máy chủ...`);
+              continue;
+            }
 
             const hasBowsProgress = (lastObservedBows !== null && curBows !== null && curBows > lastObservedBows);
             const hasMeritProgress = (lastObservedMerit !== null && curMerit !== null && curMerit > lastObservedMerit);
@@ -677,13 +697,16 @@ export class DiDenChuaClient {
               log.info(`  ⏳ [Chặng ${currentBows}/${count} lạy] Máy chủ chưa ghi nhận tiến độ mới (Lần thử không tiến triển: ${zeroProgressCount}/${maxZeroAttempts})`);
 
               if (zeroProgressCount >= maxZeroAttempts) {
-                const layCooldownMs = options.intervalMs ?? 5050;
+                const layCooldownMs = options.intervalMs ?? LAY_COOLDOWN_MS;
                 const timeSavedMinutes = Math.round(((emotesNeeded - i) * layCooldownMs) / 60000);
                 log.temple('🛑', `[Lạy Phật] TỰ ĐỘNG DỪNG SỚM THÔNG MINH: Máy chủ đã bão hòa / không còn ghi nhận thêm số lạy sau ${maxZeroAttempts} chặng kiểm tra.`);
                 log.warn(`-> Đã dừng an toàn tại ${currentBows}/${count} lạy. Tiết kiệm ${timeSavedMinutes > 0 ? `~${timeSavedMinutes} phút` : 'thời gian'} treo máy vô ích!`);
                 break;
               }
             }
+          } else {
+            // Khi smart cap tắt hoặc là emote cuối, vẫn gửi yêu cầu cập nhật journal như bình thường
+            this.send({ t: 'journal' });
           }
         }
       }
@@ -697,8 +720,9 @@ export class DiDenChuaClient {
           this.send({ t: 'claim', q: activeLay.id });
           activeLay.claimed = true;
         }
-        this.send({ t: 'journal' });
       }
+      // Luôn đồng bộ dữ liệu journal mới nhất về máy sau khi kết thúc đợt lạy
+      await this.requestFreshJournal(options.intervalMs === 0 ? 150 : 3000).catch(() => {});
     }
   }
 
@@ -722,6 +746,21 @@ export class DiDenChuaClient {
     }
     await this.sleep(this.isTurbo() ? 80 : 250);
     log.success('Đã hoàn tất gửi yêu cầu viếng thăm đầy đủ các khu vực trong chùa (10/10 khu).');
+  }
+
+  /**
+   * Yêu cầu gói journal và chờ đến khi máy chủ thực sự trả gói MỚI (không dùng dữ liệu cũ trong bộ nhớ).
+   * Trả về journal mới, hoặc null nếu hết thời gian chờ (trạng thái "chưa rõ", không phải "không tiến triển").
+   */
+  async requestFreshJournal(timeoutMs = JOURNAL_REPLY_TIMEOUT_MS) {
+    const seqBefore = this.journalSeq || 0;
+    this.send({ t: 'journal' });
+    const step = 100;
+    for (let waited = 0; waited < timeoutMs; waited += step) {
+      if ((this.journalSeq || 0) > seqBefore) return this.journal;
+      await this.sleep(step);
+    }
+    return (this.journalSeq || 0) > seqBefore ? this.journal : null;
   }
 
   async fetchJournal() {
@@ -1021,8 +1060,8 @@ export class DiDenChuaClient {
     const activeTung = (this.merit?.me?.quests || []).find(q => q.id === 'tung');
     const dailyQuestNeed = (activeTung && !activeTung.claimed) ? (activeTung.need || 108) : 108;
 
-    // 🛡️ Tự ngắt thông minh khi máy chủ không còn ghi nhận
-    const isSmartCapEnabled = options.smartCap ?? (Boolean(this.connected) && !options.force);
+    // 🛡️ Tự ngắt thông minh khi máy chủ không còn ghi nhận (chỉ khi options.smartCap === true)
+    const isSmartCapEnabled = options.smartCap === true;
     const maxZeroAttempts = options.maxZeroAttempts || 3;
     let zeroProgressCount = 0;
     let lastObservedMerit = this.merit?.me?.total ?? null;
@@ -1066,18 +1105,19 @@ export class DiDenChuaClient {
 
           this.send({ t: 'journal' });
 
-          // 🛡️ Tự ngắt thông minh nếu máy chủ ngừng ghi nhận
-          if (isSmartCapEnabled && !isFinalStrike) {
-            const recentToasts = this.recentToasts || [];
-            const saturationToast = recentToasts.find(t =>
-              /đã đạt giới hạn|hết lượt|ngày mai quay lại|tối đa trong ngày/i.test(t.text)
-            );
-            if (saturationToast) {
-              log.temple('🛑', `[Gõ mõ] Máy chủ thông báo chạm ngưỡng: "${saturationToast.text}".`);
-              log.warn(`-> Tự động dừng sớm an toàn tại ${sent}/${count} tiếng mõ để chống lãng phí thời gian!`);
-              break;
-            }
+          // 1. Luôn kiểm tra toast thông báo giới hạn từ máy chủ
+          const recentToasts = this.recentToasts || [];
+          const saturationToast = recentToasts.find(t =>
+            /đã đạt giới hạn|hết lượt|ngày mai quay lại|tối đa trong ngày/i.test(t.text)
+          );
+          if (saturationToast) {
+            log.temple('🛑', `[Gõ mõ] Máy chủ thông báo chạm ngưỡng: "${saturationToast.text}".`);
+            log.warn(`-> Tự động dừng sớm an toàn tại ${sent}/${count} tiếng mõ để chống lãng phí thời gian!`);
+            break;
+          }
 
+          // 2. 🛡️ Tự ngắt thông minh nếu máy chủ ngừng ghi nhận (chỉ khi options.smartCap === true)
+          if (isSmartCapEnabled && !isFinalStrike) {
             await this.sleep(this.isTurbo() ? 50 : 100);
 
             const curMerit = this.merit?.me?.total ?? null;
@@ -1120,8 +1160,8 @@ export class DiDenChuaClient {
           this.send({ t: 'claim', q: activeTung.id });
           activeTung.claimed = true;
         }
-        this.send({ t: 'journal' });
       }
+      await this.requestFreshJournal(options.intervalMs === 0 ? 150 : 3000).catch(() => {});
     }
     log.info(`Đã hoàn tất gửi ${sent}/${count} tiếng mõ tụng kinh (chờ máy chủ ghi nhận).`);
   }
@@ -1141,8 +1181,8 @@ export class DiDenChuaClient {
     const activeChuoi = (this.merit?.me?.quests || []).find(q => q.id === 'chuoi' || q.id === 'beads' || q.id.startsWith('chuoi'));
     const dailyQuestNeed = (activeChuoi && !activeChuoi.claimed) ? (activeChuoi.need || 54) : 54;
 
-    // 🛡️ Tự ngắt thông minh khi máy chủ không còn ghi nhận
-    const isSmartCapEnabled = options.smartCap ?? (Boolean(this.connected) && !options.force);
+    // 🛡️ Tự ngắt thông minh khi máy chủ không còn ghi nhận (chỉ khi options.smartCap === true)
+    const isSmartCapEnabled = options.smartCap === true;
     const maxZeroAttempts = options.maxZeroAttempts || 3;
     let zeroProgressCount = 0;
     let lastObservedBeads = this.journal?.beads ?? null;
@@ -1195,18 +1235,19 @@ export class DiDenChuaClient {
 
           this.send({ t: 'journal' });
 
-          // 🛡️ Tự ngắt thông minh nếu máy chủ ngừng ghi nhận
-          if (isSmartCapEnabled && !isFinalBead) {
-            const recentToasts = this.recentToasts || [];
-            const saturationToast = recentToasts.find(t =>
-              /đã đạt giới hạn|hết lượt|ngày mai quay lại|tối đa trong ngày/i.test(t.text)
-            );
-            if (saturationToast) {
-              log.temple('🛑', `[Tràng hạt] Máy chủ thông báo chạm ngưỡng: "${saturationToast.text}".`);
-              log.warn(`-> Tự động dừng sớm an toàn tại ${sent}/${count} hạt để chống lãng phí thời gian!`);
-              break;
-            }
+          // 1. Luôn kiểm tra toast thông báo giới hạn từ máy chủ
+          const recentToasts = this.recentToasts || [];
+          const saturationToast = recentToasts.find(t =>
+            /đã đạt giới hạn|hết lượt|ngày mai quay lại|tối đa trong ngày/i.test(t.text)
+          );
+          if (saturationToast) {
+            log.temple('🛑', `[Tràng hạt] Máy chủ thông báo chạm ngưỡng: "${saturationToast.text}".`);
+            log.warn(`-> Tự động dừng sớm an toàn tại ${sent}/${count} hạt để chống lãng phí thời gian!`);
+            break;
+          }
 
+          // 2. 🛡️ Tự ngắt thông minh nếu máy chủ ngừng ghi nhận (chỉ khi options.smartCap === true)
+          if (isSmartCapEnabled && !isFinalBead) {
             await this.sleep(this.isTurbo() ? 50 : 120);
 
             const curBeads = this.journal?.beads ?? null;
@@ -1253,8 +1294,8 @@ export class DiDenChuaClient {
           this.send({ t: 'claim', q: activeChuoi.id });
           activeChuoi.claimed = true;
         }
-        this.send({ t: 'journal' });
       }
+      await this.requestFreshJournal(options.intervalMs === 0 ? 150 : 3000).catch(() => {});
     }
     await this.sleep(this.isTurbo() ? 250 : 800);
     await this.fetchJournal();

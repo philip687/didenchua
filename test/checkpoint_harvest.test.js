@@ -289,3 +289,39 @@ test('SMART_CAP: doBeads stops early when zero progress is observed after maxZer
   assert.ok(beadPackets.length <= 30, `Must stop early instead of 112 batches (actual: ${beadPackets.length})`);
   assert.ok(beadPackets.length >= 6, `Must have performed at least 1 checkpoint (actual: ${beadPackets.length})`);
 });
+
+test('SMART_CAP: doLay completes full requested count (36 bows = 12 emotes) when smartCap is not explicitly enabled', async () => {
+  const client = new DiDenChuaClient({ turbo: true });
+  const sentPackets = [];
+
+  client.connected = true;
+  client.send = (pkt) => { sentPackets.push(pkt); };
+  client.sleep = async () => {};
+  client.journal = { bows: 108 };
+  client.merit = { me: { total: 1000, quests: [], weekly: [] } };
+
+  // Yêu cầu 36 lạy (12 emote) không truyền smartCap: true. Không được tự ý ngắt ngang ở mốc 27 lạy.
+  await client.doLay(36, { intervalMs: 0 });
+
+  const layEmotes = sentPackets.filter(p => p.t === 'emote' && p.e === 'lay');
+  assert.equal(layEmotes.length, 12, 'Phải thực hiện đầy đủ 12 lượt bấm (36 lạy) cho người dùng');
+});
+
+test('SMART_CAP: doLay stops upon server saturation toast even when smartCap option is omitted', async () => {
+  const client = new DiDenChuaClient({ turbo: true });
+  const sentPackets = [];
+
+  client.connected = true;
+  client.send = (pkt) => { sentPackets.push(pkt); };
+  client.sleep = async () => {};
+  client.journal = { bows: 108 };
+  client.merit = { me: { total: 1000, quests: [], weekly: [] } };
+  client.recentToasts = [{ text: 'Hôm nay bạn đã đạt giới hạn lạy Phật sám hối.' }];
+
+  await client.doLay(36, { intervalMs: 0 });
+
+  const layEmotes = sentPackets.filter(p => p.t === 'emote' && p.e === 'lay');
+  // Chặng đầu tiên là 9 lạy = 3 emotes, phát hiện toast bão hòa từ máy chủ -> dừng ngay lập tức
+  assert.equal(layEmotes.length, 3, 'Phải lập tức dừng khi máy chủ gửi toast báo đạt giới hạn');
+});
+
