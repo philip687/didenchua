@@ -106,3 +106,4 @@ describe('doLoc() — d_loc2 and w_loc15 quest support', () => {
     assert.equal(locPackets.length, 0, 'should send 0 loc packets when count=0');
   });
 });
+

@@ -924,11 +924,22 @@ export class DiDenChuaClient {
   async doVisitAll() {
     this.checkAborted();
     log.temple('🗺️', 'Bắt đầu hành hương viếng thăm các danh lam cổ tự...');
-    const temples = this.meta?.temples || [{ id: 'voluong' }, { id: 'tranho' }, { id: 'huongson' }, { id: 'dinhmay' }, { id: 'baison' }];
-    for (const t of temples.slice(0, 5)) {
+    const temples = this.meta?.temples || [
+      { id: 'voluong' }, { id: 'tranho' }, { id: 'huongson' }, { id: 'nhattru' },
+      { id: 'dinhmay' }, { id: 'baison' }, { id: 'lamkinh' }, { id: 'thienmau' }
+    ];
+    for (const t of temples.slice(0, 10)) {
       this.checkAborted();
       await this.doVisit(t.id);
-      await this.sleep(this.isTurbo() ? 50 : 1250);
+      await this.sleep(this.isTurbo() ? 50 : 1300);
+    }
+    // Tự động claim các tuyến hành hương và thành tựu tám chùa nếu hoàn tất
+    const routeQuests = ['r_thanglong', 'r_datbac', 'r_codo', 'r_phuongnam', 'r_biendong', 'r_nonnuoc', 'r_bacoi', 'a_tamchua'];
+    for (const rq of routeQuests) {
+      if (this.token) {
+        try { await this.post(`/quests/${rq}/claim`); } catch {}
+      }
+      this.send({ t: 'claim', q: rq });
     }
     log.success('🎉 Đã hoàn tất hành trình viếng thăm các ngôi chùa!');
   }
@@ -1100,27 +1111,44 @@ export class DiDenChuaClient {
     return { ok: true };
   }
 
+  async doPlant() {
+    this.checkAborted();
+    log.temple('🌱', 'Làm công quả trồng cây ngoài sân chùa...');
+    this.send({ t: 'visit', zone: 'Sân chùa' });
+    this.send({ t: 'plant', k: 'cuc' });
+    this.send({ t: 'water', pid: this.myPid || '' });
+    this.send({ t: 'chore', k: 'plant' });
+    this.send({ t: 'emote', e: 'plant' });
+    this.send({ t: 'viec', k: 'plant' });
+    let res = null;
+    if (this.token) {
+      try {
+        res = await this.practice('plant');
+        log.success(`🌱 Đã trồng cây công quả: +${res.gained || 15} công đức!`);
+        if (res?.questsDone?.includes('d_plant')) {
+          try { await this.post('/quests/d_plant/claim'); } catch {}
+        }
+      } catch (e) {
+        log.warn(`Lỗi khi trồng cây công quả: ${e.message}`);
+      }
+    }
+    return res || { ok: true };
+  }
+
   async doGarden(options = {}) {
     this.checkAborted();
     log.info('Chăm sóc vườn cây sân chùa...');
     this.send({ t: 'garden' });
-    await this.sleep(this.isTurbo() ? 80 : 400);
+    await this.sleep(this.isTurbo() ? 80 : 300);
 
-    // Trồng cây nếu có quest d_plant chưa hoàn tất
+    // Trồng cây công quả nếu có quest d_plant chưa hoàn tất hoặc mặc định trồng
     const plantQuest = (this.merit?.me?.quests || []).find(q => q.id === 'd_plant' || q.id === 'plant');
     const needPlant = plantQuest && !plantQuest.claimed && (plantQuest.have || 0) < plantQuest.need;
     if (needPlant || (!plantQuest && options.alwaysPlant !== false)) {
-      log.temple('🌱', 'Gieo hạt cúc dâng Phật (trồng cây mới)...');
-      this.send({ t: 'plant', k: 'cuc' });
-      await this.sleep(this.isTurbo() ? 80 : 300);
-      // Tưới luống hoa của chính mình (pid = '' hoặc myPid nếu có)
-      this.send({ t: 'water', pid: this.myPid || '' });
-      await this.sleep(this.isTurbo() ? 80 : 300);
-      log.success('Đã gieo hạt và tưới nước luống hoa dâng Phật!');
+      await this.doPlant();
     }
 
     if (options.autoWaterOthers) {
-      // Tưới thêm hoa của bạn đồng tu (nếu được bật)
       log.info('Tưới nước giúp bạn đồng tu (+công đức)...');
       this.send({ t: 'water', pid: null });
       await this.sleep(this.isTurbo() ? 80 : 300);
@@ -1130,20 +1158,79 @@ export class DiDenChuaClient {
   }
 
   /**
-   * Dạo vườn chùa nhặt lộc — xử lý quest d_loc2 (daily) và w_loc15 (weekly).
-   * Packet: { t: 'loc' } — mỗi lần gửi tương đương 1 lần nhặt lộc.
-   * @param {number} count - Số lần nhặt lộc (mặc định 2 cho d_loc2).
+   * Dạo vườn chùa nhặt hoa sen vàng lộc — xử lý quest d_loc2 (daily) và w_loc15 (weekly).
+   * Cơ chế: Lấy vị trí hoa sen vàng từ GET /loc?temple=...
+   * Gửi tọa độ người chơi tới gần hoa qua gói WS { t: 's', x, z, y: 0, r: 0, seat: -1, a: 0 }
+   * Gọi POST /loc/claim { temple, id } để máy chủ xác thực và trao lộc.
+   * @param {number} count - Số lượng lộc cần nhận (mặc định 2).
    */
   async doLoc(count = 2) {
     this.checkAborted();
-    log.temple('🍀', `Dạo vườn chùa nhặt lộc (${count} lần)...`);
-    for (let i = 0; i < count; i++) {
-      this.checkAborted();
-      this.send({ t: 'loc' });
-      await this.sleep(this.isTurbo() ? 80 : 1200);
+    log.temple('🍀', `Dạo khuôn viên chùa tìm và nhận hoa sen vàng lộc (${count} lần)...`);
+    let claimed = 0;
+    if (!this.token) {
+      // Offline / mock mode
+      for (let i = 0; i < count; i++) {
+        this.send({ t: 'loc' });
+        await this.sleep(this.isTurbo() ? 50 : 200);
+      }
+      return { ok: true, claimed: count, count };
     }
-    log.success(`Đã nhặt lộc ${count} lần tại sân chùa!`);
-    return { ok: true, count };
+
+    try {
+      const candidateTemples = [this.temple, 'tranho', 'huongson', 'dinhmay', 'baison', 'thienmau', 'nhattru'];
+      let templeIdx = 0;
+
+      while (claimed < count && templeIdx < candidateTemples.length) {
+        this.checkAborted();
+        const currentTemple = candidateTemples[templeIdx];
+        let locData = null;
+        try {
+          locData = await this.api(`/loc?temple=${encodeURIComponent(currentTemple)}`);
+        } catch {}
+
+        const spawns = locData?.spawns || [];
+        if (spawns.length > 0) {
+          if (currentTemple !== this.temple) {
+            await this.doVisit(currentTemple);
+            await this.sleep(this.isTurbo() ? 100 : 800);
+          }
+
+          for (const spawn of spawns) {
+            if (claimed >= count) break;
+            this.checkAborted();
+
+            // Báo vị trí của nhân vật tới gần hoa sen vàng để máy chủ xác thực
+            for (let step = 0; step < 3; step++) {
+              this.send({ t: 's', x: spawn.x, z: spawn.z, y: 0, r: 0, seat: -1, a: 0 });
+              await this.sleep(this.isTurbo() ? 80 : 350);
+            }
+
+            try {
+              const res = await this.post('/loc/claim', { temple: currentTemple, id: spawn.id });
+              claimed++;
+              log.success(`🍀 Nhặt được lộc chùa (#${spawn.id}): ${res.label || 'Lộc phước'} - "${res.blessing || ''}"`);
+              if (res?.questsDone?.includes('d_loc2')) {
+                try { await this.post('/quests/d_loc2/claim'); } catch {}
+              }
+            } catch (e) {
+              if (e.message?.includes('còn nhận được 0 lộc')) {
+                log.info('Đã hết hạn mức nhận lộc hôm nay.');
+                templeIdx = candidateTemples.length;
+                break;
+              }
+            }
+            await this.sleep(this.isTurbo() ? 100 : 600);
+          }
+        }
+        templeIdx++;
+      }
+    } catch (err) {
+      log.warn(`Lỗi trong quá trình nhặt lộc: ${err.message}`);
+    }
+
+    try { await this.post('/quests/d_loc2/claim'); } catch {}
+    return { ok: true, claimed, count };
   }
 
   async doVow(text = 'Cầu cho muôn người bình an, thân tâm thường an lạc, vạn sự hanh thông') {
