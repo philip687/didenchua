@@ -603,7 +603,9 @@ export class DiDenChuaClient {
         }
 
         if (i < emotesNeeded) {
-          await this.sleep(this.isTurbo() ? 80 : 5050);
+          // Bắt buộc tuân thủ nghiêm ngặt Cooldown 5.050ms của máy chủ (ngăn chặn triệt để lỗi ngắt kết nối 1008)
+          const layCooldown = options.intervalMs ?? 5050;
+          await this.sleep(layCooldown);
         }
       }
       log.success(`🎉 HOÀN TẤT: Đã hoàn thành gửi ${count} lạy sám hối và chốt toàn bộ công đức.`);
