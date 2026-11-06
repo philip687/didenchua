@@ -51,3 +51,4 @@ test('DASHBOARD UI: renderDashboardHTML includes Dừng Auto / Tiếp Tục Auto
   assert.match(html, /function updateAutoUI\(autoEnabled\)/);
   assert.match(html, /function updateRunningUI\(running, taskName, isStopping\)/);
 });
+

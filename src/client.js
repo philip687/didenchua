@@ -1100,11 +1100,50 @@ export class DiDenChuaClient {
     return { ok: true };
   }
 
-  async doGarden() {
+  async doGarden(options = {}) {
     this.checkAborted();
     log.info('Chăm sóc vườn cây sân chùa...');
     this.send({ t: 'garden' });
+    await this.sleep(this.isTurbo() ? 80 : 400);
+
+    // Trồng cây nếu có quest d_plant chưa hoàn tất
+    const plantQuest = (this.merit?.me?.quests || []).find(q => q.id === 'd_plant' || q.id === 'plant');
+    const needPlant = plantQuest && !plantQuest.claimed && (plantQuest.have || 0) < plantQuest.need;
+    if (needPlant || (!plantQuest && options.alwaysPlant !== false)) {
+      log.temple('🌱', 'Gieo hạt cúc dâng Phật (trồng cây mới)...');
+      this.send({ t: 'plant', k: 'cuc' });
+      await this.sleep(this.isTurbo() ? 80 : 300);
+      // Tưới luống hoa của chính mình (pid = '' hoặc myPid nếu có)
+      this.send({ t: 'water', pid: this.myPid || '' });
+      await this.sleep(this.isTurbo() ? 80 : 300);
+      log.success('Đã gieo hạt và tưới nước luống hoa dâng Phật!');
+    }
+
+    if (options.autoWaterOthers) {
+      // Tưới thêm hoa của bạn đồng tu (nếu được bật)
+      log.info('Tưới nước giúp bạn đồng tu (+công đức)...');
+      this.send({ t: 'water', pid: null });
+      await this.sleep(this.isTurbo() ? 80 : 300);
+    }
+
     return { ok: true };
+  }
+
+  /**
+   * Dạo vườn chùa nhặt lộc — xử lý quest d_loc2 (daily) và w_loc15 (weekly).
+   * Packet: { t: 'loc' } — mỗi lần gửi tương đương 1 lần nhặt lộc.
+   * @param {number} count - Số lần nhặt lộc (mặc định 2 cho d_loc2).
+   */
+  async doLoc(count = 2) {
+    this.checkAborted();
+    log.temple('🍀', `Dạo vườn chùa nhặt lộc (${count} lần)...`);
+    for (let i = 0; i < count; i++) {
+      this.checkAborted();
+      this.send({ t: 'loc' });
+      await this.sleep(this.isTurbo() ? 80 : 1200);
+    }
+    log.success(`Đã nhặt lộc ${count} lần tại sân chùa!`);
+    return { ok: true, count };
   }
 
   async doVow(text = 'Cầu cho muôn người bình an, thân tâm thường an lạc, vạn sự hanh thông') {

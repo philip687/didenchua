@@ -155,10 +155,26 @@ export async function runAllQuests(options = {}) {
     await client.doXinChu(options.wish || client.config.calligraphyWish || 'binh-an');
     await client.humanDelay('thong thả ra vườn chùa');
 
-    // 20. Chăm sóc vườn sen / tưới hoa chùa -> Nhiệm vụ tuoi
+    // 20. Chăm sóc vườn sen / tưới hoa chùa → Nhiệm vụ tuoi + d_plant
     await client.doGarden({
       autoWaterOthers: autoWaterOthers ?? client.config.autoWaterOthers ?? true
     });
+    await client.humanDelay('tản bộ trong vườn hoa dâng Phật');
+
+    // 20b. Dạo vườn chùa nhặt lộc → Nhiệm vụ d_loc2 (daily) và w_loc15 (weekly)
+    const locDailyQuest = todayQuests.find(q => q.id === 'd_loc2' || q.id === 'loc');
+    const locWeeklyQuest = (client.merit?.me?.weekly || []).find(q => q.id === 'w_loc15' || q.id === 'wLoc');
+    const locDailyNeeded = locDailyQuest && !locDailyQuest.claimed
+      ? Math.max(1, locDailyQuest.need - (locDailyQuest.have || 0))
+      : (locDailyQuest === undefined ? 2 : 0);
+    const locWeeklyNeeded = locWeeklyQuest && !locWeeklyQuest.claimed
+      ? Math.max(0, locWeeklyQuest.need - (locWeeklyQuest.have || 0))
+      : 0;
+    const locTotal = Math.max(locDailyNeeded, locWeeklyNeeded > 0 ? Math.min(locWeeklyNeeded, 5) : 0);
+    if (locTotal > 0) {
+      await client.doLoc(locTotal);
+      await client.humanDelay('nhặt lộc xong, thả bộ dạo quanh sân chùa');
+    }
 
     // 21. Nhiệm vụ ngồi tĩnh tâm 5 phút nếu có quest ngoi / d_thien5
     const ngoiQuest = todayQuests.find(q => q.id === 'ngoi' || q.id.startsWith('ngoi') || q.id === 'd_thien5');

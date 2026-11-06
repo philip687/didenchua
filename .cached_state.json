@@ -25,6 +25,96 @@
   "activeRun": null,
   "currentLogs": [
     {
+      "id": "evt-mw5m4wrn-ykla",
+      "timestamp": "2026-11-06T23:35:56.387Z",
+      "timeDisplay": "[06:35:56 UTC+7]",
+      "runId": null,
+      "level": "success",
+      "icon": "✅",
+      "message": "🎉 HOÀN TẤT: Đã hoàn thành gửi 55 tiếng mõ tụng kinh."
+    },
+    {
+      "id": "evt-mw5m4wrn-jok2",
+      "timestamp": "2026-11-06T23:35:56.387Z",
+      "timeDisplay": "[06:35:56 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "...cốc cốc [55/55 tiếng mõ]"
+    },
+    {
+      "id": "evt-mw5m4wrn-l94k",
+      "timestamp": "2026-11-06T23:35:56.387Z",
+      "timeDisplay": "[06:35:56 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "...cốc cốc [40/55 tiếng mõ]"
+    },
+    {
+      "id": "evt-mw5m4wrn-2vao",
+      "timestamp": "2026-11-06T23:35:56.387Z",
+      "timeDisplay": "[06:35:56 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "...cốc cốc [20/55 tiếng mõ]"
+    },
+    {
+      "id": "evt-mw5m4wrn-p9x5",
+      "timestamp": "2026-11-06T23:35:56.387Z",
+      "timeDisplay": "[06:35:56 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "🪵",
+      "message": "Bắt đầu gõ mõ tụng kinh (55 tiếng - chốt an toàn từng chặng)..."
+    },
+    {
+      "id": "evt-mw5m47eu-drg3",
+      "timestamp": "2026-11-06T23:35:23.526Z",
+      "timeDisplay": "[06:35:23 UTC+7]",
+      "runId": null,
+      "level": "success",
+      "icon": "✅",
+      "message": "🎉 HOÀN TẤT: Đã hoàn thành gửi 55 tiếng mõ tụng kinh."
+    },
+    {
+      "id": "evt-mw5m47eu-373m",
+      "timestamp": "2026-11-06T23:35:23.526Z",
+      "timeDisplay": "[06:35:23 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "...cốc cốc [55/55 tiếng mõ]"
+    },
+    {
+      "id": "evt-mw5m47eu-lg5k",
+      "timestamp": "2026-11-06T23:35:23.526Z",
+      "timeDisplay": "[06:35:23 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "...cốc cốc [40/55 tiếng mõ]"
+    },
+    {
+      "id": "evt-mw5m47eu-m5gj",
+      "timestamp": "2026-11-06T23:35:23.526Z",
+      "timeDisplay": "[06:35:23 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "...cốc cốc [20/55 tiếng mõ]"
+    },
+    {
+      "id": "evt-mw5m47eu-12od",
+      "timestamp": "2026-11-06T23:35:23.526Z",
+      "timeDisplay": "[06:35:23 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "🪵",
+      "message": "Bắt đầu gõ mõ tụng kinh (55 tiếng - chốt an toàn từng chặng)..."
+    },
+    {
       "id": "evt-mw5cpnoe-mb5i",
       "timestamp": "2026-11-06T19:12:08.222Z",
       "timeDisplay": "[02:12:08 UTC+7]",
@@ -383,96 +473,6 @@
       "level": "info",
       "icon": "ℹ️",
       "message": "📖 Lắng nghe: Bát Nhã Tâm Kinh (Ma ha Bát nhã Ba la mật đa Tâm kinh (Trí tuệ cứu cánh))"
-    },
-    {
-      "id": "evt-mw5a58dv-1rvz",
-      "timestamp": "2026-11-06T18:00:16.051Z",
-      "timeDisplay": "[01:00:16 UTC+7]",
-      "runId": null,
-      "level": "info",
-      "icon": "ℹ️",
-      "message": "📖 Lắng nghe: Kinh A Di Đà (Bản Hán Việt truyền thống theo Hán bản Cưu Ma La Thập)"
-    },
-    {
-      "id": "evt-mw5a58dv-gsbx",
-      "timestamp": "2026-11-06T18:00:16.051Z",
-      "timeDisplay": "[01:00:16 UTC+7]",
-      "runId": null,
-      "level": "info",
-      "icon": "📖",
-      "message": "Viếng Tàng Kinh Các lắng nghe kinh điển giác ngộ..."
-    },
-    {
-      "id": "evt-mw5a58du-o6ys",
-      "timestamp": "2026-11-06T18:00:16.050Z",
-      "timeDisplay": "[01:00:16 UTC+7]",
-      "runId": null,
-      "level": "success",
-      "icon": "✅",
-      "message": "🎉 Đã cất trọn bộ chữ thư pháp vào Tủ chữ cá nhân!"
-    },
-    {
-      "id": "evt-mw5a58du-1t22",
-      "timestamp": "2026-11-06T18:00:16.050Z",
-      "timeDisplay": "[01:00:16 UTC+7]",
-      "runId": null,
-      "level": "info",
-      "icon": "ℹ️",
-      "message": "✍️ Thầy đồ phóng bút chữ \"Biết Ơn\" (Biết ơn)..."
-    },
-    {
-      "id": "evt-mw5a58du-g7e3",
-      "timestamp": "2026-11-06T18:00:16.050Z",
-      "timeDisplay": "[01:00:16 UTC+7]",
-      "runId": null,
-      "level": "info",
-      "icon": "ℹ️",
-      "message": "✍️ Thầy đồ phóng bút chữ \"Tinh Tấn\" (Công việc, siêng năng)..."
-    },
-    {
-      "id": "evt-mw5a58du-ujd9",
-      "timestamp": "2026-11-06T18:00:16.050Z",
-      "timeDisplay": "[01:00:16 UTC+7]",
-      "runId": null,
-      "level": "info",
-      "icon": "ℹ️",
-      "message": "✍️ Thầy đồ phóng bút chữ \"Từ Bi\" (Lòng từ)..."
-    },
-    {
-      "id": "evt-mw5a58du-0bz5",
-      "timestamp": "2026-11-06T18:00:16.050Z",
-      "timeDisplay": "[01:00:16 UTC+7]",
-      "runId": null,
-      "level": "info",
-      "icon": "ℹ️",
-      "message": "✍️ Thầy đồ phóng bút chữ \"Duyên\" (Nhân duyên)..."
-    },
-    {
-      "id": "evt-mw5a58du-tepk",
-      "timestamp": "2026-11-06T18:00:16.050Z",
-      "timeDisplay": "[01:00:16 UTC+7]",
-      "runId": null,
-      "level": "info",
-      "icon": "ℹ️",
-      "message": "✍️ Thầy đồ phóng bút chữ \"Phúc Đức\" (Phúc đức)..."
-    },
-    {
-      "id": "evt-mw5a58du-xo3c",
-      "timestamp": "2026-11-06T18:00:16.050Z",
-      "timeDisplay": "[01:00:16 UTC+7]",
-      "runId": null,
-      "level": "info",
-      "icon": "ℹ️",
-      "message": "✍️ Thầy đồ phóng bút chữ \"Trí Tuệ\" (Học hành, sáng suốt)..."
-    },
-    {
-      "id": "evt-mw5a58du-vt6v",
-      "timestamp": "2026-11-06T18:00:16.050Z",
-      "timeDisplay": "[01:00:16 UTC+7]",
-      "runId": null,
-      "level": "info",
-      "icon": "ℹ️",
-      "message": "✍️ Thầy đồ phóng bút chữ \"Tĩnh Tâm\" (Tĩnh tâm)..."
     }
   ],
   "runHistory": [],
