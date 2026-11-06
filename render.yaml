@@ -1,22 +1,26 @@
 services:
   - type: web
-    name: didenchua-bot
+    name: niemphat-online-bot
     runtime: node
     plan: free
     region: singapore
     buildCommand: npm install
     startCommand: npm start
     envVars:
-      - key: CID
-        sync: false
-      - key: NAME
-        value: phat-tu
-      - key: ROOM
-        value: chua-1
+      - key: NP_BASE_URL
+        value: "https://niemphat.online"
+      - key: NP_USERNAME
+        value: "thichkngan"
+      - key: NP_PASSWORD
+        value: "thichkngan"
+      - key: NP_TEMPLE
+        value: "voluong"
+      - key: AUTO_PLAY
+        value: "true"
       - key: SAFE_MODE
         value: "true"
       - key: RENDER_EXTERNAL_URL
-        value: "https://didenchua-bot.onrender.com"
+        value: "https://niemphat-online-bot.onrender.com"
       - key: AUTH_TOKEN
         sync: false
       - key: NODE_VERSION

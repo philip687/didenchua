@@ -317,7 +317,7 @@ export class DiDenChuaClient {
     this.merit = {
       me: {
         name: u.name,
-        user: u.name,
+        user: u.username || this.config.username || u.name,
         sect: u.sect,
         level: u.title || `Bậc ${u.level}`,
         lv: u.level,
@@ -337,12 +337,21 @@ export class DiDenChuaClient {
 
     this.quests = qList;
     this.journal = {
+      name: u.name,
+      user: u.username || this.config.username || u.name,
+      sect: u.sect,
+      level: u.title || `Bậc ${u.level}`,
+      sen: u.sen,
+      ngoc: u.ngoc,
+      streak: u.streak,
       merit: u.exp,
       next: u.expNext,
+      from: 0,
       bows: u.stats?.bows || 0,
       beads: u.stats?.beads || 0,
       mo: u.stats?.mo || 0,
-      sitMin: u.stats?.sitMin || 0
+      sitMin: u.stats?.sitMin || 0,
+      stats: u.stats || {}
     };
   }
 

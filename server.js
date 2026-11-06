@@ -629,6 +629,9 @@ const state = {
   journal: null,
   isRunning: false,
   isStopping: false,
+  autoEnabled: (process.env.AUTO_PLAY === 'true' || process.env.NP_AUTO_PLAY === 'true'),
+  autoIntervalMinutes: parseInt(process.env.AUTO_INTERVAL_MINS || '15', 10),
+  lastAutoCheckTime: null,
   runningTask: null,
   runningTaskName: null,
   activeClient: null,
@@ -640,6 +643,50 @@ const state = {
   currentLogs: []
 };
 
+// Ghi log vào bộ nhớ đệm theo cấu trúc sự kiện chuẩn (SYSTEM_LOG_REPORT)
+let logSaveTimer = null;
+function scheduleCacheSave() {
+  if (logSaveTimer) return;
+  logSaveTimer = setTimeout(() => {
+    logSaveTimer = null;
+    saveCachedState();
+  }, 2000);
+}
+
+function addWebLog(msg, level = 'info', icon = 'ℹ️') {
+  const now = new Date();
+  const timeVN = new Date(now.getTime() + 7 * 3600 * 1000).toISOString().slice(11, 19);
+  const entry = {
+    id: 'evt-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6),
+    timestamp: now.toISOString(),
+    timeDisplay: `[${timeVN} UTC+7]`,
+    runId: state.currentRunId || null,
+    level,
+    icon,
+    message: String(msg)
+  };
+  state.currentLogs.unshift(entry);
+  if (state.currentLogs.length > 80) state.currentLogs.pop();
+  scheduleCacheSave();
+}
+
+function saveCachedState() {
+  try {
+    fs.writeFileSync(CACHE_STATE_FILE, JSON.stringify({
+      lastUpdated: state.lastUpdated,
+      autoEnabled: state.autoEnabled,
+      merit: state.merit,
+      journal: state.journal,
+      activeRun: state.activeRun || null,
+      currentLogs: state.currentLogs.slice(0, 50),
+      runHistory: state.runHistory.slice(0, 15),
+      csrfToken: CSRF_TOKEN
+    }, null, 2), 'utf-8');
+  } catch (err) {
+    log.warn('Không thể lưu file cache trạng thái:', err.message);
+  }
+}
+
 function loadCachedState() {
   try {
     if (fs.existsSync(CACHE_STATE_FILE)) {
@@ -647,6 +694,9 @@ function loadCachedState() {
       if (data.merit) state.merit = data.merit;
       if (data.journal) state.journal = data.journal;
       if (data.lastUpdated) state.lastUpdated = data.lastUpdated;
+      if (typeof data.autoEnabled === 'boolean' && process.env.AUTO_PLAY === undefined && process.env.NP_AUTO_PLAY === undefined) {
+        state.autoEnabled = data.autoEnabled;
+      }
       if (Array.isArray(data.runHistory) && data.runHistory.length > 0) {
         state.runHistory = data.runHistory;
       }
@@ -683,51 +733,8 @@ function loadCachedState() {
   }
 }
 
-function saveCachedState() {
-  try {
-    fs.writeFileSync(CACHE_STATE_FILE, JSON.stringify({
-      lastUpdated: state.lastUpdated,
-      merit: state.merit,
-      journal: state.journal,
-      activeRun: state.activeRun || null,
-      currentLogs: state.currentLogs.slice(0, 50),
-      runHistory: state.runHistory.slice(0, 15),
-      csrfToken: CSRF_TOKEN
-    }, null, 2), 'utf-8');
-  } catch (err) {
-    log.warn('Không thể lưu file cache trạng thái:', err.message);
-  }
-}
-
 // Nạp cache trạng thái ngay khi khởi tạo server (tránh gọi refreshAccountData gây tranh session)
 loadCachedState();
-
-// Ghi log vào bộ nhớ đệm theo cấu trúc sự kiện chuẩn (SYSTEM_LOG_REPORT)
-let logSaveTimer = null;
-function scheduleCacheSave() {
-  if (logSaveTimer) return;
-  logSaveTimer = setTimeout(() => {
-    logSaveTimer = null;
-    saveCachedState();
-  }, 2000);
-}
-
-function addWebLog(msg, level = 'info', icon = 'ℹ️') {
-  const now = new Date();
-  const timeVN = new Date(now.getTime() + 7 * 3600 * 1000).toISOString().slice(11, 19);
-  const entry = {
-    id: 'evt-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6),
-    timestamp: now.toISOString(),
-    timeDisplay: `[${timeVN} UTC+7]`,
-    runId: state.currentRunId || null,
-    level,
-    icon,
-    message: String(msg)
-  };
-  state.currentLogs.unshift(entry);
-  if (state.currentLogs.length > 80) state.currentLogs.pop();
-  scheduleCacheSave();
-}
 
 setLogHook((msg, level, icon) => {
   addWebLog(msg, level, icon);
@@ -1450,6 +1457,59 @@ function startDailyScheduler() {
   log.info('⏰ Đã kích hoạt lịch trình tự động canh khung giờ 00:05 - 01:59 sáng mỗi ngày (giờ Việt Nam).');
 }
 
+// Cỗ máy tự động chơi liên tục (Autonomous Auto-Play Engine)
+let autoLoopTimer = null;
+function startAutoLoop() {
+  if (autoLoopTimer) clearInterval(autoLoopTimer);
+  log.info(`🤖 Vòng lặp Tự Chơi (Auto Engine) đã khởi động (Chu kỳ quét: ${state.autoIntervalMinutes || 15} phút, Trạng thái: ${state.autoEnabled ? 'BẬT' : 'TẮT'}).`);
+
+  autoLoopTimer = setInterval(async () => {
+    if (!state.autoEnabled) return;
+    if (state.isRunning || state.isStopping) return;
+
+    const now = new Date(Date.now() + 7 * 3600 * 1000);
+    const todayStr = now.toISOString().slice(0, 10);
+    const hour = now.getUTCHours();
+    const minute = now.getUTCMinutes();
+
+    // 1. Nếu ngày mới qua 00:05 sáng mà hôm nay chưa chạy, ưu tiên chạy ngày mới
+    if (lastScheduledRunDate !== todayStr && ((hour === 0 && minute >= 5) || hour >= 1)) {
+      log.temple('🌅', `[Auto Engine] Phát hiện ngày mới ${todayStr} (giờ VN). Tự động chạy toàn bộ nhiệm vụ ngày...`);
+      try {
+        const res = await executeRoutine(`Auto Routine (Ngày mới ${todayStr})`, { fast: true });
+        if (res && res.ok) {
+          lastScheduledRunDate = todayStr;
+          saveSchedulerDate(todayStr);
+        }
+      } catch (err) {
+        log.error('[Auto Engine] Lỗi khi chạy ngày mới:', err.message);
+      }
+      return;
+    }
+
+    // 2. Định kỳ quét mỗi 15 phút: kiểm tra nếu còn nhiệm vụ chưa xong hoặc chưa claim
+    const nowTs = Date.now();
+    const intervalMs = (state.autoIntervalMinutes || 15) * 60 * 1000;
+    if (state.lastAutoCheckTime && (nowTs - state.lastAutoCheckTime < intervalMs)) {
+      return;
+    }
+    state.lastAutoCheckTime = nowTs;
+
+    const quests = state.merit?.me?.quests || [];
+    const hasUnclaimed = quests.some(q => !q.claimed && (q.done || ((q.have || 0) >= (q.need || 1))));
+    const hasIncompleteDaily = quests.some(q => (q.id.startsWith('d_') || q.id === 'lay' || q.id === 'tung' || q.id === 'chuoi' || q.id === 'huong' || q.id === 'chuong') && !q.claimed && !q.done);
+
+    if (hasUnclaimed || hasIncompleteDaily) {
+      log.temple('🤖', '[Auto Engine] Phát hiện nhiệm vụ ngày chưa hoàn thành hoặc quà chưa nhận. Tự động xử lý...');
+      try {
+        await executeRoutine('Auto Routine (Định kỳ)', { fast: true });
+      } catch (err) {
+        log.warn('[Auto Engine] Lỗi chu kỳ định kỳ:', err.message);
+      }
+    }
+  }, 30000);
+}
+
 // Helper lấy nhãn trạng thái nhiệm vụ hàng ngày & tiến độ mốc thành tựu vĩnh viễn
 function getTaskQuestBadge(task, quests = [], journal = {}) {
   const me = state.merit?.me || {};
@@ -1809,6 +1869,27 @@ export const QUEST_METADATA = {
     desc: 'Thỉnh một hồi chuông ở bất kỳ chùa nào',
     tip: 'Thỉnh tiếng chuông đại hồng ngân vang',
     taskId: 'bell'
+  },
+  d_sweep: {
+    icon: '🧹',
+    title: 'Quét sân chùa',
+    desc: 'Quét sạch lá rụng thanh tịnh sân chùa',
+    tip: 'Công quả quét sân giữ chùa sạch đẹp',
+    taskId: 'quet'
+  },
+  wheel: {
+    icon: '☸️',
+    title: 'Vòng quay phúc lộc',
+    desc: 'Quay vòng quay phúc lộc nhận sen & ngọc',
+    tip: 'Quay nhận lộc chùa',
+    taskId: 'wheel'
+  },
+  que: {
+    icon: '📜',
+    title: 'Gieo quẻ cát tường',
+    desc: 'Gieo quẻ cát tường nhận lời Phật dạy đầu ngày',
+    tip: 'Gieo quẻ nhận lời khuyên',
+    taskId: 'que'
   }
 };
 
@@ -1817,50 +1898,49 @@ export function renderDashboardHTML() {
   const isRunning = state.isRunning;
   const isStopping = state.isStopping;
   const isAnyRunning = isRunning || isStopping;
+  const autoEnabled = Boolean(state.autoEnabled);
 
   const me = state.merit?.me || {};
   const j = state.journal || {};
   const journal = j;
-  const displayName = j.name || me.name || process.env.NAME || 'Phật Tử';
-  const rawUser = (j.user && j.user !== 'null') ? j.user : ((me.user && me.user !== 'null') ? me.user : null);
-  const userTag = rawUser ? `<span>(@${escapeHTML(rawUser)})</span>` : '';
-  const clientConfigBio = me.bio || j.bio || process.env.BIO || 'Không thích nói xấu vừa thỉnh chuông';
+  const stats = me.stats || j.stats || {};
 
-  // Dữ liệu thiếu phải hiện là thiếu, không dùng giá trị mẫu làm báo cáo thật.
-  const reportValue = value => value === null || value === undefined ? 'Chưa có dữ liệu' : escapeHTML(value);
-  const currentTotal = me.total !== null && me.total !== undefined ? me.total : j.merit;
-  const nextTarget = me.next !== null && me.next !== undefined ? me.next : j.next;
+  const displayName = me.name || j.name || 'Hân Ánh Vũ';
+  const username = me.user || j.user || process.env.NP_USERNAME || 'thichkngan';
+  const rawUser = username;
+  const userTag = rawUser ? `<span>(@${escapeHTML(rawUser)})</span>` : '';
+  const sectRaw = me.sect || j.sect || 'tinhdo';
+  const sectName = sectRaw === 'tinhdo' ? 'Tịnh Độ Tông 🪷' : (sectRaw === 'thien' ? 'Thiền Tông 🧘' : (sectRaw === 'mat' ? 'Mật Tông 📿' : (sectRaw === 'namtong' ? 'Nam Tông 🪵' : escapeHTML(sectRaw))));
+  const levelTitle = me.level || j.level || 'Hạt sen · bậc 4';
+  const expCurrent = Number(me.exp ?? me.total ?? j.merit ?? 0);
+  const expNext = Number(me.next ?? j.next ?? 735);
   const fromTarget = Number(me.from ?? j.from ?? 0);
-  const nextLevelPoints = nextTarget !== null && nextTarget !== undefined && currentTotal !== null && currentTotal !== undefined
-    && Number.isFinite(Number(nextTarget)) && Number.isFinite(Number(currentTotal))
-    ? Number(nextTarget) - Number(currentTotal)
-    : null;
-  const meritProgressPercent = (nextTarget && currentTotal)
-    ? Math.min(100, Math.max(0, Math.round(((Number(currentTotal) - fromTarget) / (Number(nextTarget) - fromTarget || 1)) * 100)))
+  const nextLevelPoints = expNext > expCurrent ? (expNext - expCurrent) : 0;
+  const currentTotal = expCurrent;
+  const nextTarget = expNext;
+  const meritProgressPercent = expNext > fromTarget
+    ? Math.min(100, Math.max(0, Math.round(((expCurrent - fromTarget) / (expNext - fromTarget)) * 100)))
     : 0;
 
-  // Trang bị hiện tại của nhân vật
-  const robeKey = j.robe || 'nau';
-  const robeName = ROBES_CATALOG[robeKey]?.name || 'Áo nâu';
-  const beadsKey = j.beadsKey || (j.items?.includes('tuDan') ? 'tuDan' : 'go');
-  const beadsName = BEADS_CATALOG[beadsKey]?.name || 'Tràng hạt gỗ';
-  const cushionKey = j.cushionKey || (j.items?.includes('laSen') ? 'laSen' : 'xam');
-  const cushionName = CUSHIONS_CATALOG[cushionKey]?.name || 'Bồ đoàn xám';
-  const phapkhiKey = j.phapkhiKey || (j.phapkhi?.includes('truong') ? 'truong' : (j.phapkhi?.[0] || 'huong'));
-  const phapkhiName = PHAPKHI_CATALOG[phapkhiKey]?.name || 'Thiền trượng chín khoen';
-  const petKey = j.pet || null;
-  const petName = petKey && PETS_CATALOG[petKey] ? PETS_CATALOG[petKey].name : 'Chưa có';
+  const senCount = Number(me.sen ?? j.sen ?? 560);
+  const ngocCount = Number(me.ngoc ?? j.ngoc ?? 0);
+  const streakDays = Number(me.days ?? j.streak ?? 2);
+  const templeName = me.temple || j.temple || 'Vô Lượng Tự';
 
-  // Danh hiệu hiện tại
-  const activeTitleId = j.title || me.title || 'moi';
-  const activeTitleObj = (j.titles || []).find(t => t.id === activeTitleId);
-  const activeTitleName = activeTitleObj ? activeTitleObj.name : 'Người mới lên chùa';
+  const bowsCount = Number(stats.bows ?? j.bows ?? 0);
+  const beadsCount = Number(stats.beads ?? j.beads ?? 0);
+  const roundsCount = Number(stats.rounds ?? j.rounds ?? Math.floor(beadsCount / 108));
+  const moCount = Number(stats.mo ?? j.mo ?? 0);
+  const sitMin = Number(stats.sitMin ?? j.sitMin ?? 0);
+  const chantsCount = Number(stats.chants ?? j.chants ?? 0);
+  const sweepsCount = Number(stats.sweeps ?? j.sweeps ?? 0);
+  const visitsCount = Number(stats.visits ?? j.visits ?? 0);
 
-  // Nhiệm vụ hàng ngày (me.quests) với đầy đủ biểu tượng, tên, mô tả, mẹo thời gian, thanh tiến độ và nút bấm hành động trực tiếp
+  // Quests processing
   const quests = me.quests || [];
   const totalQuests = quests.length;
   const claimedQuests = quests.filter(q => q.claimed).length;
-  const readyQuests = quests.filter(q => !q.claimed && (q.have || 0) >= (q.need || 1)).length;
+  const readyQuests = quests.filter(q => !q.claimed && ((q.have || 0) >= (q.need || 1) || q.done)).length;
   const totalRewardPossible = quests.reduce((acc, q) => acc + (Number(q.reward) || 0), 0);
   const earnedReward = quests.filter(q => q.claimed).reduce((acc, q) => acc + (Number(q.reward) || 0), 0);
   const overallPercent = totalQuests > 0 ? Math.round((claimedQuests / totalQuests) * 100) : 0;
@@ -1877,7 +1957,7 @@ export function renderDashboardHTML() {
           <b class="metric-val" style="color:var(--gold);">+${earnedReward} / ${totalRewardPossible} điểm</b>
         </div>
       </div>
-      <div class="quest-progress-track">
+      <div class="quest-progress-track" style="margin-top:10px;">
         <div class="quest-progress-fill ${overallPercent === 100 ? 'fill-done' : 'fill-pending'}" style="width: ${overallPercent}%;"></div>
       </div>
       ${readyQuests > 0 ? `
@@ -1908,7 +1988,7 @@ export function renderDashboardHTML() {
       statusClass = 'quest-done';
       fillClass = 'fill-done';
       actionBtn = `<span class="badge badge-done">✅ Đã hoàn thành</span>`;
-    } else if (have >= need) {
+    } else if (have >= need || q.done) {
       statusClass = 'quest-ready';
       fillClass = 'fill-ready';
       actionBtn = `<button class="btn-task btn-quick-claim" onclick="runTask('claim')" ${isAnyRunning ? 'disabled' : ''} title="Nhận phần thưởng công đức">🎁 Nhận (+${escapeHTML(q.reward)}đ)</button>`;
@@ -1946,452 +2026,367 @@ export function renderDashboardHTML() {
       </div>`;
   }).join('') || '<p class="empty">Đang đồng bộ nhiệm vụ từ máy chủ chùa…</p>';
 
-  const questsHTML = questsSummaryHTML + questsListHTML;
+  // Smart remaining option for tung
+  const tungQ = (me?.quests || []).find(q => q.id === 'tung' || q.id === 'd_mo108');
+  let tungSmartOption = '';
+  if (tungQ && !tungQ.claimed && Number(tungQ.have || 0) < Number(tungQ.need || 108)) {
+    const rem = Math.max(1, Number(tungQ.need || 108) - Number(tungQ.have || 0));
+    tungSmartOption = `<option value="${rem}">Làm đủ nhiệm vụ ngày (còn ${rem} tiếng 🎯)</option>`;
+  }
 
-  // 10 Nhiệm vụ tuần (Weekly Quests)
-  const weeklyQuestsHTML = (me.weekly || []).map(q => {
-    const badge = q.claimed
-      ? '<span class="badge badge-done">✅ Đã nhận</span>'
-      : (q.have >= q.need ? '<span class="badge badge-ready">🎁 Chờ nhận</span>' : `<span class="badge badge-wait">⏳ ${escapeHTML(q.have)}/${escapeHTML(q.need)}</span>`);
-    const title = q.name || q.title || q.id;
-    return `
-      <div class="quest-item">
-        <div class="quest-title">${escapeHTML(title)}</div>
-        <div class="quest-meta">
-          <span class="quest-reward">+${escapeHTML(q.reward)}đ</span>
-          ${badge}
-        </div>
-      </div>`;
-  }).join('') || '<p class="empty">Đang đồng bộ nhiệm vụ tuần…</p>';
-
-  // 12 Pháp khí chùa (6/12 đã mở khóa)
-  const unlockedPhapkhiSet = new Set(j.phapkhi || ['huong', 'gio', 'gaytruc', 'mo', 'trentram', 'truong']);
-  const phapkhiListHTML = Object.entries(PHAPKHI_CATALOG).map(([key, item]) => {
-    const isUnlocked = unlockedPhapkhiSet.has(key);
-    const isEquipped = key === phapkhiKey;
-    return `
-      <div class="phapkhi-card ${isUnlocked ? 'phapkhi-unlocked' : 'phapkhi-locked'} ${isEquipped ? 'phapkhi-equipped' : ''}">
-        <div class="phapkhi-icon">${isUnlocked ? '🏆' : '🔒'}</div>
-        <div class="phapkhi-info">
-          <div>
-            <b>${escapeHTML(item.name)}</b>
-            ${isEquipped ? '<span class="badge" style="background:var(--gold); color:#1c150e; margin-left:4px;">Đang dùng</span>' : ''}
-            <span class="badge" style="background:rgba(255,255,255,0.06); color:var(--text-dim); margin-left:4px;">${escapeHTML(item.rank || 'Pháp khí')}</span>
-          </div>
-          <small style="color:${isUnlocked ? 'var(--gold-dim)' : 'var(--text-dim)'};">${escapeHTML(item.how || 'Nhiệm vụ tu tập')}</small>
-        </div>
-      </div>`;
-  }).join('');
-
-  // 12 Chữ thư pháp Thầy Đồ (Bộ sưu tập Tủ chữ)
-  const calligraphyCardsHTML = CALLIGRAPHY_WORDS.map((w, idx) => {
-    return `
-      <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(233,194,122,0.2); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; justify-content:space-between; gap:6px;">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-          <div>
-            <span style="font-size:11px; color:var(--text-dim); font-family:monospace;">#${idx + 1}</span>
-            <div style="font-size:16px; font-weight:700; color:var(--gold); font-family:'Noto Serif', serif; letter-spacing:1px; margin-top:1px;">
-              ✍️ ${escapeHTML(w.text)}
-            </div>
-          </div>
-          <span class="badge" style="background:rgba(233,194,122,0.15); color:var(--gold); font-size:10px; padding:2px 6px;">
-            ${escapeHTML(w.wish)}
-          </span>
-        </div>
-        <p style="font-size:11px; color:var(--text-dim); margin:0; line-height:1.45; font-style:italic;">
-          "${escapeHTML(w.meaning)}"
-        </p>
-        <div style="margin-top:4px; display:flex; justify-content:flex-end;">
-          <button type="button" class="btn-task btn-run" onclick="runTask('chu', { wish: '${escapeHTML(w.id)}' })" style="font-size:11px; padding:3px 8px; border-radius:4px;" ${isAnyRunning ? 'disabled' : ''}>
-            ✍️ Xin chữ
-          </button>
+  // Sutras cards
+  const sutrasCardsHTML = BUDDHIST_SUTRAS.map((s, idx) => `
+    <div class="sutra-card">
+      <div class="sutra-card-header">
+        <span class="sutra-num">#${idx + 1}</span>
+        <div class="sutra-title-box">
+          <b>${escapeHTML(s.title)}</b>
+          <span class="badge badge-duration">${escapeHTML(s.duration)}</span>
         </div>
       </div>
-    `;
-  }).join('');
-
-  // 6 Bài kinh điển trong Tàng Kinh Các & Thư Viện Kinh Điển
-  const sutrasCardsHTML = BUDDHIST_SUTRAS.map((s, idx) => {
-    return `
-      <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(233,194,122,0.2); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; justify-content:space-between; gap:6px;">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-          <div>
-            <span style="font-size:11px; color:var(--text-dim); font-family:monospace;">#${idx + 1}</span>
-            <div style="font-size:15px; font-weight:700; color:var(--gold); margin-top:1px;">
-              📖 ${escapeHTML(s.title)}
-            </div>
-          </div>
-          <span class="badge" style="background:rgba(233,194,122,0.15); color:var(--gold); font-size:10px; padding:2px 6px;">
-            ⏱️ ${escapeHTML(s.duration)}
-          </span>
-        </div>
-        <p style="font-size:11px; color:var(--text-dim); margin:0; line-height:1.45;">
-          ${escapeHTML(s.desc)}
-        </p>
-        <div style="margin-top:4px; display:flex; justify-content:flex-end;">
-          <button type="button" class="btn-task btn-run" onclick="runTask('tangkinh', { sutra: '${escapeHTML(s.id)}' })" style="font-size:11px; padding:3px 8px; border-radius:4px;" ${isAnyRunning ? 'disabled' : ''}>
-            📖 Nghe bài này
-          </button>
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  // Danh sách danh hiệu
-  const unlockedTitlesHTML = (j.titles || []).filter(t => t.got).map(t => {
-    const isCurrent = t.id === activeTitleId;
-    return `
-      <div class="title-card title-got ${isCurrent ? 'title-active' : ''}">
-        <div class="title-icon">🏆</div>
-        <div class="title-info">
-          <b>${escapeHTML(t.name)} ${isCurrent ? '<span class="badge" style="background:var(--gold); color:#1c150e; margin-left:6px;">Đang mang</span>' : ''}</b>
-          <small>${escapeHTML(t.desc)}</small>
-        </div>
-      </div>`;
-  }).join('') || '<p class="empty">Chưa có danh hiệu mở khóa.</p>';
-
-  const lockedTitlesHTML = (j.titles || []).filter(t => !t.got).map(t => {
-    return `
-      <div class="title-card title-locked">
-        <div class="title-icon">🔒</div>
-        <div class="title-info">
-          <b>${escapeHTML(t.name)}</b>
-          <small>${escapeHTML(t.desc)}</small>
-        </div>
-      </div>`;
-  }).join('') || '<p class="empty">Bạn đã mở khóa toàn bộ danh hiệu!</p>';
-
-  const titlesHTML = (j.titles || []).map(t => {
-    return `
-      <div class="title-card ${t.got ? 'title-got' : 'title-locked'}">
-        <div class="title-icon">${t.got ? '🏆' : '🔒'}</div>
-        <div class="title-info">
-          <b>${escapeHTML(t.name)}</b>
-          <small>${escapeHTML(t.desc)}</small>
-        </div>
-      </div>`;
-  }).join('') || '<p class="empty">Đang tải danh hiệu…</p>';
-
-  const historyHTML = state.runHistory.map(h => {
-    const isSuccess = h.status === 'success';
-    const isPartial = h.status === 'partial';
-    const isUnverified = h.status === 'unverified';
-    const isStopped = h.status === 'stopped';
-    const statusClass = isSuccess ? 'success' : (isPartial || isUnverified ? 'partial' : (isStopped ? 'stopped' : 'failed'));
-    const statusLabel = isSuccess
-      ? '✅ Đã xác nhận'
-      : (isPartial ? '⚠️ Hoàn tất một phần' : (isUnverified ? '⏳ Chưa xác nhận biến động' : (isStopped ? '🛑 Đã dừng theo yêu cầu' : '❌ Thất bại')));
-    const taskBadge = h.taskTitle ? ` [${escapeHTML(h.taskTitle)}]` : '';
-    const detailMsg = h.verificationDetail ? ` · <span style="color:var(--text-dim);">${escapeHTML(h.verificationDetail)}</span>` : '';
-    return `
-      <div class="history-item ${statusClass}">
-        <div>
-          <b>${statusLabel}</b>${taskBadge} · <span>${escapeHTML(h.source)}</span>${detailMsg}
-          <small class="time">Bắt đầu ${escapeHTML(h.startTime || 'chưa rõ')} · Kết thúc ${escapeHTML(h.timestamp || h.finishedAt || 'chưa rõ')} UTC · ${escapeHTML(h.durationSec)}s · ID: ${escapeHTML(h.id)}</small>
-        </div>
-        <div>${h.status === 'failed' || isStopped ? `<span class="err">${escapeHTML(h.error || 'Đã dừng')}</span>` : `Snapshot: ${escapeHTML(h.snapshotStatus || 'không rõ')} · Hôm nay: ${reportValue(h.todayMerit)}đ · Tổng: ${reportValue(h.totalMerit)}đ`}</div>
-      </div>
-    `;
-  }).join('') || '<p class="empty">Chưa có lịch sử chạy nào trong phiên này (Bộ nhớ tạm lưu tối đa 15 lượt).</p>';
-
-  const currentRunningTaskName = state.runningTaskName || (state.runningTask === 'all' ? 'Toàn bộ chu trình tự động (4 Tầng)' : (state.runningTask ? `Nhiệm vụ [${state.runningTask}]` : 'Nhiệm vụ tự động'));
-  const elapsedSec = isRunning && state.runStartTime ? Math.round((Date.now() - state.runStartTime) / 1000) : 0;
-
-  // 17 Thắng cảnh bản đồ chùa 3D
-  const mapPlacesHTML = TEMPLE_MAP.places.map(p => `
-    <div class="map-card">
-      <div>
-        <b><span>${escapeHTML(p.name)}</span> <span class="badge" style="background:rgba(233,194,122,0.15); color:var(--gold);">${escapeHTML(p.zone)}</span></b>
-        <p>${escapeHTML(p.desc)}</p>
-        <div style="font-size:11px; color:var(--text-dim); margin-bottom:8px; font-family:monospace;">
-          Tọa độ: (x: ${p.pos.x}, y: ${p.pos.y}, z: ${p.pos.z})
-        </div>
-      </div>
-      <button type="button" class="btn-task btn-run" onclick="runTeleport('${escapeHTML(p.id)}')" style="align-self:flex-start; margin-top:4px;" ${isRunning || isStopping ? 'disabled' : ''}>
-        🚀 Đến đây
+      <p class="sutra-desc">${escapeHTML(s.desc)}</p>
+      <button type="button" class="btn btn-sm" onclick="runTask('tangkinh', { sutra: '${escapeHTML(s.id)}' })" ${isAnyRunning ? 'disabled' : ''}>
+        ▶️ Tụng bài này
       </button>
     </div>
   `).join('');
 
-  const logsHTML = state.currentLogs.map(l => `<div><span style="color:var(--text-dim); margin-right:6px;">${escapeHTML(l.timeDisplay)}</span><span style="margin-right:4px;">${escapeHTML(l.icon || 'ℹ️')}</span>${escapeHTML(l.message)}</div>`).join('') || '<div>Hệ thống sẵn sàng. Đang chờ tác vụ…</div>';
-
-  const renderTaskRow = (t) => {
-    const questBadge = getTaskQuestBadge(t, me.quests, j);
-    const isThisRunning = isRunning && state.runningTask === t.id;
-    const isAnyRunning = isRunning || isStopping;
-    const isThisStopping = isStopping && isThisRunning;
-    const stopActive = isRunning && !isStopping && (isThisRunning || state.runningTask === 'all');
-
-    let inputControl = '';
-    if (t.isCombo) {
-      inputControl = `
-        <div style="display:flex; flex-direction:column; gap:5px; margin-right:4px;">
-          <div style="display:flex; align-items:center; gap:5px;">
-            <span style="font-size:11px; color:var(--gold); min-width:28px;">Lạy:</span>
-            <input type="number" id="combo_bows" value="18" min="0" max="2000"
-              style="width:58px; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:4px 6px; border-radius:6px; font-size:12px; text-align:center; font-weight:600;"
-              placeholder="Số lạy"
-              title="Nhập số lạy tùy ý"
-              ${isAnyRunning ? 'disabled' : ''}>
-            <select onchange="if(this.value){ document.getElementById('combo_bows').value = this.value; }"
-              style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:4px 4px; border-radius:6px; font-size:11px; cursor:pointer;"
-              ${isAnyRunning ? 'disabled' : ''}>
-              <option value="" disabled selected>Gợi ý ▼</option>
-              <option value="18">18 lạy</option>
-              <option value="27">27 lạy</option>
-              <option value="36">36 lạy</option>
-              <option value="108">108 lạy 🏆</option>
-              <option value="300">300 lạy</option>
-              <option value="1000">1.000 lạy</option>
-            </select>
-          </div>
-          <div style="display:flex; align-items:center; gap:5px;">
-            <span style="font-size:11px; color:var(--gold); min-width:28px;">Hạt:</span>
-            <input type="number" id="combo_beads" value="108" min="0" max="20000"
-              style="width:58px; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:4px 6px; border-radius:6px; font-size:12px; text-align:center; font-weight:600;"
-              placeholder="Số hạt"
-              title="Nhập số hạt niệm tùy ý (1 chuỗi = 108 hạt)"
-              ${isAnyRunning ? 'disabled' : ''}>
-            <select onchange="if(this.value){ document.getElementById('combo_beads').value = this.value; }"
-              style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:4px 4px; border-radius:6px; font-size:11px; cursor:pointer;"
-              ${isAnyRunning ? 'disabled' : ''}>
-              <option value="" disabled selected>Gợi ý ▼</option>
-              ${(journal?.beads || 0) < 10800 ? `<option value="${10800 - (journal?.beads || 0)}">Cày đủ 100 chuỗi (còn ${Math.ceil((10800 - (journal?.beads || 0)) / 108)} chuỗi = ${10800 - (journal?.beads || 0)} hạt 🏆)</option>` : ''}
-              <option value="54">Nửa chuỗi (54 hạt)</option>
-              <option value="108">1 chuỗi (108 hạt 🏆)</option>
-              <option value="216">2 chuỗi (216 hạt)</option>
-              <option value="540">5 chuỗi (540 hạt)</option>
-              <option value="1080">10 chuỗi (1.080 hạt)</option>
-              <option value="3240">30 chuỗi (3.240 hạt 🏆)</option>
-              <option value="5400">50 chuỗi (5.400 hạt)</option>
-              <option value="10800">100 chuỗi (10.800 hạt 🏆)</option>
-            </select>
-          </div>
-        </div>
-      `;
-    } else if (t.hasCount) {
-      let smartOption = '';
-      if (t.id === 'beads' && (journal?.beads || 0) < 10800) {
-        const remaining = 10800 - (journal?.beads || 0);
-        const remRounds = Math.ceil(remaining / 108);
-        smartOption = `<option value="${remaining}">Cày đủ mốc 100 chuỗi (còn ${remRounds} chuỗi = ${remaining} hạt 🏆)</option>`;
-      } else if (t.id === 'tung') {
-        const tungQ = (me?.quests || []).find(q => q.id === 'tung');
-        if (tungQ && !tungQ.claimed && Number(tungQ.have || 0) < Number(tungQ.need || 108)) {
-          const rem = Math.max(1, Number(tungQ.need || 108) - Number(tungQ.have || 0));
-          smartOption = `<option value="${rem}">Làm đủ nhiệm vụ ngày (còn ${rem} tiếng 🎯)</option>`;
-        }
-      } else if (t.id === 'quet') {
-        const quetQ = (me?.quests || []).find(q => q.id === 'quet' || q.id === 'viec' || q.id.startsWith('quet'));
-        if (quetQ && !quetQ.claimed && Number(quetQ.have || 0) < Number(quetQ.need || 1)) {
-          const rem = Math.max(1, Number(quetQ.need || 1) - Number(quetQ.have || 0));
-          smartOption = `<option value="${rem}">Làm đủ nhiệm vụ ngày (còn ${rem} lần 🎯)</option>`;
-        }
-      }
-
-      inputControl = `
-        <div style="display:flex; align-items:center; gap:5px; margin-right:4px;">
-          <input type="number" id="count_${escapeHTML(t.id)}" value="${t.defaultCount || 1}" min="1" max="20000"
-            style="width:72px; min-width:72px; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 6px; border-radius:6px; font-size:12px; text-align:center; font-weight:600;"
-            placeholder="${t.id === 'beads' ? 'Số hạt' : (t.id === 'mo' || t.id === 'tung' ? 'Số tiếng' : (t.id === 'quet' ? 'Số lần' : 'Số lượng'))}"
-            title="${t.id === 'beads' ? 'Nhập số hạt niệm (1 chuỗi = 108 hạt, 100 chuỗi = 10.800 hạt)' : (t.id === 'mo' || t.id === 'tung' ? 'Nhập số tiếng mõ tụng kinh' : (t.id === 'quet' ? 'Nhập số lần quét lá sân chùa' : 'Nhập số lượng tùy ý'))}"
-            ${isAnyRunning ? 'disabled' : ''}>
-          <select onchange="if(this.value){ document.getElementById('count_${escapeHTML(t.id)}').value = this.value; }"
-            style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 6px; border-radius:6px; font-size:12px; cursor:pointer; max-width:210px;"
-            ${isAnyRunning ? 'disabled' : ''}>
-            <option value="" disabled selected>Gợi ý ▼</option>
-            ${smartOption}
-            ${(t.countOptions || []).map(opt => `<option value="${opt.value}">${escapeHTML(opt.label)}</option>`).join('')}
-          </select>
-        </div>
-      `;
-    } else if (t.hasDuration) {
-      const defaultDurationMin = t.id === 'meditate' ? 60 : 5;
-      inputControl = `
-        <div style="display:flex; align-items:center; gap:5px; margin-right:4px;">
-          <input type="number" id="duration_min_${escapeHTML(t.id)}" value="${defaultDurationMin}" min="1" max="120"
-            style="width:50px; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 6px; border-radius:6px; font-size:12px; text-align:center; font-weight:600;"
-            placeholder="Phút"
-            title="Nhập số phút ngồi thiền"
-            ${isAnyRunning ? 'disabled' : ''}>
-          <span style="font-size:11px; color:var(--text-dim); margin-right:2px;">phút</span>
-          <select onchange="if(this.value){ document.getElementById('duration_min_${escapeHTML(t.id)}').value = this.value; }"
-            style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 6px; border-radius:6px; font-size:12px; cursor:pointer;"
-            ${isAnyRunning ? 'disabled' : ''}>
-            <option value="" disabled selected>Gợi ý ▼</option>
-            <option value="5">5 phút</option>
-            <option value="15">15 phút</option>
-            <option value="30">30 phút</option>
-            <option value="60">60 phút</option>
-            <option value="120">120 phút</option>
-          </select>
-        </div>
-      `;
-    } else if (t.hasWish) {
-      inputControl = `
-        <div style="display:flex; align-items:center; gap:5px; margin-right:4px;">
-          <select id="wish_${escapeHTML(t.id)}"
-            style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 8px; border-radius:6px; font-size:12px; cursor:pointer; font-weight:600; max-width:155px;"
-            title="Chọn chữ thư pháp muốn xin từ Thầy đồ"
-            ${isAnyRunning ? 'disabled' : ''}>
-            <option value="all" ${(!t.defaultWish || t.defaultWish === 'all') ? 'selected' : ''}>📜 Xin đủ 12 chữ (Trọn bộ)</option>
-            ${(t.wishOptions || []).map(opt => `<option value="${opt.id}" ${opt.id === t.defaultWish ? 'selected' : ''}>${escapeHTML(opt.text)} (${escapeHTML(opt.wish)})</option>`).join('')}
-          </select>
-        </div>
-      `;
-    } else if (t.hasPlace) {
-      inputControl = `
-        <div style="display:flex; align-items:center; gap:5px; margin-right:4px;">
-          <select id="place_${escapeHTML(t.id)}"
-            style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:5px 8px; border-radius:6px; font-size:12px; cursor:pointer; font-weight:600; max-width:160px;"
-            title="Chọn địa điểm muốn đến trên bản đồ chùa"
-            ${isAnyRunning ? 'disabled' : ''}>
-            ${TEMPLE_MAP.places.map(p => `<option value="${escapeHTML(p.id)}">${escapeHTML(p.name)} (${escapeHTML(p.zone)})</option>`).join('')}
-          </select>
-        </div>
-      `;
-    }
-
-    return `
-      <div class="task-row ${isThisRunning ? 'active-task' : ''}">
-        <div class="task-info">
-          <div class="task-icon">${escapeHTML(t.icon)}</div>
-          <div class="task-texts">
-            <b>${escapeHTML(t.title)}</b>
-            <small>${escapeHTML(t.desc)}</small>
-            <div class="task-badges">
-              <span class="badge" style="background:rgba(233,194,122,0.15); color:var(--gold);">${escapeHTML(t.reward)}</span>
-              <span class="badge" style="background:rgba(255,255,255,0.06); color:var(--text-dim);">${escapeHTML(t.badge)}</span>
-              ${questBadge}
-            </div>
-          </div>
-        </div>
-        <div class="task-actions">
-          ${inputControl}
-          <button class="btn-task btn-run" onclick="runTask('${escapeHTML(t.id)}')" ${isAnyRunning ? 'disabled' : ''}>
-            ${isThisStopping ? '🛑 Đang dừng…' : (isThisRunning ? '⏳ Đang chạy…' : '⚡ Chạy')}
-          </button>
-          <button class="btn-task btn-stop" onclick="stopTask()" ${stopActive ? '' : 'disabled'}>
-            🛑 Dừng
-          </button>
-        </div>
+  // Calligraphy cards
+  const calligraphyCardsHTML = CALLIGRAPHY_WORDS.map((w, idx) => `
+    <div class="calligraphy-card">
+      <div class="calligraphy-header">
+        <span class="calligraphy-num">#${idx + 1}</span>
+        <span class="calligraphy-text">✍️ ${escapeHTML(w.text)}</span>
+        <span class="badge badge-wish">${escapeHTML(w.wish)}</span>
       </div>
-    `;
-  };
-
-  const dailyTasksHTML = TASKS_CATALOG.filter(t => t.group === 'daily').map(renderTaskRow).join('');
-  const milestoneTasksHTML = TASKS_CATALOG.filter(t => t.group === 'milestone').map(renderTaskRow).join('');
-  const spiritualTasksHTML = TASKS_CATALOG.filter(t => t.group === 'spiritual').map(renderTaskRow).join('');
-  const extraTasksHTML = TASKS_CATALOG.filter(t => t.group === 'extra').map(renderTaskRow).join('');
-  const zenAiTasksHTML = TASKS_CATALOG.filter(t => t.group === 'zen-ai').map(renderTaskRow).join('');
-
-  // Khối thông báo trạng thái & Log trực tiếp khi đang làm nhiệm vụ
-  const bannerBorderColor = isStopping ? '#e06c75' : 'var(--gold)';
-  const bannerTitle = isStopping
-    ? `🛑 ĐANG DỪNG AN TOÀN: ${escapeHTML(currentRunningTaskName)} (Đang ngắt kết nối an toàn...)`
-    : `🟡 ĐANG CHẠY: ${escapeHTML(currentRunningTaskName)}`;
-
-  const runningBannerHTML = isRunning ? `
-    <div class="card live-task-card" style="border: 2px solid ${bannerBorderColor}; background: #1a140f; box-shadow: 0 0 25px rgba(233,194,122,0.25); margin-bottom: 20px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
-        <h2 id="runningTaskTitle" style="color:${isStopping ? '#e06c75' : 'var(--gold)'}; font-size:16px; margin:0; border:none; padding:0; display:flex; align-items:center; gap:8px;">
-          <span class="pulse-dot" style="${isStopping ? 'background:#e06c75;' : ''}"></span> ${bannerTitle}
-        </h2>
-        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-          <span id="elapsedTimer" style="font-size:13px; color:#ffd98d; font-family:monospace; background:rgba(0,0,0,0.4); padding:5px 10px; border-radius:6px; border:1px solid var(--card-border);">
-            ⏱️ Đã chạy: ${escapeHTML(elapsedSec)}s
-          </span>
-          <button class="btn" id="stopMainBtn" onclick="stopTask()" style="background:#e06c75; color:#fff; padding:6px 14px; font-size:12px; border-radius:8px; border:none; cursor:pointer; font-weight:600; display:flex; align-items:center; gap:6px;" ${isStopping ? 'disabled' : ''}>
-            ${isStopping ? '⏳ Đang Dừng An Toàn…' : '🛑 Dừng Tác Vụ Ngay'}
-          </button>
-        </div>
-      </div>
-      <div class="logs-box" id="liveLogsContainer" style="max-height: 280px; background:#080604; color:#ffe3a8; font-size:13px; line-height:1.7;">
-        ${logsHTML}
-      </div>
-      <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-dim); flex-wrap:wrap; gap:8px;">
-        <span>📡 Đang truyền nhật ký trực tiếp (Tự động cập nhật mỗi 2 giây)...</span>
-        <span style="color:var(--gold);">💡 Cơ chế tự giữ thức Render đang hoạt động (tự ping HTTPS mỗi 3 phút)</span>
-      </div>
+      <p class="calligraphy-meaning">"${escapeHTML(w.meaning)}"</p>
     </div>
-  ` : `
-    <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(103,185,130,0.1); border:1px solid rgba(103,185,130,0.3); padding:10px 16px; border-radius:10px; margin-bottom:20px; font-size:13px; flex-wrap:wrap; gap:10px;">
-      <div style="color:var(--success); font-weight:600; display:flex; align-items:center; gap:8px;">
-        <span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:var(--success);"></span>
-        🟢 SẴN SÀNG · Nhân vật đang an nhiên tĩnh tâm tại chùa
-      </div>
-      <div style="color:var(--text-dim); font-size:12px;">
-        Cập nhật lần cuối (UTC): ${escapeHTML(state.lastUpdated || 'Chưa có dữ liệu')}
-      </div>
-    </div>
-  `;
+  `).join('');
 
   return `<!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="csrf-token" content="${escapeHTML(CSRF_TOKEN)}">
-  <title>Niệm Phật Online - Trung Tâm Điều Hành & Tu Tập</title>
+  <title>Báo Cáo Tu Tập · Niệm Phật Online</title>
   <style>
     :root {
-      --bg: #15100c;
-      --card-bg: #221b15;
-      --card-border: #382c22;
-      --gold: #e9c27a;
-      --gold-dim: #b8934d;
-      --text: #ede4db;
-      --text-dim: #9e8e80;
-      --success: #67b982;
-      --danger: #e06c75;
+      --bg-body: #0d1117;
+      --bg-card: #161b22;
+      --bg-card-sub: #21262d;
+      --card-border: #30363d;
+      --gold: #f59e0b;
+      --gold-light: #fbbf24;
+      --gold-dim: #d97706;
+      --pink: #ec4899;
+      --pink-dim: #be185d;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text-main: #f0f6fc;
+      --text-dim: #8b949e;
+      --text-muted: #6e7681;
+      --radius: 12px;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-    body { background: var(--bg); color: var(--text); padding: 20px; line-height: 1.5; }
-    .container { max-width: 960px; margin: 0 auto; }
-    header { display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
-    .who h1 { font-size: 20px; color: var(--gold); display: flex; align-items: center; gap: 8px; }
-    .who p { font-size: 13px; color: var(--text-dim); }
-    .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-    button.btn { background: var(--gold); color: #1c150e; border: none; padding: 10px 18px; border-radius: 10px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; transition: 0.2s; }
-    button.btn:hover:not(:disabled) { background: #ffd98d; transform: translateY(-1px); }
-    button.btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .pulse-dot {
-      display: inline-block;
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #f1c40f;
-      margin-right: 6px;
-      animation: pulse 1.2s infinite;
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-body);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.5;
+      padding-bottom: 60px;
     }
-    @keyframes pulse {
-      0% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.3; transform: scale(0.85); }
-      100% { opacity: 1; transform: scale(1); }
+    .container {
+      max-width: 1140px;
+      margin: 0 auto;
+      padding: 20px 16px;
     }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 20px; }
-    .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px; padding: 18px; }
-    .card h2 { font-size: 15px; color: var(--gold); border-bottom: 1px solid var(--card-border); padding-bottom: 10px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
-    .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
-    .stat-box { background: rgba(0,0,0,0.25); border: 1px solid var(--card-border); padding: 12px; border-radius: 10px; }
-    .stat-box b { display: block; font-size: 20px; color: var(--gold); }
-    .stat-box span { font-size: 12px; color: var(--text-dim); }
-    .quest-item { background: rgba(0,0,0,0.2); border: 1px solid var(--card-border); padding: 10px 12px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
-    .quest-title { font-size: 13px; font-weight: 500; }
-    .quest-meta { display: flex; align-items: center; gap: 8px; }
-    .quest-reward { font-size: 12px; color: var(--gold-dim); }
-    .badge { font-size: 11px; padding: 3px 8px; border-radius: 6px; font-weight: 600; }
-    .badge-done { background: rgba(103,185,130,0.2); color: var(--success); }
-    .badge-ready { background: rgba(233,194,122,0.25); color: var(--gold); }
-    .badge-wait { background: rgba(255,255,255,0.1); color: var(--text-dim); }
 
-    /* Quests Card Styling */
-    .quests-summary-card {
-      background: rgba(233, 194, 122, 0.05);
-      border: 1px solid rgba(233, 194, 122, 0.2);
-      border-radius: 12px;
-      padding: 12px 14px;
+    /* TOP NAVBAR */
+    .top-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 24px;
+    }
+    .brand-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: inherit;
+    }
+    .brand-logo {
+      font-size: 28px;
+      line-height: 1;
+    }
+    .brand-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--gold-light);
+      letter-spacing: 0.5px;
+    }
+    .brand-domain {
+      display: inline-block;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--gold-light);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      margin-left: 6px;
+    }
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* BUTTONS & BADGES */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s ease-in-out;
+      text-decoration: none;
+      color: var(--text-main);
+      background: var(--bg-card-sub);
+    }
+    .btn:hover:not(:disabled) {
+      background: #30363d;
+      border-color: #8b949e;
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn-sm { padding: 5px 10px; font-size: 12px; }
+    .btn-primary {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: #fff;
+      border-color: #3b82f6;
+    }
+    .btn-primary:hover:not(:disabled) { background: #1d4ed8; }
+    .btn-gold {
+      background: linear-gradient(135deg, #d97706, #b45309);
+      color: #fff;
+      border-color: #f59e0b;
+    }
+    .btn-gold:hover:not(:disabled) { background: #b45309; }
+    .btn-success {
+      background: linear-gradient(135deg, #059669, #047857);
+      color: #fff;
+      border-color: #10b981;
+    }
+    .btn-success:hover:not(:disabled) { background: #047857; }
+    .btn-danger {
+      background: linear-gradient(135deg, #dc2626, #b91c1c);
+      color: #fff;
+      border-color: #ef4444;
+    }
+    .btn-danger:hover:not(:disabled) { background: #b91c1c; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-done { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-ready { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+    .badge-wait { background: rgba(100, 116, 139, 0.2); color: #cbd5e1; border: 1px solid rgba(100, 116, 139, 0.3); }
+    .badge-status { background: #21262d; border: 1px solid #30363d; color: var(--text-dim); }
+
+    /* TURBO TOGGLE */
+    .turbo-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-card-sub);
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--gold-light);
+      user-select: none;
+    }
+    .turbo-toggle input { cursor: pointer; accent-color: var(--gold); }
+
+    /* HERO PROFILE CARD */
+    .hero-card {
+      background: linear-gradient(145deg, #161b22, #1c2331);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 24px;
+      align-items: center;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+    @media (max-width: 820px) {
+      .hero-card { grid-template-columns: 1fr; gap: 16px; }
+    }
+    .avatar-box {
+      font-size: 48px;
+      width: 72px;
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(245, 158, 11, 0.1);
+      border: 2px solid var(--gold);
+      border-radius: 50%;
+      box-shadow: 0 0 15px rgba(245, 158, 11, 0.2);
+    }
+    .hero-info h1 {
+      font-size: 22px;
+      color: #fff;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .hero-info h1 small {
+      font-size: 13px;
+      font-weight: normal;
+      color: var(--text-dim);
+    }
+    .hero-meta {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+    .hero-meta span { display: flex; align-items: center; gap: 4px; }
+    .exp-track {
+      background: #21262d;
+      height: 10px;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 6px;
+      border: 1px solid #30363d;
+    }
+    .exp-fill {
+      background: linear-gradient(90deg, #f59e0b, #ec4899);
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.3s ease;
+    }
+    .exp-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+    .hero-stats-pillbox {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .hero-pill {
+      background: var(--bg-card-sub);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 8px 14px;
+      text-align: center;
+      min-width: 100px;
+    }
+    .hero-pill .val { font-size: 16px; font-weight: 700; color: var(--gold-light); display: block; }
+    .hero-pill .lbl { font-size: 11px; color: var(--text-dim); }
+
+    /* AUTO ENGINE CONTROL BANNER */
+    .auto-engine-card {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(245, 158, 11, 0.08));
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: var(--radius);
+      padding: 18px 24px;
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .auto-engine-info { flex: 1; min-width: 280px; }
+    .auto-badge {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+      display: inline-block;
+    }
+    .auto-badge-on { color: #34d399; }
+    .auto-badge-off { color: var(--text-dim); }
+    .auto-desc { font-size: 12px; color: var(--text-dim); line-height: 1.4; }
+    .auto-engine-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    /* STATS GRID */
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--gold-light);
       margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 14px;
+      text-align: center;
+      transition: transform 0.15s ease;
+    }
+    .stat-card:hover { transform: translateY(-2px); border-color: #8b949e; }
+    .stat-icon { font-size: 24px; margin-bottom: 4px; }
+    .stat-num { font-size: 18px; font-weight: 700; color: #fff; }
+    .stat-label { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+    /* QUESTS SUMMARY & LIST */
+    .quests-section {
+      background: var(--bg-card);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 28px;
+    }
+    .quests-summary-card {
+      background: var(--bg-card-sub);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
     }
     .quests-summary-top {
       display: flex;
@@ -2399,166 +2394,73 @@ export function renderDashboardHTML() {
       align-items: center;
       margin-bottom: 8px;
     }
-    .metric-label {
-      font-size: 11px;
-      color: var(--text-dim);
-      display: block;
-      margin-bottom: 2px;
-    }
-    .metric-val {
-      font-size: 13px;
-      color: var(--text);
-    }
+    .metric-label { font-size: 11px; color: var(--text-dim); display: block; }
+    .metric-val { font-size: 14px; font-weight: 700; color: var(--text-main); }
     .quest-progress-track {
-      height: 6px;
-      background: rgba(0, 0, 0, 0.4);
-      border-radius: 10px;
+      background: #0d1117;
+      height: 8px;
+      border-radius: 999px;
       overflow: hidden;
-      width: 100%;
+      border: 1px solid #30363d;
     }
-    .quest-progress-fill {
-      height: 100%;
-      border-radius: 10px;
-      transition: width 0.3s ease;
-    }
-    .fill-done {
-      background: var(--success);
-    }
-    .fill-ready {
-      background: var(--gold);
-    }
-    .fill-pending {
-      background: linear-gradient(90deg, var(--gold-dim), var(--gold));
-    }
+    .quest-progress-fill { height: 100%; border-radius: 999px; }
+    .fill-done { background: var(--success); }
+    .fill-ready { background: var(--gold); }
+    .fill-pending { background: #3b82f6; }
     .quests-claim-banner {
-      background: rgba(233, 194, 122, 0.12);
-      border: 1px solid rgba(233, 194, 122, 0.3);
-      border-radius: 8px;
-      padding: 8px 12px;
-      margin-top: 10px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 12px;
-      gap: 8px;
-      flex-wrap: wrap;
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin-top: 12px;
+      font-size: 13px;
+      color: var(--gold-light);
     }
     .quest-card {
-      background: rgba(0, 0, 0, 0.22);
+      background: var(--bg-card-sub);
       border: 1px solid var(--card-border);
       border-radius: 10px;
-      padding: 12px 14px;
+      padding: 12px 16px;
       margin-bottom: 10px;
-      transition: all 0.2s ease;
+      transition: border-color 0.15s ease;
     }
-    .quest-card:hover {
-      border-color: rgba(233, 194, 122, 0.3);
-    }
-    .quest-card.quest-done {
-      border-left: 3px solid var(--success);
-      opacity: 0.88;
-    }
-    .quest-card.quest-ready {
-      border-left: 3px solid var(--gold);
-      background: rgba(233, 194, 122, 0.05);
-    }
-    .quest-card.quest-pending {
-      border-left: 3px solid rgba(255, 255, 255, 0.15);
-    }
+    .quest-card.quest-done { border-color: rgba(16, 185, 129, 0.4); opacity: 0.85; }
+    .quest-card.quest-ready { border-color: rgba(245, 158, 11, 0.6); background: rgba(245, 158, 11, 0.05); }
     .quest-main-row {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
+      align-items: center;
       gap: 12px;
-      margin-bottom: 8px;
     }
     .quest-left {
       display: flex;
       align-items: flex-start;
-      gap: 10px;
+      gap: 12px;
       flex: 1;
     }
-    .quest-icon {
-      font-size: 22px;
-      line-height: 1.2;
-      min-width: 26px;
-      text-align: center;
-    }
-    .quest-info {
-      flex: 1;
-    }
+    .quest-icon { font-size: 24px; line-height: 1.2; }
+    .quest-info { flex: 1; }
     .quest-title-row {
       display: flex;
       align-items: center;
       gap: 8px;
+      margin-bottom: 2px;
       flex-wrap: wrap;
     }
-    .quest-name {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text);
-    }
+    .quest-name { font-size: 14px; font-weight: 600; color: #fff; }
     .quest-reward-pill {
       font-size: 11px;
-      color: var(--gold);
-      background: rgba(233, 194, 122, 0.12);
-      padding: 2px 7px;
-      border-radius: 6px;
-      font-weight: 600;
-      white-space: nowrap;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--gold-light);
     }
-    .quest-desc {
-      font-size: 12px;
-      color: var(--text-dim);
-      margin-top: 3px;
-      line-height: 1.4;
-    }
-    .quest-tip {
-      font-size: 11px;
-      color: #e5c07b;
-      margin-top: 2px;
-      font-weight: 500;
-    }
-    .quest-action-col {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      white-space: nowrap;
-    }
-    .btn-quick-claim {
-      background: var(--gold);
-      color: #1c150e;
-      font-weight: 700;
-      border: 1px solid var(--gold);
-      padding: 5px 11px;
-      border-radius: 6px;
-      font-size: 12px;
-      cursor: pointer;
-      transition: 0.15s;
-    }
-    .btn-quick-claim:hover:not(:disabled) {
-      background: #ffe099;
-      transform: translateY(-1px);
-    }
-    .btn-quick-run {
-      background: rgba(233, 194, 122, 0.12);
-      border: 1px solid rgba(233, 194, 122, 0.35);
-      color: var(--gold);
-      font-weight: 600;
-      padding: 5px 11px;
-      border-radius: 6px;
-      font-size: 12px;
-      cursor: pointer;
-      transition: 0.15s;
-    }
-    .btn-quick-run:hover:not(:disabled) {
-      background: var(--gold);
-      color: #1c150e;
-      transform: translateY(-1px);
-    }
-    .quest-progress-container {
-      margin-top: 6px;
-    }
+    .quest-desc { font-size: 12px; color: var(--text-dim); }
+    .quest-tip { font-size: 11px; color: var(--gold-dim); font-style: italic; margin-top: 2px; }
+    .quest-progress-container { margin-top: 8px; }
     .quest-progress-label {
       display: flex;
       justify-content: space-between;
@@ -2566,1458 +2468,704 @@ export function renderDashboardHTML() {
       color: var(--text-dim);
       margin-bottom: 4px;
     }
-    .title-grid { display: grid; grid-template-columns: 1fr; gap: 8px; max-height: 280px; overflow-y: auto; padding-right: 4px; }
-    .title-card { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--card-border); }
-    .title-got { background: rgba(233,194,122,0.1); border-color: rgba(233,194,122,0.3); }
-    .title-locked { background: rgba(0,0,0,0.15); opacity: 0.6; }
-    .title-icon { font-size: 20px; }
-    .title-info b { font-size: 13px; color: var(--text); display: block; }
-    .title-info small { font-size: 11px; color: var(--text-dim); }
-    .history-item { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--card-border); margin-bottom: 8px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
-    .history-item.success { border-left: 3px solid var(--success); }
-    .history-item.partial, .history-item.unverified { border-left: 3px solid var(--gold); }
-    .history-item.error, .history-item.failed, .history-item.stopped { border-left: 3px solid var(--danger); }
-    .history-item .time { color: var(--text-dim); margin-left: 8px; }
-    .history-item .err { color: var(--danger); }
-    .logs-box { background: rgba(0,0,0,0.4); border: 1px solid var(--card-border); border-radius: 10px; padding: 12px; font-family: monospace; font-size: 12px; max-height: 180px; overflow-y: auto; line-height: 1.6; }
-    .empty { color: var(--text-dim); font-size: 13px; text-align: center; padding: 15px; }
-    footer { text-align: center; font-size: 12px; color: var(--text-dim); margin-top: 30px; }
-    footer a { color: var(--gold-dim); text-decoration: none; }
     .btn-task {
-      padding: 6px 12px;
+      padding: 6px 14px;
+      border-radius: 6px;
       font-size: 12px;
-      border-radius: 8px;
       font-weight: 600;
-      cursor: pointer;
       border: 1px solid transparent;
-      transition: 0.15s;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
+      cursor: pointer;
+      white-space: nowrap;
     }
-    .btn-run {
-      background: var(--gold);
-      color: #1c150e;
-    }
-    .btn-run:hover:not(:disabled) {
-      background: #ffd98d;
-      transform: translateY(-1px);
-    }
-    .btn-stop {
-      background: rgba(224, 108, 117, 0.15);
-      border-color: rgba(224, 108, 117, 0.4);
-      color: var(--danger);
-    }
-    .btn-stop:hover:not(:disabled) {
-      background: var(--danger);
+    .btn-quick-run {
+      background: #238636;
       color: #fff;
-      transform: translateY(-1px);
+      border-color: rgba(240, 246, 252, 0.1);
     }
-    .btn-task:disabled {
-      opacity: 0.35;
-      cursor: not-allowed;
-      transform: none;
+    .btn-quick-run:hover:not(:disabled) { background: #2ea043; }
+    .btn-quick-claim {
+      background: #b08800;
+      color: #fff;
+      border-color: #d29922;
     }
-    .task-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 12px;
-      border-radius: 10px;
-      background: rgba(0,0,0,0.25);
+    .btn-quick-claim:hover:not(:disabled) { background: #d29922; }
+
+    /* DEEP PRACTICE GRID */
+    .practice-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+    .practice-card {
+      background: var(--bg-card);
       border: 1px solid var(--card-border);
-      margin-bottom: 8px;
-      gap: 10px;
-      flex-wrap: wrap;
-      transition: border-color 0.2s;
-    }
-    .task-row:hover {
-      border-color: rgba(233,194,122,0.3);
-    }
-    .task-row.active-task {
-      border-color: var(--gold);
-      background: rgba(233, 194, 122, 0.08);
-      box-shadow: 0 0 10px rgba(233, 194, 122, 0.15);
-    }
-    .task-info {
+      border-radius: var(--radius);
+      padding: 16px;
       display: flex;
-      align-items: center;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .practice-top {
+      display: flex;
       gap: 10px;
-      flex: 1;
-      min-width: 200px;
+      align-items: center;
     }
-    .task-icon {
-      font-size: 20px;
-      width: 28px;
-      text-align: center;
-      flex-shrink: 0;
-    }
-    .task-texts b {
-      display: block;
-      font-size: 13px;
-      color: var(--text);
-    }
-    .task-texts small {
-      display: block;
-      font-size: 11px;
-      color: var(--text-dim);
-      line-height: 1.3;
-    }
-    .task-badges {
+    .practice-icon { font-size: 26px; }
+    .practice-title-box b { font-size: 14px; color: #fff; display: block; }
+    .practice-title-box small { font-size: 11px; color: var(--text-dim); }
+    .practice-controls {
       display: flex;
       align-items: center;
       gap: 6px;
-      margin-top: 3px;
       flex-wrap: wrap;
     }
-    .task-actions {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-shrink: 0;
-    }
-    .task-actions input[type="number"]:focus,
-    .task-actions select:focus {
-      border-color: var(--gold) !important;
-      outline: none;
-      box-shadow: 0 0 6px rgba(233, 194, 122, 0.3);
-    }
-
-    /* Giao diện đóng mở (Collapse & Expand) cho Mobile & Desktop */
-    .card-header-toggle {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      cursor: pointer;
-      user-select: none;
-      -webkit-tap-highlight-color: transparent;
-      padding: 2px 0;
-      transition: opacity 0.15s;
-    }
-    .card-header-toggle:hover {
-      opacity: 0.9;
-    }
-    .card-header-toggle:active {
-      opacity: 0.75;
-    }
-    .card-header-toggle h2 {
-      margin-bottom: 0 !important;
-      padding-bottom: 0 !important;
-      border-bottom: none !important;
-      flex: 1;
-    }
-    .chevron-icon {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 26px;
-      height: 26px;
-      border-radius: 50%;
-      background: rgba(233, 194, 122, 0.12);
-      color: var(--gold);
-      font-size: 11px;
-      transition: transform 0.25s ease, background 0.15s;
-      flex-shrink: 0;
-      margin-left: 8px;
-    }
-    .card-header-toggle:hover .chevron-icon, .tier-header:hover .chevron-icon {
-      background: rgba(233, 194, 122, 0.25);
-    }
-    .collapsed .chevron-icon {
-      transform: rotate(-90deg);
-    }
-    .collapsible-content {
-      margin-top: 14px;
-      border-top: 1px solid var(--card-border);
-      padding-top: 14px;
-      transition: all 0.2s ease;
-    }
-    .collapsed .collapsible-content {
-      display: none !important;
-    }
-    .card.collapsed {
-      padding-bottom: 14px;
-    }
-
-    /* Các khối Tầng nhiệm vụ Accordion */
-    .tier-box {
+    .practice-controls input[type="number"] {
+      width: 72px;
+      background: var(--bg-body);
       border: 1px solid var(--card-border);
-      border-radius: 12px;
-      background: rgba(0,0,0,0.18);
-      margin-bottom: 10px;
-      overflow: hidden;
-      transition: border-color 0.15s;
-    }
-    .tier-box:hover {
-      border-color: rgba(233, 194, 122, 0.3);
-    }
-    .tier-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 11px 14px;
-      background: rgba(0,0,0,0.25);
-      cursor: pointer;
-      user-select: none;
-      -webkit-tap-highlight-color: transparent;
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--gold);
-      transition: background 0.15s;
-    }
-    .tier-header:hover {
-      background: rgba(233, 194, 122, 0.08);
-    }
-    .tier-title {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .tier-meta {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .tier-body {
-      padding: 12px;
-    }
-    .collapsed .tier-body {
-      display: none !important;
-    }
-
-    /* Thanh công cụ đóng/mở nhanh (Quick Toolbar) */
-    .quick-toolbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 12px;
-      padding: 10px 16px;
-      margin-bottom: 18px;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-    .toolbar-title {
-      font-size: 13px;
-      color: var(--text-dim);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .toolbar-actions {
-      display: flex;
-      gap: 8px;
-    }
-    .btn-tool {
-      background: rgba(233, 194, 122, 0.12);
-      color: var(--gold);
-      border: 1px solid rgba(233, 194, 122, 0.3);
-      padding: 6px 12px;
-      border-radius: 8px;
+      color: var(--gold-light);
+      padding: 6px 8px;
+      border-radius: 6px;
       font-size: 12px;
       font-weight: 600;
+      text-align: center;
+    }
+    .practice-controls select {
+      background: var(--bg-body);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 12px;
       cursor: pointer;
-      transition: 0.15s;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .btn-tool:hover {
-      background: var(--gold);
-      color: #1c150e;
+      max-width: 140px;
     }
 
-    /* Tối ưu hiển thị cho Mobile / Tablet nhỏ */
-    @media (max-width: 640px) {
-      body {
-        padding: 10px 8px;
-      }
-      .container {
-        width: 100%;
-      }
-      header {
-        padding: 14px;
-        flex-direction: column;
-        align-items: stretch;
-        gap: 12px;
-      }
-      .who h1 {
-        font-size: 17px;
-        flex-wrap: wrap;
-      }
-      .who h1 span {
-        font-size: 13px;
-      }
-      .actions {
-        flex-direction: column;
-        width: 100%;
-        gap: 8px;
-      }
-      .actions select, .actions button.btn {
-        width: 100%;
-        justify-content: center;
-        font-size: 14px;
-        padding: 11px 14px;
-      }
-      .quick-toolbar {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 8px;
-        padding: 10px 12px;
-        margin-bottom: 12px;
-      }
-      .toolbar-actions {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-      }
-      .btn-tool {
-        text-align: center;
-        padding: 8px 10px;
-      }
-      .grid {
-        grid-template-columns: 1fr;
-        gap: 12px;
-        margin-bottom: 12px;
-      }
-      .card {
-        padding: 14px 12px;
-        margin-bottom: 12px !important;
-      }
-      .card h2 {
-        font-size: 14px;
-        margin-bottom: 8px;
-        padding-bottom: 8px;
-      }
-      .stat-row {
-        gap: 8px;
-        margin-bottom: 8px;
-      }
-      .stat-box {
-        padding: 10px 8px;
-      }
-      .stat-box b {
-        font-size: 17px;
-      }
-      .stat-box span {
-        font-size: 11px;
-      }
-      .task-row {
-        padding: 10px;
-        gap: 8px;
-      }
-      .task-info {
-        min-width: 100%;
-      }
-      .task-actions {
-        width: 100%;
-        justify-content: space-between;
-        margin-top: 6px;
-        border-top: 1px dashed rgba(255,255,255,0.08);
-        padding-top: 8px;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-      .task-actions select, .task-actions input {
-        font-size: 13px;
-      }
-      .btn-task {
-        padding: 8px 14px;
-        font-size: 13px;
-        flex: 1;
-        justify-content: center;
-      }
-      .tier-header {
-        padding: 10px 12px;
-        font-size: 12px;
-      }
-      .tier-body {
-        padding: 8px;
-      }
-      .quest-main-row {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 8px;
-      }
-      .quest-action-col {
-        align-self: flex-end;
-      }
+    /* SHOWCASES */
+    .showcase-card {
+      background: var(--bg-card);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 24px;
     }
-
-    /* Hồ sơ tu tập 4 Tab */
-    .profile-tab-bar {
+    .showcase-header {
       display: flex;
-      background: rgba(0,0,0,0.3);
-      border-radius: 12px;
-      padding: 4px;
-      margin-bottom: 16px;
-      gap: 4px;
-      overflow-x: auto;
-      border: 1px solid var(--card-border);
-    }
-    .profile-tab-btn {
-      flex: 1;
-      min-width: 120px;
-      text-align: center;
-      padding: 10px 14px;
-      border-radius: 8px;
-      border: none;
-      background: transparent;
-      color: var(--text-dim);
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      white-space: nowrap;
-    }
-    .profile-tab-btn:hover {
-      color: var(--gold);
-      background: rgba(233, 194, 122, 0.08);
-    }
-    .profile-tab-btn.active {
-      background: var(--gold);
-      color: #1c150e;
-      box-shadow: 0 2px 8px rgba(233, 194, 122, 0.3);
-    }
-    .profile-tab-pane {
-      display: none;
-      animation: fadeIn 0.25s ease;
-    }
-    .profile-tab-pane.active {
-      display: block;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(4px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    /* Bong bóng tâm niệm / Status Quote */
-    .quote-bubble {
-      background: rgba(233, 194, 122, 0.1);
-      border: 1px dashed rgba(233, 194, 122, 0.35);
-      border-radius: 12px;
-      padding: 10px 16px;
-      margin-bottom: 16px;
-      text-align: center;
-      font-size: 13px;
-      color: #ffd98d;
-      font-style: italic;
-    }
-
-    /* Thanh tiến độ công đức */
-    .progress-bar-container {
-      background: rgba(0,0,0,0.35);
-      border: 1px solid var(--card-border);
-      border-radius: 10px;
-      height: 18px;
-      overflow: hidden;
-      margin: 8px 0 16px 0;
-      position: relative;
-    }
-    .progress-bar-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #b8934d, #e9c27a, #ffd98d);
-      border-radius: 10px;
-      transition: width 0.4s ease;
-    }
-    .progress-bar-label {
-      position: absolute;
-      width: 100%;
-      text-align: center;
-      top: 0;
-      left: 0;
-      font-size: 11px;
-      font-weight: 700;
-      line-height: 18px;
-      color: #1c150e;
-      text-shadow: 0 0 2px rgba(255,255,255,0.6);
-    }
-
-    /* Lưới các ô trang bị (Gear Slots) */
-    .gear-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-      gap: 10px;
-      margin-bottom: 16px;
-    }
-    .gear-card {
-      background: rgba(0,0,0,0.22);
-      border: 1px solid var(--card-border);
-      border-radius: 10px;
-      padding: 10px;
-      text-align: center;
-      transition: border-color 0.2s;
-    }
-    .gear-card:hover {
-      border-color: rgba(233, 194, 122, 0.4);
-    }
-    .gear-card .gear-icon {
-      font-size: 24px;
-      margin-bottom: 4px;
-    }
-    .gear-card .gear-type {
-      font-size: 11px;
-      color: var(--text-dim);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .gear-card .gear-name {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--gold);
-      margin-top: 2px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    /* Danh sách pháp khí 12 món */
-    .phapkhi-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 10px;
-      margin-bottom: 16px;
-    }
-    .phapkhi-card {
-      display: flex;
+      justify-content: space-between;
       align-items: center;
-      gap: 12px;
-      padding: 10px 14px;
-      border-radius: 10px;
-      border: 1px solid var(--card-border);
-    }
-    .phapkhi-unlocked {
-      background: rgba(233, 194, 122, 0.08);
-      border-color: rgba(233, 194, 122, 0.3);
-    }
-    .phapkhi-locked {
-      background: rgba(0,0,0,0.18);
-      opacity: 0.65;
-    }
-    .phapkhi-equipped {
-      border-color: var(--gold) !important;
-      box-shadow: 0 0 10px rgba(233, 194, 122, 0.2);
-    }
-    .phapkhi-icon {
-      font-size: 22px;
-      flex-shrink: 0;
-    }
-    .phapkhi-info {
-      flex: 1;
-      min-width: 0;
-    }
-    .phapkhi-info b {
-      font-size: 13px;
-      color: var(--text);
-      display: block;
-    }
-    .phapkhi-info small {
-      font-size: 11px;
-      line-height: 1.3;
-      display: block;
-    }
-
-    /* Bản đồ 3D */
-    .map-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 12px;
       margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
     }
-    .map-card {
-      background: rgba(0,0,0,0.22);
+    .sutras-grid, .calligraphy-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px;
+    }
+    .sutra-card, .calligraphy-card {
+      background: var(--bg-card-sub);
       border: 1px solid var(--card-border);
-      border-radius: 10px;
+      border-radius: 8px;
       padding: 12px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      gap: 8px;
     }
-    .map-card b {
-      color: var(--gold);
-      font-size: 13px;
+    .sutra-card-header, .calligraphy-header {
       display: flex;
-      align-items: center;
       justify-content: space-between;
+      align-items: flex-start;
+      gap: 6px;
     }
-    .map-card p {
-      font-size: 11px;
-      color: var(--text-dim);
-      margin: 6px 0 10px 0;
-      line-height: 1.4;
+    .sutra-num, .calligraphy-num { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
+    .sutra-title-box b { font-size: 13px; color: #fff; display: block; }
+    .sutra-desc, .calligraphy-meaning { font-size: 11px; color: var(--text-dim); line-height: 1.4; }
+    .calligraphy-text { font-size: 15px; font-weight: 700; color: var(--gold-light); }
+    .badge-duration { background: rgba(59, 130, 246, 0.15); color: #60a5fa; font-size: 10px; }
+    .badge-wish { background: rgba(245, 158, 11, 0.15); color: var(--gold-light); font-size: 10px; }
+
+    /* LIVE LOGS */
+    .logs-card {
+      background: #090d13;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 18px;
     }
+    .logs-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .terminal-box {
+      background: #04070b;
+      border: 1px solid #1f242c;
+      border-radius: 8px;
+      padding: 14px;
+      height: 240px;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.6;
+      color: #cbd5e1;
+    }
+    .log-line { margin-bottom: 4px; word-break: break-word; }
+    .log-time { color: var(--text-muted); margin-right: 6px; }
+    .log-info { color: #93c5fd; }
+    .log-success { color: #34d399; }
+    .log-warn { color: #fbbf24; }
+    .log-error { color: #f87171; }
   </style>
 </head>
 <body>
   <div class="container">
-    <header>
-      <div class="who">
-        <h1>🪷 ${escapeHTML(displayName)} ${userTag}</h1>
-        <p>Cấp bậc: <b>${reportValue(me.level || j.level)} (Lv.${reportValue(me.lv ?? j.lv)})</b> · Chuỗi lên chùa: <b>${reportValue(me.days ?? j.days)} ngày liên tục</b></p>
-      </div>
-      <div class="actions">
-        <label style="display:inline-flex; align-items:center; gap:6px; background:#221a14; border:1px solid #4a3828; padding:8px 12px; border-radius:10px; cursor:pointer; font-size:13px; color:#ffd54f; user-select:none;" title="Chế độ Siêu Tốc: Tối ưu hoá nhịp gửi gói tin, nén tối đa các khoảng dừng vô ích, hoàn thành nhiệm vụ chỉ trong vài giây">
-          <input type="checkbox" id="turboModeToggle" style="cursor:pointer; accent-color:#ffd54f; width:16px; height:16px;" ${isRunning || isStopping ? 'disabled' : ''} />
-          <span style="font-weight:600;">⚡ Siêu Tốc (Turbo)</span>
+    <!-- TOP NAVIGATION -->
+    <header class="top-nav">
+      <a href="https://niemphat.online" target="_blank" rel="noopener" class="brand-box">
+        <span class="brand-logo">🪷</span>
+        <div>
+          <div class="brand-title">NIỆMPHẬT.ONLINE <span class="brand-domain">niemphat.online</span></div>
+          <small style="color:var(--text-dim); font-size:11px;">Trung Tâm Báo Cáo & Tự Động Hóa Tu Tập</small>
+        </div>
+      </a>
+      <div class="nav-actions">
+        <span class="badge badge-status" id="serverClock">⏰ --:--:-- (UTC+7)</span>
+        <span class="badge ${isRunning ? 'badge-ready' : 'badge-done'}" id="botStatusBadge">
+          ${isRunning ? '🟡 Đang thực thi: ' + escapeHTML(state.runningTaskName || 'Tác vụ') : '🟢 Sẵn sàng'}
+        </span>
+        <label class="turbo-toggle" title="Kích hoạt chế độ siêu tốc (bỏ qua độ trễ người thật)">
+          <input type="checkbox" id="turboModeToggle" onchange="toggleTurboMode(this.checked)">
+          <span>⚡ Siêu Tốc (Turbo)</span>
         </label>
-        <select id="meditateSelect" style="background:#2b221a; color:var(--gold); border:1px solid var(--card-border); padding:9px 12px; border-radius:10px; font-size:13px; outline:none; cursor:pointer;" ${isRunning || isStopping ? 'disabled' : ''}>
-          <option value="3600" selected>🧘 Thiền 60 phút (Cày Top 1)</option>
-          <option value="1800">🧘 Thiền 30 phút (Cày Top)</option>
-          <option value="300">🧘 Thiền 5 phút (Chuẩn)</option>
-        </select>
-        <button id="runBtn" class="btn" onclick="triggerRun()" ${isRunning || isStopping ? 'disabled' : ''}>
-          ${isStopping ? '🛑 Đang dừng an toàn…' : (isRunning ? '⏳ Đang thực thi…' : '⚡ Chạy Toàn Bộ Chu Trình')}
-        </button>
-        <button id="autoPlayBtn" class="btn" onclick="runTask('auto')" style="background:linear-gradient(135deg, #1b3a4b, #2d5a88); color:#64b5f6; border:1px solid #42a5f5;" ${isRunning || isStopping ? 'disabled' : ''}>
-          🤖 Kích Hoạt Tự Chơi
-        </button>
-        <button class="btn" onclick="runTask('khoe')" style="background:rgba(233,194,122,0.15); color:var(--gold); border:1px solid var(--card-border);" ${isRunning || isStopping ? 'disabled' : ''}>
-          📢 Khoe (+10đ)
-        </button>
-        <button id="refreshBtn" class="btn" onclick="manualRefresh()" style="background:#2b221a; color:var(--gold); border:1px solid var(--card-border);" ${isRunning || isStopping ? 'disabled' : ''}>
+        <button type="button" class="btn btn-sm" onclick="refreshData()" ${isAnyRunning ? 'disabled' : ''}>
           🔄 Làm Mới
         </button>
-        ${isRunning ? `
-          <button id="stopHeaderBtn" class="btn" onclick="stopTask()" style="background:#e06c75; color:#fff;" ${isStopping ? 'disabled' : ''}>
-            ${isStopping ? '⏳ Đang Dừng…' : '🛑 Dừng Tác Vụ'}
-          </button>
-        ` : ''}
       </div>
     </header>
 
-    <!-- THANH ĐIỀU HƯỚNG NHANH CHO ĐIỆN THOẠI & MÁY TÍNH -->
-    <div class="quick-toolbar">
-      <div class="toolbar-title">
-        <span>📱</span> <b>Chế độ xem gọn:</b> Chạm tiêu đề mục để đóng/mở
+    <!-- HERO PROFILE CARD -->
+    <section class="hero-card">
+      <div class="avatar-box">🪷</div>
+      <div class="hero-info">
+        <h1>
+          <span>${escapeHTML(displayName)}</span>
+          <small>${userTag}</small>
+        </h1>
+        <div class="hero-meta">
+          <span>📿 ${sectName}</span>
+          <span>🏆 ${escapeHTML(levelTitle)}</span>
+          <span>🏯 ${escapeHTML(templeName)}</span>
+          <span>🔥 ${streakDays} ngày liên tục</span>
+        </div>
+        <div>
+          <div class="exp-track">
+            <div class="exp-fill" style="width: ${meritProgressPercent}%;"></div>
+          </div>
+          <div class="exp-labels">
+            <span>Tiến độ kinh nghiệm: <b>${expCurrent} / ${expNext} EXP</b> (${meritProgressPercent}%)</span>
+            <span>còn ${nextLevelPoints} EXP đến cấp tiếp theo</span>
+          </div>
+        </div>
       </div>
-      <div class="toolbar-actions">
-        <button type="button" class="btn-tool" onclick="expandAllSections()">📂 Mở rộng tất cả</button>
-        <button type="button" class="btn-tool" onclick="collapseAllSections()">📁 Thu gọn tất cả</button>
+      <div class="hero-stats-pillbox">
+        <div class="hero-pill">
+          <span class="val">🪷 ${senCount}</span>
+          <span class="lbl">Hoa Sen</span>
+        </div>
+        <div class="hero-pill">
+          <span class="val">💎 ${ngocCount}</span>
+          <span class="lbl">Ngọc</span>
+        </div>
+        <div class="hero-pill">
+          <span class="val">🔥 ${streakDays}</span>
+          <span class="lbl">Chuỗi Ngày</span>
+        </div>
+        <div class="hero-pill">
+          <span class="val">🛡️ 100</span>
+          <span class="lbl">Đức Hạnh</span>
+        </div>
       </div>
-    </div>
+    </section>
 
-    <!-- TRẠNG THÁI & KHỐI LIVE TASK LOGS KHI ĐANG CHẠY -->
-    ${runningBannerHTML}
-
-    <!-- HỒ SƠ TU TẬP & BỘ SƯU TẬP NHÂN VẬT (4 TAB CHUẨN GIAO DIỆN CHÙA) -->
-    <div class="card" id="card_profile_tabs" style="margin-bottom: 20px;">
-      <div class="card-header-toggle" onclick="toggleSection('card_profile_tabs')">
-        <h2>
-          <span>🪷 Hồ Sơ Tu Tập & Bộ Sưu Tập (4 Tab)</span>
-          <small style="font-size:12px; color:var(--text-dim); font-weight:normal;">Của tôi · Bộ sưu tập · Danh hiệu · Bản đồ & Tài khoản</small>
-        </h2>
-        <span class="chevron-icon">▼</span>
+    <!-- AUTO ENGINE COMMAND BANNER -->
+    <section class="auto-engine-card">
+      <div class="auto-engine-info">
+        <div class="auto-badge ${autoEnabled ? 'auto-badge-on' : 'auto-badge-off'}" id="autoEngineBadge">
+          ${autoEnabled ? '🟢 CỖ MÁY TỰ CHƠI AUTO: ĐANG HOẠT ĐỘNG (24/7)' : '⚪ CỖ MÁY TỰ CHƠI AUTO: ĐANG TẮT'}
+        </div>
+        <div class="auto-desc">
+          ${autoEnabled
+            ? 'Cỗ máy đang tự động kiểm tra nhiệm vụ ngày (00:05 UTC+7), quét hoàn thành việc còn thiếu mỗi 15 phút và giữ thức Render.'
+            : 'Nhấn nút bật bên cạnh để cỗ máy tự động chơi toàn diện trên cloud Render mà không cần can thiệp.'}
+        </div>
       </div>
-      <div class="collapsible-content">
-        <!-- 4 Tab Buttons -->
-        <div class="profile-tab-bar">
-          <button type="button" class="profile-tab-btn active" onclick="switchProfileTab('tab_my')">🧘 1. Của tôi</button>
-          <button type="button" class="profile-tab-btn" onclick="switchProfileTab('tab_collection')">🥼 2. Bộ sưu tập</button>
-          <button type="button" class="profile-tab-btn" onclick="switchProfileTab('tab_titles')">🏅 3. Danh hiệu</button>
-          <button type="button" class="profile-tab-btn" onclick="switchProfileTab('tab_account_map')">🗺️ 4. Bản đồ & Tài khoản</button>
-        </div>
+      <div class="auto-engine-actions">
+        <button type="button" class="btn ${autoEnabled ? 'btn-danger' : 'btn-success'}" onclick="toggleAutoMode()" id="autoToggleBtn">
+          ${autoEnabled ? '🛑 Tắt Chế Độ Auto' : '🤖 Bật Tự Động Chơi (Auto)'}
+        </button>
+        <button type="button" class="btn btn-primary" onclick="runTask('all')" ${isAnyRunning ? 'disabled' : ''}>
+          ⚡ Chạy Nhanh Toàn Bộ
+        </button>
+        <button type="button" class="btn btn-gold" onclick="runTask('claim')" ${isAnyRunning ? 'disabled' : ''}>
+          🎁 Nhận Tất Cả Quà
+        </button>
+        <button type="button" class="btn" onclick="runTask('ngoi-daily')" ${isAnyRunning ? 'disabled' : ''}>
+          🧘 Thiền 5 Phút
+        </button>
+        <button type="button" class="btn btn-danger" onclick="stopTask()" ${!isRunning || isStopping ? 'disabled' : ''}>
+          🛑 Dừng Tác Vụ
+        </button>
+      </div>
+    </section>
 
-        <!-- TAB 1: CỦA TÔI -->
-        <div class="profile-tab-pane active" id="tab_my">
-          <div class="quote-bubble">
-            “${escapeHTML(clientConfigBio)}”
-          </div>
-
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
-            <div>
-              <b style="font-size:16px; color:var(--gold);">${escapeHTML(displayName)}</b>
-              <span style="font-size:12px; color:var(--text-dim); margin-left:6px;">(@${escapeHTML(rawUser || 'phat-tu')})</span>
-              <div style="font-size:12px; color:var(--text-dim); margin-top:2px;">
-                Cấp bậc: <b style="color:var(--text);">${reportValue(me.level || j.level)} (Lv.${reportValue(me.lv ?? j.lv)})</b> · Danh hiệu: <b style="color:var(--gold);">${escapeHTML(activeTitleName)}</b>
-              </div>
-            </div>
-            <div style="display:flex; gap:6px; flex-wrap:wrap;">
-              <button type="button" class="btn-task btn-run" onclick="runTask('auto')" style="background:linear-gradient(135deg, #1b3a4b, #2d5a88); color:#64b5f6; border:1px solid #42a5f5;" ${isRunning || isStopping ? 'disabled' : ''}>🤖 Tự chơi</button>
-              <button type="button" class="btn-task btn-run" onclick="runTask('ngoi-daily')" ${isRunning || isStopping ? 'disabled' : ''}>🧘 Ngồi thiền</button>
-              <button type="button" class="btn-task btn-run" onclick="runTask('greet')" ${isRunning || isStopping ? 'disabled' : ''}>🙏 Chắp tay</button>
-              <button type="button" class="btn-task btn-run" onclick="runTask('khoe')" ${isRunning || isStopping ? 'disabled' : ''}>📢 Khoe (+10đ)</button>
-              <button type="button" class="btn-task btn-run" onclick="runTask('am')" ${isRunning || isStopping ? 'disabled' : ''}>🛖 Vào Am</button>
-              <button type="button" class="btn-task btn-run" onclick="runTask('phapduong')" ${isRunning || isStopping ? 'disabled' : ''}>🏛️ Pháp đường</button>
-            </div>
-          </div>
-
-          <!-- 6 Ô Trang bị quanh nhân vật -->
-          <div class="gear-grid">
-            <div class="gear-card">
-              <div class="gear-icon">👘</div>
-              <div class="gear-type">Áo tràng</div>
-              <div class="gear-name">${escapeHTML(robeName)}</div>
-            </div>
-            <div class="gear-card">
-              <div class="gear-icon">📿</div>
-              <div class="gear-type">Tràng hạt</div>
-              <div class="gear-name">${escapeHTML(beadsName)}</div>
-            </div>
-            <div class="gear-card">
-              <div class="gear-icon">🪷</div>
-              <div class="gear-type">Bồ đoàn</div>
-              <div class="gear-name">${escapeHTML(cushionName)}</div>
-            </div>
-            <div class="gear-card">
-              <div class="gear-icon">⚔️</div>
-              <div class="gear-type">Pháp khí</div>
-              <div class="gear-name">${escapeHTML(phapkhiName)}</div>
-            </div>
-            <div class="gear-card">
-              <div class="gear-icon">🐾</div>
-              <div class="gear-type">Linh thú</div>
-              <div class="gear-name">${escapeHTML(petName)}</div>
-            </div>
-            <div class="gear-card">
-              <div class="gear-icon">🏅</div>
-              <div class="gear-type">Danh hiệu</div>
-              <div class="gear-name">${escapeHTML(activeTitleName)}</div>
-            </div>
-          </div>
-
-          <!-- Thanh tiến độ công đức -->
-          <div style="margin-top:14px;">
-            <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
-              <span><b>${reportValue(currentTotal)}</b> / ${reportValue(nextTarget)} công đức đến cấp tiếp theo</span>
-              <span style="color:var(--gold);">${nextLevelPoints !== null ? `Còn ${reportValue(nextLevelPoints)} điểm` : ''}</span>
-            </div>
-            <div class="progress-bar-container">
-              <div class="progress-bar-fill" style="width: ${meritProgressPercent}%;"></div>
-              <div class="progress-bar-label">${meritProgressPercent}%</div>
-            </div>
-          </div>
-
-          <!-- 4 Thông số tu tập chính chuẩn Modal game -->
-          <div class="stat-row" style="margin-top:12px;">
-            <div class="stat-box">
-              <b>${reportValue(j.bows)}</b>
-              <span>Lạy Phật (Mốc 1.000 lạy 🏆)</span>
-            </div>
-            <div class="stat-box">
-              <b>${reportValue(j.rounds)} chuỗi</b>
-              <span>Tràng hạt (${reportValue(j.beads)} hạt niệm 🏆)</span>
-            </div>
-          </div>
-          <div class="stat-row">
-            <div class="stat-box">
-              <b>${reportValue(j.sitMin)} phút</b>
-              <span>Ngồi tĩnh tâm (Tĩnh tọa 🏆)</span>
-            </div>
-            <div class="stat-box">
-              <b>${reportValue(j.streak ?? me.days)} ngày</b>
-              <span>Ngày liên tiếp (Kỷ lục ${reportValue(j.best ?? 3)})</span>
-            </div>
-          </div>
-
-          <!-- 10 Nhiệm Vụ Tuần (Weekly Quests) -->
-          <div style="margin-top:16px; border-top:1px solid var(--card-border); padding-top:14px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-              <b style="font-size:13px; color:var(--gold);">📅 Nhiệm Vụ Tuần (10 Mục Tiêu Tu Tập)</b>
-              <span style="font-size:11px; color:var(--text-dim);">Được làm mới hàng tuần</span>
-            </div>
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:8px;">
-              ${weeklyQuestsHTML}
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB 2: BỘ SƯU TẬP -->
-        <div class="profile-tab-pane" id="tab_collection">
-          <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px;">
-            Kho tàng pháp bảo, áo tràng, tràng hạt và 12 pháp khí tu tập Niệm Phật Online. Bạn đã mở khóa <b>${unlockedPhapkhiSet.size}/12</b> pháp khí cao quý!
-          </p>
-
-          <h3 style="font-size:13px; color:var(--gold); margin-bottom:10px;">⚔️ 12 Pháp Khí Chùa (Đã mở ${unlockedPhapkhiSet.size}/12)</h3>
-          <div class="phapkhi-grid">
-            ${phapkhiListHTML}
-          </div>
-
-          <!-- Form Thay Đổi Diện Mạo & Trang Bị -->
-          <div style="background:rgba(0,0,0,0.25); border:1px solid var(--card-border); padding:14px; border-radius:12px; margin-top:16px;">
-            <h3 style="color:var(--gold); font-size:14px; margin-bottom:10px;">🛠️ Thay Đổi Diện Mạo & Trang Bị Nhân Vật</h3>
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px; margin-bottom:12px;">
-              <div>
-                <label style="font-size:11px; color:var(--text-dim); display:block; margin-bottom:4px;">Áo tràng:</label>
-                <select id="equip_robe" style="width:100%; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:7px 8px; border-radius:6px; font-size:12px;">
-                  ${Object.entries(ROBES_CATALOG).map(([k, v]) => `<option value="${k}" ${k === robeKey ? 'selected' : ''}>${escapeHTML(v.name)}</option>`).join('')}
-                </select>
-              </div>
-              <div>
-                <label style="font-size:11px; color:var(--text-dim); display:block; margin-bottom:4px;">Tràng hạt:</label>
-                <select id="equip_beads" style="width:100%; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:7px 8px; border-radius:6px; font-size:12px;">
-                  ${Object.entries(BEADS_CATALOG).map(([k, v]) => `<option value="${k}" ${k === beadsKey ? 'selected' : ''}>${escapeHTML(v.name)} ${v.special ? `(${v.special})` : ''}</option>`).join('')}
-                </select>
-              </div>
-              <div>
-                <label style="font-size:11px; color:var(--text-dim); display:block; margin-bottom:4px;">Bồ đoàn:</label>
-                <select id="equip_cushion" style="width:100%; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:7px 8px; border-radius:6px; font-size:12px;">
-                  ${Object.entries(CUSHIONS_CATALOG).map(([k, v]) => `<option value="${k}" ${k === cushionKey ? 'selected' : ''}>${escapeHTML(v.name)} ${v.special ? `(${v.special})` : ''}</option>`).join('')}
-                </select>
-              </div>
-              <div>
-                <label style="font-size:11px; color:var(--text-dim); display:block; margin-bottom:4px;">Pháp khí cầm tay:</label>
-                <select id="equip_phapkhi" style="width:100%; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:7px 8px; border-radius:6px; font-size:12px;">
-                  <option value="">-- Cất pháp khí --</option>
-                  ${Object.entries(PHAPKHI_CATALOG).map(([k, v]) => `<option value="${k}" ${k === phapkhiKey ? 'selected' : ''}>${escapeHTML(v.name)} (${escapeHTML(v.rank)})</option>`).join('')}
-                </select>
-              </div>
-            </div>
-            <div style="margin-bottom:12px;">
-              <label style="font-size:11px; color:var(--text-dim); display:block; margin-bottom:4px;">Tâm niệm / Bio hiển thị:</label>
-              <input type="text" id="equip_bio" value="${escapeHTML(clientConfigBio)}" style="width:100%; background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:7px 10px; border-radius:6px; font-size:12px;" placeholder="Nhập tâm niệm của bạn...">
-            </div>
-            <button type="button" class="btn" onclick="runEquip()" style="font-size:13px; padding:8px 16px;" ${isRunning || isStopping ? 'disabled' : ''}>
-              ⚡ Áp Dụng Trang Bị & Diện Mạo
-            </button>
-          </div>
-
-          <!-- Tủ Chữ Thư Pháp Thầy Đồ (12 Chữ Cát Tường) -->
-          <div style="background:rgba(0,0,0,0.25); border:1px solid var(--card-border); padding:14px; border-radius:12px; margin-top:16px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
-              <div>
-                <h3 style="color:var(--gold); font-size:14px; margin:0;">📜 Tủ Chữ Thư Pháp Thầy Đồ (Trọn Bộ 12 Chữ)</h3>
-                <small style="color:var(--text-dim); font-size:11px;">Mỗi chữ là một lời chúc phước lành và ý nghĩa tu dưỡng đạo đức chốn thiền môn</small>
-              </div>
-              <button type="button" class="btn" onclick="runTask('chu-all')" style="font-size:12px; padding:7px 16px; background:linear-gradient(135deg, #b8860b, #e9c27a); color:#1c150e; font-weight:700;" ${isRunning || isStopping ? 'disabled' : ''}>
-                📜 Xin Trọn Bộ 12 Chữ Ngay
-              </button>
-            </div>
-            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); gap:10px;">
-              ${calligraphyCardsHTML}
-            </div>
-          </div>
-
-          <!-- TÀNG KINH CÁC & THƯ VIỆN KINH ĐIỂN (6 BÀI KINH GIÁC NGỘ) -->
-          <div style="background:rgba(0,0,0,0.25); border:1px solid var(--card-border); padding:14px; border-radius:12px; margin-top:16px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
-              <div>
-                <h3 style="color:var(--gold); font-size:14px; margin:0;">📖 Tàng Kinh Các & Thư Viện Kinh Điển (6 Bài Kinh Giác Ngộ)</h3>
-                <small style="color:var(--text-dim); font-size:11px;">Kinh văn đại thừa & chân ngôn mầu nhiệm lưu giữ nơi Tàng Kinh Các chốn thiền môn</small>
-              </div>
-              <button type="button" class="btn" onclick="runTask('tangkinh')" style="font-size:12px; padding:7px 16px; background:linear-gradient(135deg, #1e3c72, #2a5298); color:#fff; font-weight:700;" ${isRunning || isStopping ? 'disabled' : ''}>
-                📖 Nghe Trọn Bộ Kinh Điển Ngay
-              </button>
-            </div>
-            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); gap:10px;">
-              ${sutrasCardsHTML}
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB 3: DANH HIỆU -->
-        <div class="profile-tab-pane" id="tab_titles">
-          <div style="background:rgba(233,194,122,0.1); border:1px solid rgba(233,194,122,0.3); padding:12px 16px; border-radius:10px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-            <div>
-              <span style="font-size:12px; color:var(--text-dim);">Danh hiệu đang đeo trên người:</span>
-              <div style="font-size:15px; font-weight:700; color:var(--gold); margin-top:2px;">
-                🏆 ${escapeHTML(activeTitleName)}
-              </div>
-            </div>
-            <div style="display:flex; align-items:center; gap:8px;">
-              <select id="title_select" style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:7px 10px; border-radius:8px; font-size:12px; min-width:180px;" ${isRunning || isStopping ? 'disabled' : ''}>
-                ${(j.titles || []).filter(t => t.got).map(t => `<option value="${escapeHTML(t.id)}" ${t.id === activeTitleId ? 'selected' : ''}>${escapeHTML(t.name)}</option>`).join('')}
-              </select>
-              <button type="button" class="btn" onclick="runTitle()" style="font-size:12px; padding:7px 14px;" ${isRunning || isStopping ? 'disabled' : ''}>
-                🏅 Đổi
-              </button>
-            </div>
-          </div>
-
-          <h3 style="font-size:13px; color:var(--gold); margin-bottom:10px;">🏆 10 Danh Hiệu Đã Mở Khóa</h3>
-          <div class="title-grid" style="margin-bottom:16px;">
-            ${unlockedTitlesHTML}
-          </div>
-
-          <h3 style="font-size:13px; color:var(--text-dim); margin-bottom:10px;">🔒 Danh Hiệu Đang Tu Luyện (Chờ Mở Khóa)</h3>
-          <div class="title-grid">
-            ${lockedTitlesHTML}
-          </div>
-        </div>
-
-        <!-- TAB 4: BẢN ĐỒ CHÙA & TÀI KHOẢN -->
-        <div class="profile-tab-pane" id="tab_account_map">
-          <!-- Dịch chuyển nhanh -->
-          <div style="background:rgba(0,0,0,0.25); border:1px solid var(--card-border); padding:14px; border-radius:12px; margin-bottom:16px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-            <span style="font-size:13px; color:var(--gold); font-weight:600;">🚀 Dịch chuyển nhanh đến địa điểm:</span>
-            <select id="teleport_select" style="background:#1c150e; color:var(--gold); border:1px solid var(--card-border); padding:7px 10px; border-radius:8px; font-size:12px; min-width:220px;" ${isRunning || isStopping ? 'disabled' : ''}>
-              ${TEMPLE_MAP.places.map(p => `<option value="${escapeHTML(p.id)}">${escapeHTML(p.name)} (${escapeHTML(p.zone)})</option>`).join('')}
-            </select>
-            <button type="button" class="btn" onclick="runTeleport()" style="font-size:12px; padding:7px 14px;" ${isRunning || isStopping ? 'disabled' : ''}>
-              🚀 Dịch Chuyển Đến (Goto)
-            </button>
-          </div>
-
-          <h3 style="font-size:13px; color:var(--gold); margin-bottom:10px;">🗺️ 17 Thắng Cảnh Bản Đồ Niệm Phật Online</h3>
-          <div class="map-grid">
-            ${mapPlacesHTML}
-          </div>
-
-          <!-- Thông tin tài khoản & Kết nối -->
-          <div style="background:rgba(0,0,0,0.25); border:1px solid var(--card-border); padding:14px; border-radius:12px; margin-top:16px;">
-            <h3 style="color:var(--gold); font-size:13px; margin-bottom:8px;">🔐 Thông Tin Tài Khoản & Kết Nối Máy Chủ</h3>
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; font-size:12px;">
-              <div>Tài khoản: <b style="color:var(--gold);">@${escapeHTML(rawUser || 'phat-tu')}</b></div>
-              <div>Pháp danh: <b>${escapeHTML(displayName)}</b></div>
-              <div>Phòng hiện tại: <b>chua-1</b></div>
-              <div>Máy chủ WebSocket: <b>wss://didenchua.com:443/ws</b></div>
-              <div>Render Health Check: <b>/health (alias: /heath, /ping)</b></div>
-              <div>Cơ chế tự động: <b>00:05 sáng (UTC+7) & Keep-Alive 3p</b></div>
-            </div>
-          </div>
-        </div>
+    <!-- CULTIVATION STATS GRID -->
+    <h2 class="section-title">📊 Chỉ Số Công Đức Tu Tập (Niệm Phật Online)</h2>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon">🙇</div>
+        <div class="stat-num">${bowsCount}</div>
+        <div class="stat-label">Lạy Phật</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">📿</div>
+        <div class="stat-num">${beadsCount}</div>
+        <div class="stat-label">Hạt Tràng (${roundsCount} chuỗi)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🪵</div>
+        <div class="stat-num">${moCount}</div>
+        <div class="stat-label">Tiếng Mõ</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🧘</div>
+        <div class="stat-num">${sitMin}</div>
+        <div class="stat-label">Phút Thiền</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">📜</div>
+        <div class="stat-num">${chantsCount}</div>
+        <div class="stat-label">Bài Kinh</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🧹</div>
+        <div class="stat-num">${sweepsCount}</div>
+        <div class="stat-label">Lần Quét Sân</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🏯</div>
+        <div class="stat-num">${visitsCount}</div>
+        <div class="stat-label">Cổ Tự Đã Viếng</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">☸️</div>
+        <div class="stat-num">${roundsCount || 2}</div>
+        <div class="stat-label">Vòng Quay Lộc</div>
       </div>
     </div>
 
-    <!-- BẢNG ĐIỀU KHIỂN TỪNG NHIỆM VỤ & DANH SÁCH TOÀN BỘ (5 TẦNG KHOA HỌC) -->
-    <div class="card" id="card_tasks" style="margin-bottom: 20px;">
-      <div class="card-header-toggle" onclick="toggleSection('card_tasks')">
-        <h2>
-          <span>🎯 Bảng Điều Khiển Nhiệm Vụ & Tác Vụ Riêng Lẻ (5 Tầng)</span>
-          <small style="font-size:12px; color:var(--text-dim); font-weight:normal;">Chạy ngẫu hứng · Kèm nút Dừng & Live Log</small>
-        </h2>
-        <span class="chevron-icon">▼</span>
+    <!-- DAILY QUESTS REPORT -->
+    <section class="quests-section">
+      <h2 class="section-title">📋 Báo Cáo Nhiệm Vụ Hôm Nay</h2>
+      ${questsSummaryHTML}
+      <div class="quests-list">
+        ${questsListHTML}
       </div>
-      <div class="collapsible-content">
-        <p style="font-size:12px; color:var(--text-dim); margin-bottom:14px; line-height:1.6;">
-          Sau khi chu trình tự động lúc 00:05 hoàn tất, bạn có thể bấm <b>[⚡ Chạy]</b> riêng lẻ bất kỳ nhiệm vụ nào bên dưới bất cứ khi nào vào chùa. Quá trình chạy sẽ stream nhật ký trực tiếp vào hộp log phía trên. Bấm <b>[🛑 Dừng]</b> để ngắt tác vụ an toàn.
-        </p>
+    </section>
 
-        <div style="display:flex; flex-direction:column; gap: 12px;">
-          <!-- TẦNG 1 -->
-          <div class="tier-box" id="tier_1">
-            <div class="tier-header" onclick="toggleSection('tier_1')">
-              <div class="tier-title"><span>📋</span> TẦNG 1: NHIỆM VỤ HÀNG NGÀY (QUEST HÔM NAY - 13 TÁC VỤ)</div>
-              <div class="tier-meta">
-                <span class="chevron-icon">▼</span>
-              </div>
-            </div>
-            <div class="tier-body">
-              ${dailyTasksHTML}
-            </div>
-          </div>
-
-          <!-- TẦNG 2 -->
-          <div class="tier-box" id="tier_2">
-            <div class="tier-header" onclick="toggleSection('tier_2')">
-              <div class="tier-title"><span>🎯</span> TẦNG 2: MỐC TU TẬP & THÀNH TỰU VĨNH VIỄN (6 TÁC VỤ)</div>
-              <div class="tier-meta">
-                <span class="chevron-icon">▼</span>
-              </div>
-            </div>
-            <div class="tier-body">
-              ${milestoneTasksHTML}
-            </div>
-          </div>
-
-          <!-- TẦNG 3 -->
-          <div class="tier-box" id="tier_3">
-            <div class="tier-header" onclick="toggleSection('tier_3')">
-              <div class="tier-title"><span>🛖</span> TẦNG 3: KHÔNG GIAN TÂM LINH (AM RIÊNG & PHÁP ĐƯỜNG - 4 TÁC VỤ)</div>
-              <div class="tier-meta">
-                <span class="chevron-icon">▼</span>
-              </div>
-            </div>
-            <div class="tier-body">
-              ${spiritualTasksHTML}
-            </div>
-          </div>
-
-          <!-- TẦNG 4 -->
-          <div class="tier-box" id="tier_4">
-            <div class="tier-header" onclick="toggleSection('tier_4')">
-              <div class="tier-title"><span>🪷</span> TẦNG 4: VƯỜN SEN & TÙY HỶ CÔNG ĐỨC (4 TÁC VỤ)</div>
-              <div class="tier-meta">
-                <span class="chevron-icon">▼</span>
-              </div>
-            </div>
-            <div class="tier-body">
-              ${extraTasksHTML}
-            </div>
-          </div>
-
-          <!-- TẦNG 5 -->
-          <div class="tier-box" id="tier_5">
-            <div class="tier-header" onclick="toggleSection('tier_5')">
-              <div class="tier-title"><span>🧘</span> TẦNG 5: TĨNH TÂM THIỀN ĐỊNH & TRÍ TUỆ AI (2 TÁC VỤ)</div>
-              <div class="tier-meta">
-                <span class="chevron-icon">▼</span>
-              </div>
-            </div>
-            <div class="tier-body">
-              ${zenAiTasksHTML}
-            </div>
+    <!-- DEEP PRACTICE GRID -->
+    <h2 class="section-title">⚡ Thao Tác Tu Tập & Cày Mốc Nhanh</h2>
+    <div class="practice-grid">
+      <!-- Gõ Mõ Tụng Kinh -->
+      <div class="practice-card">
+        <div class="practice-top">
+          <span class="practice-icon">🪵</span>
+          <div class="practice-title-box">
+            <b>Gõ Mõ Tụng Kinh</b>
+            <small>Thời khóa 108 tiếng định tâm</small>
           </div>
         </div>
-      </div>
-    </div>
-
-    <div class="grid">
-      <!-- CÔNG ĐỨC & CẤP BẬC -->
-      <div class="card" id="card_merit">
-        <div class="card-header-toggle" onclick="toggleSection('card_merit')">
-          <h2>
-            <span>✨ Công Đức & Tích Lũy</span>
-            <small style="font-size:11px; color:var(--text-dim); font-weight:normal;">Cập nhật UTC: ${escapeHTML(state.lastUpdated || 'Chưa có dữ liệu')}</small>
-          </h2>
-          <span class="chevron-icon">▼</span>
-        </div>
-        <div class="collapsible-content">
-          <div class="stat-row">
-            <div class="stat-box">
-              <b>${reportValue(me.total ?? j.merit)}</b>
-              <span>Tổng công đức</span>
-            </div>
-            <div class="stat-box">
-              <b>${reportValue(me.today)}</b>
-              <span>Hôm nay</span>
-            </div>
-          </div>
-          <div class="stat-row">
-            <div class="stat-box">
-              <b>${reportValue(nextLevelPoints)}</b>
-              <span>Cần đến cấp sau</span>
-            </div>
-            <div class="stat-box">
-              <b>${reportValue(j.streak ?? me.days)} ngày</b>
-              <span>Kỷ lục liên tiếp</span>
-            </div>
-          </div>
+        <div class="practice-controls">
+          <input type="number" id="count_tung" value="108" min="1" max="20000" ${isAnyRunning ? 'disabled' : ''}>
+          <select onchange="if(this.value){ document.getElementById('count_tung').value = this.value; }" ${isAnyRunning ? 'disabled' : ''}>
+            <option value="" disabled selected>Gợi ý ▼</option>
+            ${tungSmartOption}
+            <option value="30">30 tiếng (Khởi tâm)</option>
+            <option value="54">54 tiếng (Nửa khóa)</option>
+            <option value="108">108 tiếng (Chuẩn khóa lễ 🏆)</option>
+            <option value="216">216 tiếng (2 khóa lễ)</option>
+            <option value="300">300 tiếng (Sám hối)</option>
+            <option value="1080">1.080 tiếng (Đại khóa lễ 🏆)</option>
+          </select>
+          <button type="button" class="btn btn-sm btn-gold" onclick="runTask('tung', { count: parseInt(document.getElementById('count_tung').value, 10) })" ${isAnyRunning ? 'disabled' : ''}>
+            🪵 Gõ Mõ
+          </button>
         </div>
       </div>
 
-      <!-- NHIỆM VỤ HÀNG NGÀY -->
-      <div class="card" id="card_quests">
-        <div class="card-header-toggle" onclick="toggleSection('card_quests')">
-          <h2>📋 Nhiệm Vụ Hôm Nay</h2>
-          <span class="chevron-icon">▼</span>
-        </div>
-        <div class="collapsible-content">
-          ${questsHTML}
-        </div>
-      </div>
-    </div>
-
-    <div class="grid">
-      <!-- TIẾN ĐỘ THÀNH TỰU -->
-      <div class="card" id="card_milestones">
-        <div class="card-header-toggle" onclick="toggleSection('card_milestones')">
-          <h2>🎯 Tiến Độ Thành Tựu Vĩnh Viễn</h2>
-          <span class="chevron-icon">▼</span>
-        </div>
-        <div class="collapsible-content">
-          <div class="stat-row">
-            <div class="stat-box">
-              <b>${reportValue(j.bows)} / 108</b>
-              <span>Lạy Phật (Trăm lạy: ${j.bows === null || j.bows === undefined ? 'chưa xác định' : j.bows >= 108 ? '✅' : 'đang cày'})</span>
-            </div>
-            <div class="stat-box">
-              <b>${reportValue(j.beads)} hạt</b>
-              <span>Tràng hạt (${reportValue(j.rounds)} chuỗi tròn)</span>
-            </div>
+      <!-- Gõ Mõ Tích Luỹ Mốc -->
+      <div class="practice-card">
+        <div class="practice-top">
+          <span class="practice-icon">🪵</span>
+          <div class="practice-title-box">
+            <b>Gõ Mõ Tích Luỹ Mốc</b>
+            <small>Cày mốc thành tựu vĩnh viễn</small>
           </div>
-          <div class="stat-row">
-            <div class="stat-box">
-              <b>${reportValue(j.incense)} / 30</b>
-              <span>Dâng hương (Hương trầm)</span>
-            </div>
-            <div class="stat-box">
-              <b>${reportValue(j.lanterns)} / 10</b>
-              <span>Hoa đăng (Người thả đèn)</span>
-            </div>
-          </div>
-          <div class="stat-row">
-            <div class="stat-box">
-              <b>${reportValue(j.sitMin)} / 60 phút</b>
-              <span>Ngồi tĩnh tâm (Tĩnh tọa)</span>
-            </div>
-            <div class="stat-box">
-              <b>${reportValue(j.visited)} / ${reportValue(j.zones)} khu</b>
-              <span>Khám phá toàn chùa</span>
-            </div>
-          </div>
+        </div>
+        <div class="practice-controls">
+          <input type="number" id="count_mo" value="108" min="1" max="20000" ${isAnyRunning ? 'disabled' : ''}>
+          <select onchange="if(this.value){ document.getElementById('count_mo').value = this.value; }" ${isAnyRunning ? 'disabled' : ''}>
+            <option value="" disabled selected>Gợi ý ▼</option>
+            <option value="108">108 tiếng (1 chuỗi)</option>
+            <option value="300">300 tiếng (Định tâm)</option>
+            <option value="1080">1.080 tiếng</option>
+          </select>
+          <button type="button" class="btn btn-sm" onclick="runTask('mo', { count: parseInt(document.getElementById('count_mo').value, 10) })" ${isAnyRunning ? 'disabled' : ''}>
+            🪵 Gõ Tích Luỹ
+          </button>
         </div>
       </div>
 
-      <!-- BẢNG DANH HIỆU -->
-      <div class="card" id="card_titles">
-        <div class="card-header-toggle" onclick="toggleSection('card_titles')">
-          <h2>🏅 Danh Hiệu & Thành Tựu</h2>
-          <span class="chevron-icon">▼</span>
-        </div>
-        <div class="collapsible-content">
-          <div class="title-grid">
-            ${titlesHTML}
+      <!-- Lăn Tràng Hạt -->
+      <div class="practice-card">
+        <div class="practice-top">
+          <span class="practice-icon">📿</span>
+          <div class="practice-title-box">
+            <b>Lăn Tràng Hạt Niệm Phật</b>
+            <small>Lăn tràng hạt niệm Phật A Di Đà (108 hạt)</small>
           </div>
         </div>
+        <button type="button" class="btn btn-sm btn-gold" onclick="runTask('beads', { count: 108 })" ${isAnyRunning ? 'disabled' : ''}>
+          📿 Lăn 1 Chuỗi Hạt
+        </button>
+      </div>
+
+      <!-- Lạy Phật -->
+      <div class="practice-card">
+        <div class="practice-top">
+          <span class="practice-icon">🙇</span>
+          <div class="practice-title-box">
+            <b>Lạy Phật Sám Hối</b>
+            <small>Cúi đầu đảnh lễ Đức Phật sám hối</small>
+          </div>
+        </div>
+        <button type="button" class="btn btn-sm btn-primary" onclick="runTask('lay-daily')" ${isAnyRunning ? 'disabled' : ''}>
+          🙇 Lạy Phật Ngay
+        </button>
+      </div>
+
+      <!-- Quét Sân Chùa -->
+      <div class="practice-card">
+        <div class="practice-top">
+          <span class="practice-icon">🧹</span>
+          <div class="practice-title-box">
+            <b>Quét Lá Sân Chùa</b>
+            <small>Công quả dọn sạch lá rụng khuôn viên</small>
+          </div>
+        </div>
+        <button type="button" class="btn btn-sm" onclick="runTask('quet', { count: 10 })" ${isAnyRunning ? 'disabled' : ''}>
+          🧹 Quét 10 Lần
+        </button>
+      </div>
+
+      <!-- Thỉnh Chuông -->
+      <div class="practice-card">
+        <div class="practice-top">
+          <span class="practice-icon">🔔</span>
+          <div class="practice-title-box">
+            <b>Thỉnh Chuông Bát Nhã</b>
+            <small>Ngân vang một tiếng đại hồng chung</small>
+          </div>
+        </div>
+        <button type="button" class="btn btn-sm" onclick="runTask('bell')" ${isAnyRunning ? 'disabled' : ''}>
+          🔔 Thỉnh Chuông
+        </button>
+      </div>
+
+      <!-- Dâng Hương -->
+      <div class="practice-card">
+        <div class="practice-top">
+          <span class="practice-icon">🪔</span>
+          <div class="practice-title-box">
+            <b>Dâng Hương Tam Bảo</b>
+            <small>Thắp nén tâm hương thành kính</small>
+          </div>
+        </div>
+        <button type="button" class="btn btn-sm" onclick="runTask('incense', { count: 1 })" ${isAnyRunning ? 'disabled' : ''}>
+          🪔 Thắp 1 Nén Hương
+        </button>
+      </div>
+
+      <!-- Gieo Quẻ & Vòng Quay -->
+      <div class="practice-card">
+        <div class="practice-top">
+          <span class="practice-icon">☸️</span>
+          <div class="practice-title-box">
+            <b>Vòng Quay & Quẻ Cát Tường</b>
+            <small>Quay vòng lộc nhận Sen và gieo quẻ đầu ngày</small>
+          </div>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button type="button" class="btn btn-sm btn-gold" onclick="runTask('wheel')" ${isAnyRunning ? 'disabled' : ''}>
+            ☸️ Vòng Quay
+          </button>
+          <button type="button" class="btn btn-sm" onclick="runTask('que')" ${isAnyRunning ? 'disabled' : ''}>
+            📜 Gieo Quẻ
+          </button>
+        </div>
+      </div>
+
+      <!-- Viếng Cổ Tự -->
+      <div class="practice-card">
+        <div class="practice-top">
+          <span class="practice-icon">🏯</span>
+          <div class="practice-title-box">
+            <b>Chiêm Bái Cổ Tự</b>
+            <small>Hành hương viếng 20 danh lam cổ tự</small>
+          </div>
+        </div>
+        <button type="button" class="btn btn-sm" onclick="runTask('visit')" ${isAnyRunning ? 'disabled' : ''}>
+          🏯 Viếng Toàn Bộ Cổ Tự
+        </button>
       </div>
     </div>
 
-    <!-- NHẬT KÝ & LIVE LOGS -->
-    <div class="grid">
-      <div class="card" id="card_history">
-        <div class="card-header-toggle" onclick="toggleSection('card_history')">
-          <h2>📜 Lịch Sử Chạy Gần Nhất</h2>
-          <span class="chevron-icon">▼</span>
+    <!-- TÀNG KINH CÁC & THƯ VIỆN KINH ĐIỂN -->
+    <section class="showcase-card">
+      <div class="showcase-header">
+        <div>
+          <h3 style="color:var(--gold-light); font-size:15px; margin:0;">📖 Tàng Kinh Các & Thư Viện Kinh Điển (6 Bài Kinh Giác Ngộ)</h3>
+          <small style="color:var(--text-dim); font-size:12px;">Kinh văn đại thừa & chân ngôn mầu nhiệm lưu giữ nơi Tàng Kinh Các chốn thiền môn</small>
         </div>
-        <div class="collapsible-content">
-          <div style="max-height: 220px; overflow-y: auto;">
-            ${historyHTML}
-          </div>
+        <button type="button" class="btn btn-primary" onclick="runTask('tangkinh')" ${isAnyRunning ? 'disabled' : ''}>
+          📖 Nghe Trọn Bộ Kinh Điển Ngay
+        </button>
+      </div>
+      <div class="sutras-grid">
+        ${sutrasCardsHTML}
+      </div>
+    </section>
+
+    <!-- TỦ CHỮ THƯ PHÁP THẦY ĐỒ -->
+    <section class="showcase-card">
+      <div class="showcase-header">
+        <div>
+          <h3 style="color:var(--gold-light); font-size:15px; margin:0;">📜 Tủ Chữ Thư Pháp Thầy Đồ (Trọn Bộ 12 Chữ)</h3>
+          <small style="color:var(--text-dim); font-size:12px;">Mỗi chữ là một lời chúc phước lành và ý nghĩa tu dưỡng đạo đức chốn thiền môn</small>
+        </div>
+        <button type="button" class="btn btn-gold" onclick="runTask('chu-all')" ${isAnyRunning ? 'disabled' : ''}>
+          📜 Xin Trọn Bộ 12 Chữ Ngay
+        </button>
+      </div>
+      <div class="calligraphy-grid">
+        ${calligraphyCardsHTML}
+      </div>
+    </section>
+
+    <!-- LIVE LOGS CONSOLE -->
+    <section class="logs-card">
+      <div class="logs-header">
+        <h2 class="section-title" style="margin:0;">📟 Nhật Ký Thực Thi Thời Gian Thực</h2>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="btn btn-sm" onclick="clearLogs()">🧹 Làm Sạch Log</button>
+          <button type="button" class="btn btn-sm" onclick="copyLogs()">📋 Sao Chép Log</button>
         </div>
       </div>
-
-      <div class="card" id="card_logs">
-        <div class="card-header-toggle" onclick="toggleSection('card_logs')">
-          <h2>💻 Nhật Ký Hệ Thống</h2>
-          <span class="chevron-icon">▼</span>
-        </div>
-        <div class="collapsible-content">
-          <div class="logs-box" id="bottomLogsBox">
-            ${logsHTML}
+      <div class="terminal-box" id="terminalBox">
+        ${state.currentLogs.map(l => `
+          <div class="log-line">
+            <span class="log-time">${escapeHTML(l.timeDisplay || '')}</span>
+            <span>${l.icon || 'ℹ️'}</span>
+            <span class="log-${l.level || 'info'}">${escapeHTML(l.message)}</span>
           </div>
-        </div>
+        `).join('') || '<div class="log-line" style="color:var(--text-muted);">Chưa có nhật ký hoạt động nào.</div>'}
       </div>
-    </div>
-
-    <footer>
-      <p>Hệ thống tự động hóa công đức Niệm Phật Online · Múi giờ: Asia/Ho_Chi_Minh (UTC+7) · Lưu trữ: Bộ nhớ tạm phiên làm việc (In-memory buffer) · <a href="/health">Health Monitor</a></p>
-    </footer>
+    </section>
   </div>
 
   <script>
-    async function runTask(taskId, customOptions = {}) {
-      const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-      const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
+    const CSRF_TOKEN = '${CSRF_TOKEN}';
+    let isTaskRunning = ${isRunning ? 'true' : 'false'};
 
-      const turboToggle = document.getElementById('turboModeToggle');
-      const isTurbo = turboToggle ? turboToggle.checked : (localStorage.getItem('didenchua_turbo') === '1');
-      const payload = { task: taskId, turbo: isTurbo, fast: isTurbo, ...customOptions };
-      if (taskId === 'meditate' || taskId === 'ngoi-daily') {
-        const medInp = document.getElementById('duration_min_' + taskId);
-        if (medInp && medInp.value) {
-          const mins = parseInt(medInp.value, 10) || 5;
-          payload.meditate = mins * 60;
-        } else {
-          const medSel = document.getElementById('meditateSelect');
-          if (medSel) payload.meditate = Number(medSel.value);
-        }
-      } else if (taskId === 'farm-bows-beads') {
-        const bowsInp = document.getElementById('combo_bows');
-        const beadsInp = document.getElementById('combo_beads');
-        if (bowsInp && bowsInp.value !== '') payload.bowsCount = Number(bowsInp.value);
-        if (beadsInp && beadsInp.value !== '') payload.beadsCount = Number(beadsInp.value);
-      } else if (taskId === 'chu' || taskId === 'secrets') {
-        if (!payload.wish) {
-          const wishSel = document.getElementById('wish_' + taskId);
-          if (wishSel && wishSel.value) payload.wish = wishSel.value;
-        }
-      } else if (taskId === 'teleport') {
-        const placeSel = document.getElementById('place_' + taskId);
-        if (placeSel && placeSel.value) payload.placeId = placeSel.value;
-      } else {
-        const countInp = document.getElementById('count_' + taskId);
-        if (countInp && countInp.value !== '') {
-          payload.count = Number(countInp.value);
-        }
-      }
+    // Turbo Mode Sync
+    const savedTurbo = localStorage.getItem('didenchua_turbo');
+    const isTurbo = savedTurbo === 'true';
+    const turboCheckbox = document.getElementById('turboModeToggle');
+    if (turboCheckbox) turboCheckbox.checked = isTurbo;
 
-      const allRunBtns = document.querySelectorAll('.btn-run, .btn-quick-run, .btn-quick-claim, #runBtn, #autoPlayBtn');
-      allRunBtns.forEach(b => { b.disabled = true; });
+    function toggleTurboMode(checked) {
+      localStorage.setItem('didenchua_turbo', checked ? 'true' : 'false');
+    }
+
+    // Run Task API
+    async function runTask(taskId, extraOptions = {}) {
+      if (isTaskRunning) return;
+      const isTurbo = localStorage.getItem('didenchua_turbo') === 'true';
+      const payload = { task: taskId, turbo: isTurbo, ...extraOptions };
 
       try {
-        const headers = { 'Content-Type': 'application/json' };
-        if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
-
-        const res = await fetch('/api/run', {
+        const resp = await fetch('/api/run', {
           method: 'POST',
-          headers,
+          headers: {
+            'Content-Type': 'application/json',
+            'x-csrf-token': CSRF_TOKEN
+          },
           body: JSON.stringify(payload)
         });
-        const data = await res.json();
-        if (res.ok && data.ok) {
-          location.reload();
-        } else if (res.status === 401) {
-          alert('Phiên làm việc trên máy chủ vừa được khởi động lại. Đang tải lại trang để đồng bộ mã bảo mật mới...');
-          location.reload();
+        const data = await resp.json();
+        if (!resp.ok) {
+          alert(data.error || data.message || 'Lỗi khi kích hoạt tác vụ');
         } else {
-          alert(data.error || data.message || 'Lỗi khi kích hoạt nhiệm vụ');
-          allRunBtns.forEach(b => { b.disabled = false; });
+          isTaskRunning = true;
+          updateRunningUI(true, taskId);
         }
       } catch (err) {
-        alert('Lỗi kết nối: ' + err.message);
-        allRunBtns.forEach(b => { b.disabled = false; });
+        alert('Lỗi kết nối máy chủ: ' + err.message);
       }
     }
 
+    // Stop Task API
     async function stopTask() {
-      if (!confirm('Bạn có chắc chắn muốn dừng tác vụ đang thực thi không?')) return;
-      const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-      const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
-
-      const stopBtns = document.querySelectorAll('.btn-stop, #stopMainBtn, #stopHeaderBtn');
-      stopBtns.forEach(b => { b.disabled = true; b.textContent = '⏳ Đang dừng…'; });
-
       try {
-        const headers = { 'Content-Type': 'application/json' };
-        if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
-
-        const res = await fetch('/api/stop', {
+        const resp = await fetch('/api/stop', {
           method: 'POST',
-          headers
+          headers: {
+            'Content-Type': 'application/json',
+            'x-csrf-token': CSRF_TOKEN
+          }
         });
-        const data = await res.json();
-        if (res.ok && data.ok) {
-          // Trang sẽ tự reload khi poll thấy trạng thái dừng
-          setTimeout(() => location.reload(), 1200);
-        } else if (res.status === 401) {
-          alert('Phiên làm việc trên máy chủ vừa được khởi động lại. Đang tải lại trang để đồng bộ mã bảo mật mới...');
-          location.reload();
+        const data = await resp.json();
+        if (resp.ok) {
+          alert(data.message || 'Đã gửi lệnh dừng an toàn.');
+        }
+      } catch (err) {
+        alert('Lỗi khi gửi lệnh dừng: ' + err.message);
+      }
+    }
+
+    // Refresh Data API
+    async function refreshData() {
+      try {
+        const resp = await fetch('/api/refresh', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-csrf-token': CSRF_TOKEN
+          }
+        });
+        const data = await resp.json();
+        if (data.ok) {
+          window.location.reload();
         } else {
-          alert(data.error || data.message || 'Lỗi khi gửi yêu cầu dừng');
-          stopBtns.forEach(b => { b.disabled = false; b.textContent = '🛑 Dừng'; });
+          alert(data.message || 'Không thể làm mới dữ liệu');
+        }
+      } catch (err) {
+        alert('Lỗi khi làm mới: ' + err.message);
+      }
+    }
+
+    // Toggle Auto Play API
+    async function toggleAutoMode() {
+      try {
+        const resp = await fetch('/api/auto/toggle', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-csrf-token': CSRF_TOKEN
+          }
+        });
+        const data = await resp.json();
+        if (data.ok) {
+          window.location.reload();
+        } else {
+          alert(data.error || 'Lỗi khi chuyển đổi chế độ Auto');
         }
       } catch (err) {
         alert('Lỗi kết nối: ' + err.message);
-        stopBtns.forEach(b => { b.disabled = false; b.textContent = '🛑 Dừng'; });
       }
     }
 
-    async function manualRefresh() {
-      if (!confirm('⚠️ LƯU Ý KẾT NỐI MÁY CHỦ CHÙA:\\nLàm mới dữ liệu từ chùa sẽ kết nối máy chủ trong vài giây để lấy snapshot công đức mới nhất.\\nNếu bạn đang tự chơi game trên điện thoại/máy tính, phiên game có thể bị ngắt kết nối.\\n\\nBạn có chắc chắn muốn làm mới từ chùa lúc này không?')) {
-        return;
+    function clearLogs() {
+      const box = document.getElementById('terminalBox');
+      if (box) box.innerHTML = '<div class="log-line" style="color:var(--text-muted);">Đã làm sạch nhật ký trên màn hình.</div>';
+    }
+
+    function copyLogs() {
+      const box = document.getElementById('terminalBox');
+      if (box) {
+        navigator.clipboard.writeText(box.innerText).then(() => {
+          alert('Đã sao chép toàn bộ nhật ký vào clipboard!');
+        }).catch(() => {});
       }
-      const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-      const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
-      const refBtn = document.getElementById('refreshBtn');
-      if (refBtn) {
-        refBtn.disabled = true;
-        refBtn.textContent = '🔄 Đang đồng bộ…';
-      }
-      try {
-        const headers = { 'Content-Type': 'application/json' };
-        if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
-        const res = await fetch('/api/refresh', {
-          method: 'POST',
-          headers
-        });
-        const data = await res.json();
-        if (res.ok && data.ok) {
-          location.reload();
-        } else if (res.status === 401) {
-          alert('Phiên làm việc trên máy chủ vừa được khởi động lại. Đang tải lại trang để đồng bộ mã bảo mật mới...');
-          location.reload();
+    }
+
+    function updateRunningUI(running, taskName) {
+      const badge = document.getElementById('botStatusBadge');
+      if (badge) {
+        if (running) {
+          badge.className = 'badge badge-ready';
+          badge.textContent = '🟡 Đang thực thi: ' + (taskName || 'Tác vụ');
         } else {
-          alert(data.error || data.message || 'Lỗi khi làm mới dữ liệu');
-          if (refBtn) {
-            refBtn.disabled = false;
-            refBtn.textContent = '🔄 Làm Mới Dữ Liệu';
-          }
-        }
-      } catch (err) {
-        alert('Lỗi kết nối: ' + err.message);
-        if (refBtn) {
-          refBtn.disabled = false;
-          refBtn.textContent = '🔄 Làm Mới Dữ Liệu';
+          badge.className = 'badge badge-done';
+          badge.textContent = '🟢 Sẵn sàng';
         }
       }
-    }
-
-    function triggerRun() {
-      const medSel = document.getElementById('meditateSelect');
-      const medVal = medSel ? medSel.value : '3600';
-      runTask('all', { meditate: Number(medVal) });
-    }
-
-    // Tự động đồng bộ Live Logs từng giây khi đang làm nhiệm vụ (an toàn DOM textContent, chống XSS)
-    const isCurrentlyRunning = ${isRunning ? 'true' : 'false'};
-
-    if (isCurrentlyRunning) {
-      const pollTimer = setInterval(async () => {
-        try {
-          const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-          const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
-          const headers = {};
-          if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
-
-          const res = await fetch('/api/status', { headers });
-          if (!res.ok) return;
-          const data = await res.json();
-
-          if (!data.isRunning) {
-            clearInterval(pollTimer);
-            location.reload();
-            return;
-          }
-
-          if (data.isStopping) {
-            const taskNameEl = document.getElementById('runningTaskTitle');
-            if (taskNameEl) {
-              const dot = document.createElement('span');
-              dot.className = 'pulse-dot';
-              dot.style.background = '#e06c75';
-              taskNameEl.textContent = '';
-              taskNameEl.appendChild(dot);
-              taskNameEl.appendChild(document.createTextNode(' 🛑 ĐANG DỪNG AN TOÀN: ' + (data.runningTaskName || '') + ' (Đang ngắt kết nối an toàn...)'));
-              taskNameEl.style.color = '#e06c75';
-            }
-            const stopBtns = document.querySelectorAll('.btn-stop, #stopMainBtn, #stopHeaderBtn');
-            stopBtns.forEach(b => { b.disabled = true; b.textContent = '⏳ Đang dừng…'; });
-          }
-
-          // Cập nhật số giây an toàn
-          const timerEl = document.getElementById('elapsedTimer');
-          if (timerEl && data.runningSeconds !== undefined) {
-            timerEl.textContent = '⏱️ Đã chạy: ' + String(data.runningSeconds) + 's';
-          }
-
-          // Cập nhật tên tác vụ
-          const taskNameEl = document.getElementById('runningTaskTitle');
-          if (taskNameEl && data.runningTaskName && !data.isStopping) {
-            taskNameEl.textContent = '🟡 ĐANG CHẠY: ' + data.runningTaskName;
-          }
-
-          // Cập nhật Live Logs box an toàn tuyệt đối với textContent
-          const logBox = document.getElementById('liveLogsContainer');
-          if (logBox && Array.isArray(data.liveTaskLogs)) {
-            logBox.textContent = '';
-            for (const logItem of data.liveTaskLogs) {
-              const row = document.createElement('div');
-              const timeSpan = document.createElement('span');
-              timeSpan.style.color = 'var(--text-dim)';
-              timeSpan.style.marginRight = '6px';
-              timeSpan.textContent = typeof logItem === 'object' && logItem.timeDisplay ? logItem.timeDisplay : '';
-
-              const iconSpan = document.createElement('span');
-              iconSpan.style.marginRight = '4px';
-              iconSpan.textContent = typeof logItem === 'object' && logItem.icon ? logItem.icon : '';
-
-              const msgSpan = document.createElement('span');
-              msgSpan.textContent = typeof logItem === 'object' && logItem.message ? logItem.message : String(logItem);
-
-              row.appendChild(timeSpan);
-              row.appendChild(iconSpan);
-              row.appendChild(msgSpan);
-              logBox.appendChild(row);
-            }
-          }
-        } catch {}
-      }, 2000);
-    } else {
-      setTimeout(async () => {
-        try {
-          const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-          const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
-          const headers = {};
-          if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
-          const res = await fetch('/api/status', { headers });
-          if (!res.ok) return;
-          const data = await res.json();
-          if (data.isRunning) location.reload();
-        } catch {}
-      }, 15000);
-    }
-
-    // ==========================================
-    // LOGIC ĐÓNG / MỞ (COLLAPSE & EXPAND) GIAO DIỆN
-    // ==========================================
-    function toggleSection(sectionId) {
-      const el = document.getElementById(sectionId);
-      if (!el) return;
-      const isCollapsed = el.classList.toggle('collapsed');
-      try {
-        localStorage.setItem('ddc_col_' + sectionId, isCollapsed ? '1' : '0');
-      } catch (e) {}
-    }
-
-    function expandAllSections() {
-      document.querySelectorAll('.card, .tier-box').forEach(el => {
-        el.classList.remove('collapsed');
-        try {
-          if (el.id) localStorage.setItem('ddc_col_' + el.id, '0');
-        } catch (e) {}
-      });
-    }
-
-    function collapseAllSections() {
-      document.querySelectorAll('.card, .tier-box').forEach(el => {
-        el.classList.add('collapsed');
-        try {
-          if (el.id) localStorage.setItem('ddc_col_' + el.id, '1');
-        } catch (e) {}
-      });
-    }
-
-    function switchProfileTab(tabId) {
-      document.querySelectorAll('.profile-tab-btn').forEach(btn => btn.classList.remove('active'));
-      document.querySelectorAll('.profile-tab-pane').forEach(pane => pane.classList.remove('active'));
-
-      const activeBtn = Array.from(document.querySelectorAll('.profile-tab-btn')).find(b => b.getAttribute('onclick')?.includes(tabId));
-      if (activeBtn) activeBtn.classList.add('active');
-
-      const activePane = document.getElementById(tabId);
-      if (activePane) activePane.classList.add('active');
-
-      try {
-        localStorage.setItem('ddc_active_profile_tab', tabId);
-      } catch (e) {}
-    }
-
-    function restoreProfileTab() {
-      try {
-        const savedTab = localStorage.getItem('ddc_active_profile_tab');
-        if (savedTab && document.getElementById(savedTab)) {
-          switchProfileTab(savedTab);
+      document.querySelectorAll('button:not(#autoToggleBtn)').forEach(btn => {
+        if (!btn.classList.contains('btn-danger') || !btn.textContent.includes('Dừng')) {
+          btn.disabled = running;
         }
-      } catch (e) {}
+      });
     }
 
-    async function runEquip() {
-      const robe = document.getElementById('equip_robe')?.value;
-      const beads = document.getElementById('equip_beads')?.value;
-      const cushion = document.getElementById('equip_cushion')?.value;
-      const phapkhi = document.getElementById('equip_phapkhi')?.value;
-      const bio = document.getElementById('equip_bio')?.value;
-      await runTask('equip', { robe, beads, cushion, phapkhi, bio });
-    }
+    // Clock
+    setInterval(() => {
+      const clock = document.getElementById('serverClock');
+      if (clock) {
+        const now = new Date(Date.now() + 7 * 3600 * 1000);
+        clock.textContent = '⏰ ' + now.toISOString().slice(11, 19) + ' (UTC+7)';
+      }
+    }, 1000);
 
-    async function runTitle() {
-      const titleId = document.getElementById('title_select')?.value;
-      if (!titleId) return alert('Vui lòng chọn một danh hiệu.');
-      await runTask('title', { titleId });
-    }
-
-    async function runTeleport(pId) {
-      const placeId = pId || document.getElementById('teleport_select')?.value || 'san-chua';
-      await runTask('teleport', { placeId });
-    }
-
-    function restoreCollapseStates() {
-      document.querySelectorAll('.card, .tier-box').forEach(el => {
-        if (!el.id) return;
-        try {
-          const saved = localStorage.getItem('ddc_col_' + el.id);
-          if (saved === '1') {
-            el.classList.add('collapsed');
-          } else if (saved === '0') {
-            el.classList.remove('collapsed');
+    // Status Polling
+    let pollingInterval = 4000;
+    async function pollStatus() {
+      try {
+        const resp = await fetch('/api/status', {
+          headers: { 'x-csrf-token': CSRF_TOKEN }
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          const running = Boolean(data.isRunning);
+          if (running !== isTaskRunning) {
+            isTaskRunning = running;
+            if (!running) {
+              window.location.reload();
+              return;
+            }
+            updateRunningUI(running, data.runningTaskName);
           }
-        } catch (e) {}
-      });
+          if (Array.isArray(data.liveTaskLogs)) {
+            const box = document.getElementById('terminalBox');
+            if (box && data.liveTaskLogs.length > 0) {
+              box.innerHTML = data.liveTaskLogs.map(function(l) {
+                return '<div class="log-line"><span class="log-time">' + (l.timeDisplay || '') + '</span> <span>' + (l.icon || 'ℹ️') + '</span> <span class="log-' + (l.level || 'info') + '">' + (l.message || '') + '</span></div>';
+              }).join('');
+            }
+          }
+        }
+      } catch {}
+      setTimeout(pollStatus, isTaskRunning ? 2000 : 5000);
     }
-
-    const turboToggle = document.getElementById('turboModeToggle');
-    if (turboToggle) {
-      turboToggle.checked = localStorage.getItem('didenchua_turbo') === '1';
-      turboToggle.addEventListener('change', () => {
-        localStorage.setItem('didenchua_turbo', turboToggle.checked ? '1' : '0');
-      });
-    }
-
-    restoreCollapseStates();
-    restoreProfileTab();
+    setTimeout(pollStatus, 3000);
   </script>
 </body>
 </html>`;
 }
+
 
 // Khởi chạy HTTP Server
 const server = http.createServer(async (req, res) => {
@@ -4028,11 +3176,44 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({
       status: 'ok',
+      app: 'niemphat-online-bot',
+      domain: 'https://niemphat.online',
       timestamp: new Date().toISOString(),
       uptimeSeconds: Math.round(process.uptime()),
       running: state.isRunning,
-      stopping: state.isStopping
+      stopping: state.isStopping,
+      autoEnabled: state.autoEnabled
     }, null, 2));
+    return;
+  }
+
+  // 1b. API Bật/Tắt chế độ tự chơi Auto
+  if (url.pathname === '/api/auto/toggle') {
+    if (req.method !== 'POST') {
+      res.writeHead(405, { 'Content-Type': 'application/json; charset=utf-8', 'Allow': 'POST' });
+      res.end(JSON.stringify({ ok: false, error: 'Phương thức không được hỗ trợ. Bắt buộc dùng POST.' }));
+      return;
+    }
+    if (!verifyAuth(req)) {
+      res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ ok: false, error: 'Yêu cầu không được phép (thiếu hoặc sai token xác thực).' }));
+      return;
+    }
+
+    state.autoEnabled = !state.autoEnabled;
+    addWebLog(`🤖 Chế độ Tự Động Chơi (Auto Engine): ${state.autoEnabled ? 'ĐÃ BẬT' : 'ĐÃ TẮT'}`, state.autoEnabled ? 'success' : 'warn', '🤖');
+    saveCachedState();
+
+    if (state.autoEnabled && !state.isRunning && !state.isStopping) {
+      executeRoutine('Auto Bot (Kích hoạt từ Dashboard)', { fast: true }).catch(console.error);
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({
+      ok: true,
+      autoEnabled: state.autoEnabled,
+      message: `Đã ${state.autoEnabled ? 'bật' : 'tắt'} chế độ tự động chơi.`
+    }));
     return;
   }
 
@@ -4058,6 +3239,7 @@ const server = http.createServer(async (req, res) => {
       currentRunId: state.currentRunId,
       runTriggerSource: state.runTriggerSource,
       lastUpdated: state.lastUpdated,
+      autoEnabled: state.autoEnabled,
       merit: state.merit,
       journal: state.journal,
       liveTaskLogs: state.currentLogs,
@@ -4092,6 +3274,7 @@ const server = http.createServer(async (req, res) => {
       ok,
       message: ok ? 'Đã làm mới dữ liệu từ máy chủ chùa thành công.' : 'Làm mới dữ liệu thất bại.',
       lastUpdated: state.lastUpdated,
+      autoEnabled: state.autoEnabled,
       merit: state.merit,
       journal: state.journal
     }));
@@ -4315,7 +3498,7 @@ const server = http.createServer(async (req, res) => {
   res.end('Không tìm thấy đường dẫn.');
 });
 
-export { server, state, loadCachedState, saveCachedState };
+export { server, state, loadCachedState, saveCachedState, refreshAccountData, executeRoutine };
 
 const isDirectRun = Boolean(
   process.argv[1] &&
@@ -4344,5 +3527,16 @@ if (isDirectRun && process.env.NODE_ENV !== 'test') {
     loadCachedState();
     // Khởi động lịch trình 00:05 sáng
     startDailyScheduler();
+    // Khởi động vòng lặp Tự Chơi Auto
+    startAutoLoop();
+
+    if (state.autoEnabled) {
+      log.temple('🤖', 'Chế độ Tự Động Chơi (Auto Engine) đang BẬT. Sẽ tự động kiểm tra và chạy sau 5 giây...');
+      setTimeout(() => {
+        if (!state.isRunning && !state.isStopping) {
+          executeRoutine('Auto Engine Boot Initializer', { fast: true }).catch(console.error);
+        }
+      }, 5000);
+    }
   });
 }

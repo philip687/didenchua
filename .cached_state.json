@@ -1,85 +1,1161 @@
 {
-  "lastUpdated": "2026-11-05T22:48:30.000Z",
+  "lastUpdated": "2026-11-06T18:00:50.788Z",
+  "autoEnabled": true,
   "merit": {
     "me": {
+      "name": "Hân Ánh Vũ",
       "user": "thichkngan",
-      "name": "Hoa Hiền",
-      "total": 1839,
-      "level": "An lạc",
+      "sect": "tinhdo",
+      "level": "Hạt sen · bậc 4",
       "lv": 4,
-      "days": 3,
-      "title": "tram-chuoi",
-      "robe": "nau",
-      "beads": "go",
-      "cushion": "xam",
-      "phapkhi": "truong",
-      "bio": "Nam Mô A Di Đà Phật · Thân tâm thường an lạc",
+      "exp": 337,
+      "next": 735,
+      "total": 337,
+      "merit": 337,
+      "today": 337,
+      "sen": 562,
+      "ngoc": 0,
+      "days": 2,
+      "stats": {
+        "bows": 27,
+        "mo": 166,
+        "beads": 276,
+        "incense": 5,
+        "chants": 3,
+        "rounds": 2
+      },
       "quests": [
-        { "id": "checkin", "name": "Điểm danh hàng ngày", "need": 1, "have": 1, "claimed": true, "reward": 10 },
-        { "id": "huong", "name": "Dâng hương Tam Bảo", "need": 1, "have": 1, "claimed": true, "reward": 10 },
-        { "id": "den", "name": "Thả hoa đăng cầu an", "need": 1, "have": 1, "claimed": true, "reward": 10 },
-        { "id": "chao", "name": "Chắp tay chào đồng tu", "need": 1, "have": 1, "claimed": true, "reward": 10 },
-        { "id": "lay", "name": "Lạy Phật trang nghiêm", "need": 1, "have": 1, "claimed": true, "reward": 15 },
-        { "id": "quet", "name": "Quét lá dọn sân chùa", "need": 1, "have": 1, "claimed": true, "reward": 10 },
-        { "id": "ca", "name": "Cho cá hồ sen ăn", "need": 1, "have": 1, "claimed": true, "reward": 10 },
-        { "id": "dendau", "name": "Thắp đèn dầu chánh điện", "need": 1, "have": 1, "claimed": true, "reward": 10 },
-        { "id": "cat", "name": "Chăm sóc mèo chùa", "need": 1, "have": 1, "claimed": true, "reward": 10 },
-        { "id": "wAm", "name": "Am riêng tu tập & Dâng hương", "need": 1, "have": 1, "claimed": true, "reward": 40 }
+        {
+          "id": "d_lay27",
+          "name": "Lạy 27 lạy",
+          "title": "Lạy 27 lạy",
+          "need": 27,
+          "have": 27,
+          "claimed": true,
+          "done": true,
+          "reward": 30,
+          "period": "daily"
+        },
+        {
+          "id": "d_chuoi1",
+          "name": "Lần trọn một chuỗi",
+          "title": "Lần trọn một chuỗi",
+          "need": 1,
+          "have": 1,
+          "claimed": true,
+          "done": true,
+          "reward": 30,
+          "period": "daily"
+        },
+        {
+          "id": "d_mo108",
+          "name": "Gõ mõ 108 tiếng",
+          "title": "Gõ mõ 108 tiếng",
+          "need": 108,
+          "have": 108,
+          "claimed": true,
+          "done": true,
+          "reward": 30,
+          "period": "daily"
+        },
+        {
+          "id": "d_thien5",
+          "name": "Thiền 5 phút",
+          "title": "Thiền 5 phút",
+          "need": 5,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 30,
+          "period": "daily"
+        },
+        {
+          "id": "d_kinh1",
+          "name": "Tụng trọn một bài",
+          "title": "Tụng trọn một bài",
+          "need": 1,
+          "have": 1,
+          "claimed": true,
+          "done": true,
+          "reward": 20,
+          "period": "daily"
+        },
+        {
+          "id": "d_huong",
+          "name": "Thắp một nén hương",
+          "title": "Thắp một nén hương",
+          "need": 1,
+          "have": 1,
+          "claimed": true,
+          "done": true,
+          "reward": 15,
+          "period": "daily"
+        },
+        {
+          "id": "d_vieng2",
+          "name": "Viếng hai ngôi chùa",
+          "title": "Viếng hai ngôi chùa",
+          "need": 2,
+          "have": 2,
+          "claimed": true,
+          "done": true,
+          "reward": 25,
+          "period": "daily"
+        },
+        {
+          "id": "d_khoe",
+          "name": "Lan tỏa thiện duyên",
+          "title": "Lan tỏa thiện duyên",
+          "need": 1,
+          "have": 1,
+          "claimed": true,
+          "done": true,
+          "reward": 20,
+          "period": "daily"
+        },
+        {
+          "id": "d_tuyhy",
+          "name": "Tùy hỷ công đức",
+          "title": "Tùy hỷ công đức",
+          "need": 3,
+          "have": 3,
+          "claimed": true,
+          "done": true,
+          "reward": 15,
+          "period": "daily"
+        },
+        {
+          "id": "d_chuong",
+          "name": "Thỉnh chuông",
+          "title": "Thỉnh chuông",
+          "need": 1,
+          "have": 1,
+          "claimed": true,
+          "done": true,
+          "reward": 10,
+          "period": "daily"
+        },
+        {
+          "id": "w_lay300",
+          "name": "Tinh tấn lễ bái",
+          "title": "Tinh tấn lễ bái",
+          "need": 300,
+          "have": 27,
+          "claimed": false,
+          "done": false,
+          "reward": 150,
+          "period": "weekly"
+        },
+        {
+          "id": "w_chuoi7",
+          "name": "Bảy chuỗi niệm Phật",
+          "title": "Bảy chuỗi niệm Phật",
+          "need": 7,
+          "have": 2,
+          "claimed": false,
+          "done": false,
+          "reward": 150,
+          "period": "weekly"
+        },
+        {
+          "id": "d_loc2",
+          "name": "Dạo vườn chùa",
+          "title": "Dạo vườn chùa",
+          "need": 2,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 20,
+          "period": "daily"
+        },
+        {
+          "id": "w_thien60",
+          "name": "Một giờ tĩnh lặng",
+          "title": "Một giờ tĩnh lặng",
+          "need": 60,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 150,
+          "period": "weekly"
+        },
+        {
+          "id": "d_sweep",
+          "name": "Quét sân chùa",
+          "title": "Quét sân chùa",
+          "need": 1,
+          "have": 1,
+          "claimed": true,
+          "done": true,
+          "reward": 15,
+          "period": "daily"
+        },
+        {
+          "id": "a_cap5",
+          "name": "Đạt cấp 5",
+          "title": "Đạt cấp 5",
+          "need": 5,
+          "have": 4,
+          "claimed": false,
+          "done": false,
+          "reward": 200,
+          "period": "achievement"
+        },
+        {
+          "id": "d_plant",
+          "name": "Trồng một cây",
+          "title": "Trồng một cây",
+          "need": 1,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 20,
+          "period": "daily"
+        },
+        {
+          "id": "a_cap10",
+          "name": "Đạt cấp 10",
+          "title": "Đạt cấp 10",
+          "need": 10,
+          "have": 4,
+          "claimed": false,
+          "done": false,
+          "reward": 10,
+          "period": "achievement"
+        },
+        {
+          "id": "a_plant30",
+          "name": "Người gieo bóng mát",
+          "title": "Người gieo bóng mát",
+          "need": 30,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 300,
+          "period": "achievement"
+        },
+        {
+          "id": "a_cap20",
+          "name": "Đạt cấp 20",
+          "title": "Đạt cấp 20",
+          "need": 20,
+          "have": 4,
+          "claimed": false,
+          "done": false,
+          "reward": 10,
+          "period": "achievement"
+        },
+        {
+          "id": "a_lay1000",
+          "name": "Ngàn lạy",
+          "title": "Ngàn lạy",
+          "need": 1000,
+          "have": 27,
+          "claimed": false,
+          "done": false,
+          "reward": 10,
+          "period": "achievement"
+        },
+        {
+          "id": "w_loc15",
+          "name": "Hành hương nhặt lộc",
+          "title": "Hành hương nhặt lộc",
+          "need": 15,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 120,
+          "period": "weekly"
+        },
+        {
+          "id": "a_ketduyen",
+          "name": "Kết duyên",
+          "title": "Kết duyên",
+          "need": 3,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 10,
+          "period": "achievement"
+        },
+        {
+          "id": "a_chuoi7",
+          "name": "Bảy ngày tinh tấn",
+          "title": "Bảy ngày tinh tấn",
+          "need": 7,
+          "have": 2,
+          "claimed": false,
+          "done": false,
+          "reward": 10,
+          "period": "achievement"
+        },
+        {
+          "id": "a_chuoi30",
+          "name": "Một tháng không ngơi nghỉ",
+          "title": "Một tháng không ngơi nghỉ",
+          "need": 30,
+          "have": 2,
+          "claimed": false,
+          "done": false,
+          "reward": 10,
+          "period": "achievement"
+        },
+        {
+          "id": "a_tamchua",
+          "name": "Hành hương tám chùa",
+          "title": "Hành hương tám chùa",
+          "need": 8,
+          "have": 3,
+          "claimed": false,
+          "done": false,
+          "reward": 10,
+          "period": "achievement"
+        },
+        {
+          "id": "r_thanglong",
+          "name": "Tuyến: Thăng Long tự viện",
+          "title": "Tuyến: Thăng Long tự viện",
+          "need": 3,
+          "have": 2,
+          "claimed": false,
+          "done": false,
+          "reward": 150,
+          "period": "achievement"
+        },
+        {
+          "id": "r_datbac",
+          "name": "Tuyến: Non thiêng đất Bắc",
+          "title": "Tuyến: Non thiêng đất Bắc",
+          "need": 2,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 120,
+          "period": "achievement"
+        },
+        {
+          "id": "r_codo",
+          "name": "Tuyến: Hai miền cố đô",
+          "title": "Tuyến: Hai miền cố đô",
+          "need": 2,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 120,
+          "period": "achievement"
+        },
+        {
+          "id": "a_cap50",
+          "name": "Đạt cấp 50",
+          "title": "Đạt cấp 50",
+          "need": 50,
+          "have": 4,
+          "claimed": false,
+          "done": false,
+          "reward": 10,
+          "period": "achievement"
+        },
+        {
+          "id": "r_phuongnam",
+          "name": "Tuyến: Về phương Nam",
+          "title": "Tuyến: Về phương Nam",
+          "need": 3,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 150,
+          "period": "achievement"
+        },
+        {
+          "id": "a_cap75",
+          "name": "Đạt cấp 75",
+          "title": "Đạt cấp 75",
+          "need": 75,
+          "have": 4,
+          "claimed": false,
+          "done": false,
+          "reward": 10,
+          "period": "achievement"
+        },
+        {
+          "id": "r_xuyenviet",
+          "name": "Tuyến: Xuyên Việt hành hương",
+          "title": "Tuyến: Xuyên Việt hành hương",
+          "need": 10,
+          "have": 2,
+          "claimed": false,
+          "done": false,
+          "reward": 10,
+          "period": "achievement"
+        },
+        {
+          "id": "a_loc_nhattru",
+          "name": "Dạo khắp Chùa Nhất Trụ",
+          "title": "Dạo khắp Chùa Nhất Trụ",
+          "need": 5,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 150,
+          "period": "achievement"
+        },
+        {
+          "id": "a_cap100",
+          "name": "Đạt cấp 100",
+          "title": "Đạt cấp 100",
+          "need": 100,
+          "have": 4,
+          "claimed": false,
+          "done": false,
+          "reward": 10,
+          "period": "achievement"
+        },
+        {
+          "id": "a_loc_tranho",
+          "name": "Dạo khắp Chùa Trấn Hồ",
+          "title": "Dạo khắp Chùa Trấn Hồ",
+          "need": 5,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 150,
+          "period": "achievement"
+        },
+        {
+          "id": "a_loc_dinhmay",
+          "name": "Dạo khắp Thiền viện Đỉnh Mây",
+          "title": "Dạo khắp Thiền viện Đỉnh Mây",
+          "need": 5,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 150,
+          "period": "achievement"
+        },
+        {
+          "id": "a_loc_baison",
+          "name": "Dạo khắp Chùa Bái Sơn",
+          "title": "Dạo khắp Chùa Bái Sơn",
+          "need": 5,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 150,
+          "period": "achievement"
+        },
+        {
+          "id": "a_loc_thienmau",
+          "name": "Dạo khắp Chùa Thiên Mẫu",
+          "title": "Dạo khắp Chùa Thiên Mẫu",
+          "need": 5,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 150,
+          "period": "achievement"
+        },
+        {
+          "id": "a_loc_vinhan",
+          "name": "Dạo khắp Chùa Vĩnh An",
+          "title": "Dạo khắp Chùa Vĩnh An",
+          "need": 5,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 150,
+          "period": "achievement"
+        },
+        {
+          "id": "a_loc_doivang",
+          "name": "Dạo khắp Chùa Dơi Vàng",
+          "title": "Dạo khắp Chùa Dơi Vàng",
+          "need": 5,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 150,
+          "period": "achievement"
+        },
+        {
+          "id": "a_loc_linhson",
+          "name": "Dạo khắp Chùa Bà Linh Phong",
+          "title": "Dạo khắp Chùa Bà Linh Phong",
+          "need": 5,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 150,
+          "period": "achievement"
+        },
+        {
+          "id": "a_loc_linhung",
+          "name": "Dạo khắp Vọng Hải",
+          "title": "Dạo khắp Vọng Hải",
+          "need": 5,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 150,
+          "period": "achievement"
+        },
+        {
+          "id": "a_pet_linhung",
+          "name": "Linh thú Vọng Hải",
+          "title": "Linh thú Vọng Hải",
+          "need": 1,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 200,
+          "period": "achievement"
+        },
+        {
+          "id": "a_bow_linhung",
+          "name": "Trăm lạy Vọng Hải",
+          "title": "Trăm lạy Vọng Hải",
+          "need": 108,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 300,
+          "period": "achievement"
+        },
+        {
+          "id": "a_loc_nuisam",
+          "name": "Dạo khắp Thất Sơn",
+          "title": "Dạo khắp Thất Sơn",
+          "need": 5,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 150,
+          "period": "achievement"
+        },
+        {
+          "id": "a_pet_nuisam",
+          "name": "Linh thú Thất Sơn",
+          "title": "Linh thú Thất Sơn",
+          "need": 1,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 200,
+          "period": "achievement"
+        },
+        {
+          "id": "a_bow_nuisam",
+          "name": "Trăm lạy Thất Sơn",
+          "title": "Trăm lạy Thất Sơn",
+          "need": 108,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 300,
+          "period": "achievement"
+        },
+        {
+          "id": "a_loc_cuuphong",
+          "name": "Dạo khắp Cửu Phong",
+          "title": "Dạo khắp Cửu Phong",
+          "need": 5,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 150,
+          "period": "achievement"
+        },
+        {
+          "id": "a_pet_cuuphong",
+          "name": "Linh thú Cửu Phong",
+          "title": "Linh thú Cửu Phong",
+          "need": 1,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 200,
+          "period": "achievement"
+        },
+        {
+          "id": "a_loc_hoangoc",
+          "name": "Dạo khắp Hoa Ngọc",
+          "title": "Dạo khắp Hoa Ngọc",
+          "need": 5,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 150,
+          "period": "achievement"
+        },
+        {
+          "id": "a_pet_hoangoc",
+          "name": "Linh thú Hoa Ngọc",
+          "title": "Linh thú Hoa Ngọc",
+          "need": 1,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 200,
+          "period": "achievement"
+        },
+        {
+          "id": "r_biendong",
+          "name": "Tuyến: Từ biển Đông đến Thất Sơn",
+          "title": "Tuyến: Từ biển Đông đến Thất Sơn",
+          "need": 2,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 200,
+          "period": "achievement"
+        },
+        {
+          "id": "r_nonnuoc",
+          "name": "Tuyến: Từ non nước lên cao nguyên",
+          "title": "Tuyến: Từ non nước lên cao nguyên",
+          "need": 2,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 200,
+          "period": "achievement"
+        },
+        {
+          "id": "r_bacoi",
+          "name": "Tuyến: Ba miền đại nguyện",
+          "title": "Tuyến: Ba miền đại nguyện",
+          "need": 3,
+          "have": 1,
+          "claimed": false,
+          "done": false,
+          "reward": 200,
+          "period": "achievement"
+        }
+      ],
+      "weekly": [
+        {
+          "id": "w_lay300",
+          "name": "Tinh tấn lễ bái",
+          "title": "Tinh tấn lễ bái",
+          "need": 300,
+          "have": 27,
+          "claimed": false,
+          "done": false,
+          "reward": 150,
+          "period": "weekly"
+        },
+        {
+          "id": "w_chuoi7",
+          "name": "Bảy chuỗi niệm Phật",
+          "title": "Bảy chuỗi niệm Phật",
+          "need": 7,
+          "have": 2,
+          "claimed": false,
+          "done": false,
+          "reward": 150,
+          "period": "weekly"
+        },
+        {
+          "id": "w_thien60",
+          "name": "Một giờ tĩnh lặng",
+          "title": "Một giờ tĩnh lặng",
+          "need": 60,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 150,
+          "period": "weekly"
+        },
+        {
+          "id": "w_loc15",
+          "name": "Hành hương nhặt lộc",
+          "title": "Hành hương nhặt lộc",
+          "need": 15,
+          "have": 0,
+          "claimed": false,
+          "done": false,
+          "reward": 120,
+          "period": "weekly"
+        }
       ]
     }
   },
   "journal": {
+    "name": "Hân Ánh Vũ",
     "user": "thichkngan",
-    "name": "Hoa Hiền",
-    "level": "An lạc",
-    "lv": 4,
-    "title": "tram-chuoi",
-    "bows": 1344,
-    "beads": 10900,
-    "rounds": 100,
-    "sitMin": 153,
-    "days": 3,
-    "incense": 39,
-    "lanterns": 28,
-    "visited": 10,
-    "bio": "Nam Mô A Di Đà Phật · Thân tâm thường an lạc",
-    "robe": "nau",
-    "cushion": "xam",
-    "phapkhi": "truong",
-    "titles": [
-      { "id": "moi", "name": "Người mới lên chùa", "desc": "Lần đầu đến chùa An Tự Duyên", "got": true },
-      { "id": "tram-lay", "name": "Trăm lạy", "desc": "Lạy Phật 108 lạy", "got": true },
-      { "id": "ngan-lay", "name": "Ngàn lạy", "desc": "Lạy Phật 1.000 lạy", "got": true },
-      { "id": "tron-chuoi", "name": "Tròn chuỗi hạt", "desc": "Lần tròn một chuỗi 108 hạt", "got": true },
-      { "id": "tram-chuoi", "name": "Trăm chuỗi hạt", "desc": "Lần tròn 100 chuỗi", "got": true },
-      { "id": "tinh-toa", "name": "Tĩnh tọa", "desc": "Ngồi tĩnh tổng cộng 60 phút", "got": true },
-      { "id": "huong-tram", "name": "Hương trầm", "desc": "Dâng hương 30 lần", "got": true },
-      { "id": "hoa-dang", "name": "Người thả đèn", "desc": "Thả 10 ngọn hoa đăng", "got": true },
-      { "id": "tinh-tan", "name": "Tinh tấn bảy ngày", "desc": "Lên chùa 7 ngày liền", "got": false },
-      { "id": "tron-thang", "name": "Một tháng không nghỉ", "desc": "Lên chùa 30 ngày liền", "got": false },
-      { "id": "du-gia", "name": "Thăm khắp chùa", "desc": "Đến đủ 10 khu trong chùa", "got": true },
-      { "id": "dong-tam", "name": "Đồng tâm", "desc": "Lạy cùng người khác 10 lần", "got": true },
-      { "id": "ban-hien", "name": "Bạn hiền", "desc": "Có 3 bạn đồng tu", "got": false },
-      { "id": "muon-loai", "name": "Người bạn của muôn loài", "desc": "Chăm linh thú 30 ngày", "got": false },
-      { "id": "hieu-phap", "name": "Người hiểu pháp", "desc": "Chơi Đố vui Phật pháp 7 tối", "got": false },
-      { "id": "giu-le", "name": "Người giữ lễ", "desc": "Làm trọn 12 lễ chùa (rằm, mùng một, ngày lễ lớn)", "got": false },
-      { "id": "duyen-lanh", "name": "Duyên lành", "desc": "Kết duyên ở đền Nguyệt Lão", "got": false }
-    ],
-    "weapons": [
-      { "id": "huong", "name": "Nén hương", "rank": "Thường", "got": true },
-      { "id": "gio", "name": "Giỏ hoa sen", "rank": "Thường", "got": true },
-      { "id": "gaytruc", "name": "Gậy trúc hành hương", "rank": "Thường", "got": true },
-      { "id": "mo", "name": "Mõ cầm tay", "rank": "Hiếm", "got": true },
-      { "id": "kinh", "name": "Cuốn kinh", "rank": "Hiếm", "got": false },
-      { "id": "trentram", "name": "Cây tre trăm đốt", "rank": "Hiếm", "got": true },
-      { "id": "truong", "name": "Thiền trượng chín khoen", "rank": "Quý", "got": true },
-      { "id": "nonla", "name": "Nón lá", "rank": "Thường", "got": false },
-      { "id": "denlong", "name": "Đèn lồng", "rank": "Hiếm", "got": false },
-      { "id": "chuong", "name": "Chuông tay", "rank": "Hiếm", "got": false },
-      { "id": "bat", "name": "Bát tím vàng", "rank": "Quý", "got": false },
-      { "id": "gaythan", "name": "Gậy thần Chử Đồng Tử", "rank": "Quý", "got": false }
-    ]
+    "sect": "tinhdo",
+    "level": "Hạt sen · bậc 4",
+    "sen": 562,
+    "ngoc": 0,
+    "streak": 2,
+    "merit": 337,
+    "next": 735,
+    "from": 0,
+    "bows": 27,
+    "beads": 276,
+    "mo": 166,
+    "sitMin": 0,
+    "stats": {
+      "bows": 27,
+      "mo": 166,
+      "beads": 276,
+      "incense": 5,
+      "chants": 3,
+      "rounds": 2
+    }
   },
-  "runHistory": []
+  "activeRun": null,
+  "currentLogs": [
+    {
+      "id": "evt-mw5a5ysq-y1y2",
+      "timestamp": "2026-11-06T18:00:50.282Z",
+      "timeDisplay": "[01:00:50 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "🔑 Đã khôi phục phiên đăng nhập cho tài khoản [Hân Ánh Vũ] từ cache."
+    },
+    {
+      "id": "evt-mw5a58dv-vqll",
+      "timestamp": "2026-11-06T18:00:16.051Z",
+      "timeDisplay": "[01:00:16 UTC+7]",
+      "runId": null,
+      "level": "success",
+      "icon": "✅",
+      "message": "🎉 Đã hoàn tất lắng nghe trọn vẹn kinh điển tại Tàng Kinh Các!"
+    },
+    {
+      "id": "evt-mw5a58dv-oa40",
+      "timestamp": "2026-11-06T18:00:16.051Z",
+      "timeDisplay": "[01:00:16 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "📖 Lắng nghe: Kệ Hồi Hướng (Nguyện dĩ thử công đức, phổ cập ư nhất thiết)"
+    },
+    {
+      "id": "evt-mw5a58dv-gx7t",
+      "timestamp": "2026-11-06T18:00:16.051Z",
+      "timeDisplay": "[01:00:16 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "📖 Lắng nghe: Chú Vãng Sanh (Bạt nhất thiết nghiệp chướng căn bản đắc sanh Tịnh độ đà la ni)"
+    },
+    {
+      "id": "evt-mw5a58dv-7n7o",
+      "timestamp": "2026-11-06T18:00:16.051Z",
+      "timeDisplay": "[01:00:16 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "📖 Lắng nghe: Chú Đại Bi (Thiên thủ thiên nhãn vô ngại đại bi tâm đà la ni)"
+    },
+    {
+      "id": "evt-mw5a58dv-y7es",
+      "timestamp": "2026-11-06T18:00:16.051Z",
+      "timeDisplay": "[01:00:16 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "📖 Lắng nghe: Kinh Bát Đại Nhân Giác (Tám điều giác ngộ của các bậc đại nhân)"
+    },
+    {
+      "id": "evt-mw5a58dv-bbv8",
+      "timestamp": "2026-11-06T18:00:16.051Z",
+      "timeDisplay": "[01:00:16 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "📖 Lắng nghe: Bát Nhã Tâm Kinh (Ma ha Bát nhã Ba la mật đa Tâm kinh (Trí tuệ cứu cánh))"
+    },
+    {
+      "id": "evt-mw5a58dv-1rvz",
+      "timestamp": "2026-11-06T18:00:16.051Z",
+      "timeDisplay": "[01:00:16 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "📖 Lắng nghe: Kinh A Di Đà (Bản Hán Việt truyền thống theo Hán bản Cưu Ma La Thập)"
+    },
+    {
+      "id": "evt-mw5a58dv-gsbx",
+      "timestamp": "2026-11-06T18:00:16.051Z",
+      "timeDisplay": "[01:00:16 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "📖",
+      "message": "Viếng Tàng Kinh Các lắng nghe kinh điển giác ngộ..."
+    },
+    {
+      "id": "evt-mw5a58du-o6ys",
+      "timestamp": "2026-11-06T18:00:16.050Z",
+      "timeDisplay": "[01:00:16 UTC+7]",
+      "runId": null,
+      "level": "success",
+      "icon": "✅",
+      "message": "🎉 Đã cất trọn bộ chữ thư pháp vào Tủ chữ cá nhân!"
+    },
+    {
+      "id": "evt-mw5a58du-1t22",
+      "timestamp": "2026-11-06T18:00:16.050Z",
+      "timeDisplay": "[01:00:16 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "✍️ Thầy đồ phóng bút chữ \"Biết Ơn\" (Biết ơn)..."
+    },
+    {
+      "id": "evt-mw5a58du-g7e3",
+      "timestamp": "2026-11-06T18:00:16.050Z",
+      "timeDisplay": "[01:00:16 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "✍️ Thầy đồ phóng bút chữ \"Tinh Tấn\" (Công việc, siêng năng)..."
+    },
+    {
+      "id": "evt-mw5a58du-ujd9",
+      "timestamp": "2026-11-06T18:00:16.050Z",
+      "timeDisplay": "[01:00:16 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "✍️ Thầy đồ phóng bút chữ \"Từ Bi\" (Lòng từ)..."
+    },
+    {
+      "id": "evt-mw5a58du-0bz5",
+      "timestamp": "2026-11-06T18:00:16.050Z",
+      "timeDisplay": "[01:00:16 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "✍️ Thầy đồ phóng bút chữ \"Duyên\" (Nhân duyên)..."
+    },
+    {
+      "id": "evt-mw5a58du-tepk",
+      "timestamp": "2026-11-06T18:00:16.050Z",
+      "timeDisplay": "[01:00:16 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "✍️ Thầy đồ phóng bút chữ \"Phúc Đức\" (Phúc đức)..."
+    },
+    {
+      "id": "evt-mw5a58du-xo3c",
+      "timestamp": "2026-11-06T18:00:16.050Z",
+      "timeDisplay": "[01:00:16 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "✍️ Thầy đồ phóng bút chữ \"Trí Tuệ\" (Học hành, sáng suốt)..."
+    },
+    {
+      "id": "evt-mw5a58du-vt6v",
+      "timestamp": "2026-11-06T18:00:16.050Z",
+      "timeDisplay": "[01:00:16 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "✍️ Thầy đồ phóng bút chữ \"Tĩnh Tâm\" (Tĩnh tâm)..."
+    },
+    {
+      "id": "evt-mw5a58du-dphj",
+      "timestamp": "2026-11-06T18:00:16.050Z",
+      "timeDisplay": "[01:00:16 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "✍️ Thầy đồ phóng bút chữ \"Nhẫn\" (Nhẫn nại)..."
+    },
+    {
+      "id": "evt-mw5a58du-lnab",
+      "timestamp": "2026-11-06T18:00:16.050Z",
+      "timeDisplay": "[01:00:16 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "✍️ Thầy đồ phóng bút chữ \"Hiếu\" (Hiếu thảo)..."
+    },
+    {
+      "id": "evt-mw5a58du-0m2i",
+      "timestamp": "2026-11-06T18:00:16.050Z",
+      "timeDisplay": "[01:00:16 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "✍️ Thầy đồ phóng bút chữ \"Hòa Thuận\" (Gia đạo êm ấm)..."
+    },
+    {
+      "id": "evt-mw5a58du-yb00",
+      "timestamp": "2026-11-06T18:00:16.050Z",
+      "timeDisplay": "[01:00:16 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "✍️ Thầy đồ phóng bút chữ \"An Khang\" (Sức khỏe)..."
+    },
+    {
+      "id": "evt-mw5a58du-v5yy",
+      "timestamp": "2026-11-06T18:00:16.050Z",
+      "timeDisplay": "[01:00:16 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "✍️ Thầy đồ phóng bút chữ \"Bình An\" (Yên ổn)..."
+    },
+    {
+      "id": "evt-mw5a58du-jqq8",
+      "timestamp": "2026-11-06T18:00:16.050Z",
+      "timeDisplay": "[01:00:16 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "✍️",
+      "message": "Xin trọn bộ chữ thư pháp cát tường từ Thầy đồ..."
+    },
+    {
+      "id": "evt-mw5a49tx-wqbn",
+      "timestamp": "2026-11-06T17:59:31.269Z",
+      "timeDisplay": "[00:59:31 UTC+7]",
+      "runId": null,
+      "level": "success",
+      "icon": "✅",
+      "message": "🎉 HOÀN TẤT: Đã hoàn thành gửi 55 tiếng mõ tụng kinh."
+    },
+    {
+      "id": "evt-mw5a49tx-jtfh",
+      "timestamp": "2026-11-06T17:59:31.269Z",
+      "timeDisplay": "[00:59:31 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "...cốc cốc [55/55 tiếng mõ]"
+    },
+    {
+      "id": "evt-mw5a49tx-qcyd",
+      "timestamp": "2026-11-06T17:59:31.269Z",
+      "timeDisplay": "[00:59:31 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "...cốc cốc [40/55 tiếng mõ]"
+    },
+    {
+      "id": "evt-mw5a49tx-553z",
+      "timestamp": "2026-11-06T17:59:31.269Z",
+      "timeDisplay": "[00:59:31 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "...cốc cốc [20/55 tiếng mõ]"
+    },
+    {
+      "id": "evt-mw5a49tx-rt72",
+      "timestamp": "2026-11-06T17:59:31.269Z",
+      "timeDisplay": "[00:59:31 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "🪵",
+      "message": "Bắt đầu gõ mõ tụng kinh (55 tiếng - chốt an toàn từng chặng)..."
+    },
+    {
+      "id": "evt-mw5a49tp-wj0g",
+      "timestamp": "2026-11-06T17:59:31.261Z",
+      "timeDisplay": "[00:59:31 UTC+7]",
+      "runId": null,
+      "level": "warn",
+      "icon": "⚠️",
+      "message": "⚠️ Tiến trình [Toàn bộ chu trình tự động (4 Tầng)] trước đó đã bị gián đoạn do máy chủ Render Free tự động tắt (spindown) sau 15 phút không có người xem."
+    },
+    {
+      "id": "evt-mw5a463i-dpjr",
+      "timestamp": "2026-11-06T17:59:26.430Z",
+      "timeDisplay": "[00:59:26 UTC+7]",
+      "runId": null,
+      "level": "success",
+      "icon": "🤖",
+      "message": "🤖 Chế độ Tự Động Chơi (Auto Engine): ĐÃ BẬT"
+    },
+    {
+      "id": "evt-mw5a3m7e-vf57",
+      "timestamp": "2026-11-06T17:59:00.650Z",
+      "timeDisplay": "[00:59:00 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "🔑 Đã khôi phục phiên đăng nhập cho tài khoản [Hân Ánh Vũ] từ cache."
+    },
+    {
+      "id": "evt-mw5a2xgf-ufkc",
+      "timestamp": "2026-11-06T17:58:28.575Z",
+      "timeDisplay": "[00:58:28 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "🔑 Đã khôi phục phiên đăng nhập cho tài khoản [Hân Ánh Vũ] từ cache."
+    },
+    {
+      "id": "evt-mw5a2f2i-31jm",
+      "timestamp": "2026-11-06T17:58:04.746Z",
+      "timeDisplay": "[00:58:04 UTC+7]",
+      "runId": null,
+      "level": "success",
+      "icon": "✅",
+      "message": "🎉 Đã hoàn tất lắng nghe trọn vẹn kinh điển tại Tàng Kinh Các!"
+    },
+    {
+      "id": "evt-mw5a2f2i-26fc",
+      "timestamp": "2026-11-06T17:58:04.746Z",
+      "timeDisplay": "[00:58:04 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "📖 Lắng nghe: Kệ Hồi Hướng (Nguyện dĩ thử công đức, phổ cập ư nhất thiết)"
+    },
+    {
+      "id": "evt-mw5a2f2i-3ha9",
+      "timestamp": "2026-11-06T17:58:04.746Z",
+      "timeDisplay": "[00:58:04 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "📖 Lắng nghe: Chú Vãng Sanh (Bạt nhất thiết nghiệp chướng căn bản đắc sanh Tịnh độ đà la ni)"
+    },
+    {
+      "id": "evt-mw5a2f2i-7qd9",
+      "timestamp": "2026-11-06T17:58:04.746Z",
+      "timeDisplay": "[00:58:04 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "📖 Lắng nghe: Chú Đại Bi (Thiên thủ thiên nhãn vô ngại đại bi tâm đà la ni)"
+    },
+    {
+      "id": "evt-mw5a2f2i-8qo4",
+      "timestamp": "2026-11-06T17:58:04.746Z",
+      "timeDisplay": "[00:58:04 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "📖 Lắng nghe: Kinh Bát Đại Nhân Giác (Tám điều giác ngộ của các bậc đại nhân)"
+    },
+    {
+      "id": "evt-mw5a2f2i-83bc",
+      "timestamp": "2026-11-06T17:58:04.746Z",
+      "timeDisplay": "[00:58:04 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "📖 Lắng nghe: Bát Nhã Tâm Kinh (Ma ha Bát nhã Ba la mật đa Tâm kinh (Trí tuệ cứu cánh))"
+    },
+    {
+      "id": "evt-mw5a2f2i-ypnl",
+      "timestamp": "2026-11-06T17:58:04.746Z",
+      "timeDisplay": "[00:58:04 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "📖 Lắng nghe: Kinh A Di Đà (Bản Hán Việt truyền thống theo Hán bản Cưu Ma La Thập)"
+    },
+    {
+      "id": "evt-mw5a2f2i-izky",
+      "timestamp": "2026-11-06T17:58:04.746Z",
+      "timeDisplay": "[00:58:04 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "📖",
+      "message": "Viếng Tàng Kinh Các lắng nghe kinh điển giác ngộ..."
+    },
+    {
+      "id": "evt-mw5a2f2h-6i4p",
+      "timestamp": "2026-11-06T17:58:04.745Z",
+      "timeDisplay": "[00:58:04 UTC+7]",
+      "runId": null,
+      "level": "success",
+      "icon": "✅",
+      "message": "🎉 Đã cất trọn bộ chữ thư pháp vào Tủ chữ cá nhân!"
+    },
+    {
+      "id": "evt-mw5a2f2h-35aw",
+      "timestamp": "2026-11-06T17:58:04.745Z",
+      "timeDisplay": "[00:58:04 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "✍️ Thầy đồ phóng bút chữ \"Biết Ơn\" (Biết ơn)..."
+    },
+    {
+      "id": "evt-mw5a2f2h-7h3u",
+      "timestamp": "2026-11-06T17:58:04.745Z",
+      "timeDisplay": "[00:58:04 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "✍️ Thầy đồ phóng bút chữ \"Tinh Tấn\" (Công việc, siêng năng)..."
+    },
+    {
+      "id": "evt-mw5a2f2h-jjz0",
+      "timestamp": "2026-11-06T17:58:04.745Z",
+      "timeDisplay": "[00:58:04 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "✍️ Thầy đồ phóng bút chữ \"Từ Bi\" (Lòng từ)..."
+    },
+    {
+      "id": "evt-mw5a2f2h-9b2v",
+      "timestamp": "2026-11-06T17:58:04.745Z",
+      "timeDisplay": "[00:58:04 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "✍️ Thầy đồ phóng bút chữ \"Duyên\" (Nhân duyên)..."
+    },
+    {
+      "id": "evt-mw5a2f2h-xlkt",
+      "timestamp": "2026-11-06T17:58:04.745Z",
+      "timeDisplay": "[00:58:04 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "✍️ Thầy đồ phóng bút chữ \"Phúc Đức\" (Phúc đức)..."
+    },
+    {
+      "id": "evt-mw5a2f2h-2p9o",
+      "timestamp": "2026-11-06T17:58:04.745Z",
+      "timeDisplay": "[00:58:04 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "✍️ Thầy đồ phóng bút chữ \"Trí Tuệ\" (Học hành, sáng suốt)..."
+    },
+    {
+      "id": "evt-mw5a2f2h-930k",
+      "timestamp": "2026-11-06T17:58:04.745Z",
+      "timeDisplay": "[00:58:04 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "✍️ Thầy đồ phóng bút chữ \"Tĩnh Tâm\" (Tĩnh tâm)..."
+    },
+    {
+      "id": "evt-mw5a2f2h-excf",
+      "timestamp": "2026-11-06T17:58:04.745Z",
+      "timeDisplay": "[00:58:04 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "✍️ Thầy đồ phóng bút chữ \"Nhẫn\" (Nhẫn nại)..."
+    },
+    {
+      "id": "evt-mw5a2f2h-zkzb",
+      "timestamp": "2026-11-06T17:58:04.745Z",
+      "timeDisplay": "[00:58:04 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "✍️ Thầy đồ phóng bút chữ \"Hiếu\" (Hiếu thảo)..."
+    }
+  ],
+  "runHistory": [],
+  "csrfToken": "cf3fb3b5b379db03f1374c078487e7a619a17e1b553c95a82d086d7df05ba7bb"
 }
-
