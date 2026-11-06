@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-11-06T18:00:50.788Z",
+  "lastUpdated": "2026-11-06T18:07:46.255Z",
   "autoEnabled": true,
   "merit": {
     "me": {
@@ -8,20 +8,20 @@
       "sect": "tinhdo",
       "level": "Hạt sen · bậc 4",
       "lv": 4,
-      "exp": 337,
+      "exp": 434,
       "next": 735,
-      "total": 337,
-      "merit": 337,
-      "today": 337,
-      "sen": 562,
+      "total": 434,
+      "merit": 434,
+      "today": 434,
+      "sen": 566,
       "ngoc": 0,
       "days": 2,
       "stats": {
-        "bows": 27,
-        "mo": 166,
-        "beads": 276,
+        "bows": 34,
+        "mo": 192,
+        "beads": 296,
         "incense": 5,
-        "chants": 3,
+        "chants": 4,
         "rounds": 2
       },
       "quests": [
@@ -140,7 +140,7 @@
           "name": "Tinh tấn lễ bái",
           "title": "Tinh tấn lễ bái",
           "need": 300,
-          "have": 27,
+          "have": 34,
           "claimed": false,
           "done": false,
           "reward": 150,
@@ -250,7 +250,7 @@
           "name": "Ngàn lạy",
           "title": "Ngàn lạy",
           "need": 1000,
-          "have": 27,
+          "have": 34,
           "claimed": false,
           "done": false,
           "reward": 10,
@@ -637,7 +637,7 @@
           "name": "Tinh tấn lễ bái",
           "title": "Tinh tấn lễ bái",
           "need": 300,
-          "have": 27,
+          "have": 34,
           "claimed": false,
           "done": false,
           "reward": 150,
@@ -684,27 +684,81 @@
     "user": "thichkngan",
     "sect": "tinhdo",
     "level": "Hạt sen · bậc 4",
-    "sen": 562,
+    "sen": 566,
     "ngoc": 0,
     "streak": 2,
-    "merit": 337,
+    "merit": 434,
     "next": 735,
     "from": 0,
-    "bows": 27,
-    "beads": 276,
-    "mo": 166,
+    "bows": 34,
+    "beads": 296,
+    "mo": 192,
     "sitMin": 0,
     "stats": {
-      "bows": 27,
-      "mo": 166,
-      "beads": 276,
+      "bows": 34,
+      "mo": 192,
+      "beads": 296,
       "incense": 5,
-      "chants": 3,
+      "chants": 4,
       "rounds": 2
     }
   },
   "activeRun": null,
   "currentLogs": [
+    {
+      "id": "evt-mw5aeve2-ds8c",
+      "timestamp": "2026-11-06T18:07:45.770Z",
+      "timeDisplay": "[01:07:45 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "🔑 Đã khôi phục phiên đăng nhập cho tài khoản [Hân Ánh Vũ] từ cache."
+    },
+    {
+      "id": "evt-mw5a9r4v-jpsw",
+      "timestamp": "2026-11-06T18:03:46.975Z",
+      "timeDisplay": "[01:03:46 UTC+7]",
+      "runId": null,
+      "level": "success",
+      "icon": "✅",
+      "message": "🎉 HOÀN TẤT: Đã hoàn thành gửi 55 tiếng mõ tụng kinh."
+    },
+    {
+      "id": "evt-mw5a9r4v-430n",
+      "timestamp": "2026-11-06T18:03:46.975Z",
+      "timeDisplay": "[01:03:46 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "...cốc cốc [55/55 tiếng mõ]"
+    },
+    {
+      "id": "evt-mw5a9r4v-fle1",
+      "timestamp": "2026-11-06T18:03:46.975Z",
+      "timeDisplay": "[01:03:46 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "...cốc cốc [40/55 tiếng mõ]"
+    },
+    {
+      "id": "evt-mw5a9r4v-qgr5",
+      "timestamp": "2026-11-06T18:03:46.975Z",
+      "timeDisplay": "[01:03:46 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "ℹ️",
+      "message": "...cốc cốc [20/55 tiếng mõ]"
+    },
+    {
+      "id": "evt-mw5a9r4v-dwv3",
+      "timestamp": "2026-11-06T18:03:46.975Z",
+      "timeDisplay": "[01:03:46 UTC+7]",
+      "runId": null,
+      "level": "info",
+      "icon": "🪵",
+      "message": "Bắt đầu gõ mõ tụng kinh (55 tiếng - chốt an toàn từng chặng)..."
+    },
     {
       "id": "evt-mw5a5ysq-y1y2",
       "timestamp": "2026-11-06T18:00:50.282Z",
@@ -1100,60 +1154,6 @@
       "level": "info",
       "icon": "ℹ️",
       "message": "✍️ Thầy đồ phóng bút chữ \"Từ Bi\" (Lòng từ)..."
-    },
-    {
-      "id": "evt-mw5a2f2h-9b2v",
-      "timestamp": "2026-11-06T17:58:04.745Z",
-      "timeDisplay": "[00:58:04 UTC+7]",
-      "runId": null,
-      "level": "info",
-      "icon": "ℹ️",
-      "message": "✍️ Thầy đồ phóng bút chữ \"Duyên\" (Nhân duyên)..."
-    },
-    {
-      "id": "evt-mw5a2f2h-xlkt",
-      "timestamp": "2026-11-06T17:58:04.745Z",
-      "timeDisplay": "[00:58:04 UTC+7]",
-      "runId": null,
-      "level": "info",
-      "icon": "ℹ️",
-      "message": "✍️ Thầy đồ phóng bút chữ \"Phúc Đức\" (Phúc đức)..."
-    },
-    {
-      "id": "evt-mw5a2f2h-2p9o",
-      "timestamp": "2026-11-06T17:58:04.745Z",
-      "timeDisplay": "[00:58:04 UTC+7]",
-      "runId": null,
-      "level": "info",
-      "icon": "ℹ️",
-      "message": "✍️ Thầy đồ phóng bút chữ \"Trí Tuệ\" (Học hành, sáng suốt)..."
-    },
-    {
-      "id": "evt-mw5a2f2h-930k",
-      "timestamp": "2026-11-06T17:58:04.745Z",
-      "timeDisplay": "[00:58:04 UTC+7]",
-      "runId": null,
-      "level": "info",
-      "icon": "ℹ️",
-      "message": "✍️ Thầy đồ phóng bút chữ \"Tĩnh Tâm\" (Tĩnh tâm)..."
-    },
-    {
-      "id": "evt-mw5a2f2h-excf",
-      "timestamp": "2026-11-06T17:58:04.745Z",
-      "timeDisplay": "[00:58:04 UTC+7]",
-      "runId": null,
-      "level": "info",
-      "icon": "ℹ️",
-      "message": "✍️ Thầy đồ phóng bút chữ \"Nhẫn\" (Nhẫn nại)..."
-    },
-    {
-      "id": "evt-mw5a2f2h-zkzb",
-      "timestamp": "2026-11-06T17:58:04.745Z",
-      "timeDisplay": "[00:58:04 UTC+7]",
-      "runId": null,
-      "level": "info",
-      "icon": "ℹ️",
-      "message": "✍️ Thầy đồ phóng bút chữ \"Hiếu\" (Hiếu thảo)..."
     }
   ],
   "runHistory": [],
