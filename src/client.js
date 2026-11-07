@@ -1449,7 +1449,7 @@ export class DiDenChuaClient {
    * Gọi POST /loc/claim { temple, id } để máy chủ xác thực và trao lộc.
    * @param {number} count - Số lượng lộc cần nhận (mặc định 2).
    */
-  async doLoc(count = 2) {
+  async doLoc(count = 2, options = {}) {
     this.checkAborted();
     log.temple('🍀', `Dạo khuôn viên chùa tìm và nhận hoa sen vàng lộc (${count} lần)...`);
     let claimed = 0;
@@ -1463,7 +1463,10 @@ export class DiDenChuaClient {
     }
 
     try {
-      const candidateTemples = [this.temple, 'tranho', 'huongson', 'dinhmay', 'baison', 'thienmau', 'nhattru'];
+      const candidateTemples = options.temple ? [options.temple] : [
+        this.temple, 'voluong', 'nhattru', 'tranho', 'dinhmay', 'baison',
+        'thienmau', 'vinhan', 'doivang', 'linhson', 'linhung', 'nuisam', 'cuuphong', 'hoangoc'
+      ].filter((v, i, a) => a && a.indexOf(v) === i);
       let templeIdx = 0;
 
       while (claimed < count && templeIdx < candidateTemples.length) {
@@ -1495,8 +1498,11 @@ export class DiDenChuaClient {
               const res = await this.post('/loc/claim', { temple: currentTemple, id: spawn.id });
               claimed++;
               log.success(`🍀 Nhặt được lộc chùa (#${spawn.id}): ${res.label || 'Lộc phước'} - "${res.blessing || ''}"`);
-              if (res?.questsDone?.includes('d_loc2')) {
-                try { await this.post('/quests/d_loc2/claim'); } catch {}
+              if (res?.questsDone) {
+                for (const qId of res.questsDone) {
+                  try { await this.post(`/quests/${qId}/claim`); } catch {}
+                  this.send({ t: 'claim', q: qId });
+                }
               }
             } catch (e) {
               if (e.message?.includes('còn nhận được 0 lộc')) {
@@ -1515,7 +1521,153 @@ export class DiDenChuaClient {
     }
 
     try { await this.post('/quests/d_loc2/claim'); } catch {}
+    try { await this.post('/quests/w_loc15/claim'); } catch {}
+    this.send({ t: 'claim', q: 'd_loc2' });
+    this.send({ t: 'claim', q: 'w_loc15' });
     return { ok: true, claimed, count };
+  }
+
+  /**
+   * Dạo khắp toàn bộ 12 danh lam cổ tự nhặt hoa sen vàng mở thành tựu a_loc_*
+   */
+  async doLocAllTemples() {
+    this.checkAborted();
+    log.temple('🍀', 'Bắt đầu hành trình dạo khắp 12 chùa nhặt hoa sen vàng lộc...');
+    const strollTemples = [
+      'nhattru', 'tranho', 'dinhmay', 'baison', 'thienmau', 'vinhan',
+      'doivang', 'linhson', 'linhung', 'nuisam', 'cuuphong', 'hoangoc'
+    ];
+
+    let totalClaimed = 0;
+    for (const templeId of strollTemples) {
+      this.checkAborted();
+      log.temple('🍀', `Dạo khuôn viên chùa [${templeId}] nhặt lộc sen vàng...`);
+      const res = await this.doLoc(5, { temple: templeId });
+      if (res && res.claimed) totalClaimed += res.claimed;
+      if (this.token) {
+        try { await this.post(`/quests/a_loc_${templeId}/claim`); } catch {}
+      }
+      this.send({ t: 'claim', q: `a_loc_${templeId}` });
+      await this.sleep(this.isTurbo() ? 50 : 400);
+    }
+
+    if (this.token) {
+      try { await this.post('/quests/w_loc15/claim'); } catch {}
+    }
+    this.send({ t: 'claim', q: 'w_loc15' });
+
+    log.success(`🎉 Đã dạo khắp 12 cảnh chùa và thu thập tổng cộng ${totalClaimed} lộc sen vàng!`);
+    return { ok: true, totalClaimed };
+  }
+
+  /**
+   * Tự động kiểm tra và hoàn thành toàn bộ nhiệm vụ tuần
+   */
+  async doWeeklyQuests(options = {}) {
+    this.checkAborted();
+    log.temple('📅', 'Bắt đầu kiểm tra và hoàn thành các nhiệm vụ tuần...');
+
+    let profile = null;
+    if (this.token) {
+      try {
+        profile = await this.fetchMe();
+      } catch {}
+    }
+
+    const quests = profile?.quests || [];
+    const findQuest = (id) => quests.find(q => q.id === id);
+
+    // 1. Tinh tấn lễ bái (w_lay300: 300 lạy)
+    const qLay = findQuest('w_lay300');
+    if (!qLay || (!qLay.done && !qLay.claimed)) {
+      const need = qLay ? Math.max(0, qLay.target - (qLay.progress || 0)) : 300;
+      if (need > 0) {
+        log.info(`Lễ bái bù ${need} lạy cho nhiệm vụ tuần...`);
+        await this.doLay(need, { intervalMs: this.isTurbo() ? 20 : 250 });
+      }
+    }
+
+    // 2. Bảy chuỗi niệm Phật (w_chuoi7: 7 chuỗi = 7 * 108 hạt)
+    const qChuoi = findQuest('w_chuoi7');
+    if (!qChuoi || (!qChuoi.done && !qChuoi.claimed)) {
+      const need = qChuoi ? Math.max(0, qChuoi.target - (qChuoi.progress || 0)) : 7;
+      if (need > 0) {
+        log.info(`Lăn tràng hạt bù ${need} chuỗi (${need * 108} hạt) cho nhiệm vụ tuần...`);
+        await this.doBeads(need * 108);
+      }
+    }
+
+    // 3. Một giờ tĩnh lặng (w_thien60: 60 phút)
+    const qThien = findQuest('w_thien60');
+    if (!qThien || (!qThien.done && !qThien.claimed)) {
+      const needMin = qThien ? Math.max(0, qThien.target - (qThien.progress || 0)) : 60;
+      if (needMin > 0 && options.withMeditate) {
+        log.info(`Thiền định bù ${needMin} phút cho nhiệm vụ tuần...`);
+        await this.doMeditate(needMin * 60);
+      }
+    }
+
+    // 4. Hành hương nhặt lộc (w_loc15: 15 hoa sen)
+    const qLoc = findQuest('w_loc15');
+    if (!qLoc || (!qLoc.done && !qLoc.claimed)) {
+      const need = qLoc ? Math.max(0, qLoc.target - (qLoc.progress || 0)) : 15;
+      if (need > 0) {
+        log.info(`Nhặt bù ${need} lộc hoa sen vàng cho nhiệm vụ tuần...`);
+        await this.doLoc(need);
+      }
+    }
+
+    // Claim tất cả nhiệm vụ tuần
+    const weeklyIds = ['w_lay300', 'w_chuoi7', 'w_thien60', 'w_loc15'];
+    for (const qId of weeklyIds) {
+      if (this.token) {
+        try { await this.post(`/quests/${qId}/claim`); } catch {}
+      }
+      this.send({ t: 'claim', q: qId });
+    }
+
+    log.success('🎉 Đã hoàn tất và kiểm tra toàn bộ nhiệm vụ tuần!');
+    return { ok: true };
+  }
+
+  /**
+   * Siêu chu trình bứt phá: Hoàn thành Trăm lạy danh lam, săn Linh thú, Tuyến Xuyên Việt, Nhặt lộc tuần để bứt phá lên Cấp 10
+   */
+  async doSpeedrunLevel10(options = {}) {
+    this.checkAborted();
+    log.temple('🚀', 'BẮT ĐẦU SIÊU CHU TRÌNH BỨT PHÁ LÊN CẤP 10 & MỞ KHÓA THÀNH TỰU ĐẠI DANH LAM!');
+
+    // Bước 1: Trăm lạy Chùa Vọng Hải (Đà Nẵng) -> 108 lạy, +150 EXP, +300 Sen, 3 Nến sáp
+    log.temple('🌊', 'Bước 1/5: Trăm lạy Tam Bảo tại Chùa Vọng Hải (Đà Nẵng)...');
+    await this.doLayVongHai(108, options);
+    await this.sleep(this.isTurbo() ? 50 : 500);
+
+    // Bước 2: Trăm lạy Miếu Bà Thất Sơn -> 108 lạy, +150 EXP, +300 Sen, 3 Nến sáp
+    log.temple('⛰️', 'Bước 2/5: Trăm lạy Tam Bảo tại Miếu Bà Thất Sơn...');
+    await this.doLayThatSon(108, options);
+    await this.sleep(this.isTurbo() ? 50 : 500);
+
+    // Bước 3: Đại hành hương 20 cảnh chùa -> Hoàn tất tuyến Xuyên Việt, Ba miền, Biển Đông, Non nước (+100 EXP, +60 Ngọc, +750 Sen)
+    log.temple('🗺️', 'Bước 3/5: Đại hành hương 20 danh lam cổ tự toàn quốc...');
+    await this.doVisitAll();
+    await this.sleep(this.isTurbo() ? 50 : 500);
+
+    // Bước 4: Săn và kết duyên 5 lượt linh thú ngoài sân chùa -> Hoàn tất a_pet_*, a_ketduyen (+320 EXP)
+    log.temple('🐾', 'Bước 4/5: Săn và kết duyên thu phục linh thú ngoài sân danh lam...');
+    await this.doHuntPets(options);
+    await this.sleep(this.isTurbo() ? 50 : 500);
+
+    // Bước 5: Dạo vườn nhặt lộc hoa sen vàng -> Hoàn tất nhiệm vụ tuần w_loc15 (+80 EXP, +120 Sen)
+    log.temple('🍀', 'Bước 5/5: Dạo vườn nhặt hoa sen vàng hoàn tất nhiệm vụ tuần w_loc15...');
+    await this.doLoc(15);
+    await this.sleep(this.isTurbo() ? 50 : 500);
+
+    // Thu nhận toàn bộ thành quả
+    log.temple('🎁', 'Thu nhận toàn bộ phần thưởng thành tựu và quà lên cấp...');
+    await this.claimAllQuests();
+
+    log.success('🏆 CHÚC MỪNG! ĐÃ HOÀN TẤT SIÊU CHU TRÌNH BỨT PHÁ LÊN CẤP 10 & MỞ KHÓA TOÀN BỘ DANH LAM!');
+    return { ok: true };
   }
 
   async doVow(text = 'Cầu cho muôn người bình an, thân tâm thường an lạc, vạn sự hanh thông') {

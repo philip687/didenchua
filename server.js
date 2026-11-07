@@ -710,6 +710,33 @@ export const TASKS_CATALOG = [
       { value: 5, label: '5 lộc' },
       { value: 15, label: '15 lộc (Quest tuần 🏆)' }
     ]
+  },
+  {
+    id: 'loc-all',
+    group: 'milestone',
+    title: 'Dạo Khắp 12 Chùa Nhặt Lộc (Hoa Sen Vàng)',
+    desc: 'Lần lượt dạo qua 12 danh lam cổ tự nhặt hoa sen vàng lộc phước mở khóa trọn bộ thành tựu dạo chùa',
+    icon: '🍀',
+    reward: '+1.800 Sen & +600 EXP',
+    badge: 'Dạo khắp chùa'
+  },
+  {
+    id: 'weekly',
+    group: 'daily',
+    title: 'Hoàn Tất Trọn Bộ Nhiệm Vụ Tuần',
+    desc: 'Tự động kiểm tra và quét sạch toàn bộ 4 nhiệm vụ tuần (lạy, chuỗi hạt, thiền, nhặt lộc)',
+    icon: '📅',
+    reward: 'Trọn bộ quà tuần',
+    badge: 'Nhiệm vụ tuần'
+  },
+  {
+    id: 'speedrun-level10',
+    group: 'milestone',
+    title: 'Siêu Chu Trình: Bứt Phá Lên Cấp 10 (Speedrun)',
+    desc: 'Trọn gói Trăm lạy Vọng Hải, Thất Sơn, Xuyên Việt, bắt Linh thú và nhặt Lộc tuần để bứt phá lên Cấp 10 nhận Áo Tràng Vàng',
+    icon: '🚀',
+    reward: 'Cấp 10 & Áo Vàng',
+    badge: 'Bứt phá Cấp 10'
   }
 ];
 
@@ -1154,6 +1181,16 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
         case 'loc':
           await client.doLoc(runOptions.count || 2);
           break;
+        case 'loc-all':
+          await client.doLocAllTemples();
+          break;
+        case 'weekly':
+          await client.doWeeklyQuests(runOptions);
+          break;
+        case 'speedrun-level10':
+        case 'speedrun':
+          await client.doSpeedrunLevel10(runOptions);
+          break;
         case 'meditate':
           const secs = runOptions.meditateSeconds || 300;
           await runMeditateWithClient(client, secs, runOptions);
@@ -1231,7 +1268,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
       }
 
       // Tự động nhận thưởng nếu nhiệm vụ này hoàn thành quest ngày hoặc quest tuần
-      if (['bell', 'vow', 'incense', 'lay-daily', 'lay', 'greet', 'lantern-daily', 'chores-daily', 'xam', 'que', 'wheel', 'vieng', 'visitAll', 'pilgrim', 'petAll', 'pet-hunt', 'pet-bond', 'plant', 'loc', 'chores', 'quet', 'farm-bows-beads', 'tung', 'tuoi', 'chu', 'garden', 'tuyhy', 'secrets', 'tangkinh', 'chu-all', 'meditate', 'ngoi-daily', 'quiz', 'am', 'khoe', 'checkin', 'ca', 'dendau', 'cat', 'wAm', 'chuoi', 'beads'].includes(taskId)) {
+      if (['bell', 'vow', 'incense', 'lay-daily', 'lay', 'greet', 'lantern-daily', 'chores-daily', 'xam', 'que', 'wheel', 'vieng', 'visitAll', 'pilgrim', 'petAll', 'pet-hunt', 'pet-bond', 'plant', 'loc', 'loc-all', 'weekly', 'speedrun-level10', 'speedrun', 'chores', 'quet', 'farm-bows-beads', 'tung', 'tuoi', 'chu', 'garden', 'tuyhy', 'secrets', 'tangkinh', 'chu-all', 'meditate', 'ngoi-daily', 'quiz', 'am', 'khoe', 'checkin', 'ca', 'dendau', 'cat', 'wAm', 'chuoi', 'beads'].includes(taskId)) {
         await client.sleep(client.isTurbo() ? 80 : 300);
         await client.claimAllQuests();
       }
@@ -2395,8 +2432,11 @@ export function renderDashboardHTML() {
       } else if (q.id.startsWith('a_pet_') || taskId === 'petAll') {
         runLabel = '🐾 Vuốt linh thú';
         targetTask = 'petAll';
-      } else if (q.id.startsWith('a_loc_') || q.id === 'w_loc15' || q.id === 'd_loc2' || taskId === 'loc') {
-        runLabel = '🍀 Dạo vườn nhặt lộc';
+      } else if (q.id.startsWith('a_loc_') || taskId === 'loc-all') {
+        runLabel = '🍀 Dạo 12 chùa nhặt lộc';
+        targetTask = 'loc-all';
+      } else if (q.id === 'w_loc15' || q.id === 'd_loc2' || taskId === 'loc') {
+        runLabel = q.id === 'w_loc15' ? '🍀 Nhặt lộc tuần (15)' : '🍀 Dạo vườn nhặt lộc';
         targetTask = 'loc';
       } else if (q.id === 'd_plant' || q.id === 'a_plant30' || taskId === 'plant') {
         runLabel = '🌱 Trồng cây';

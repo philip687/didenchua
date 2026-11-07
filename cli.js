@@ -59,6 +59,9 @@ DANH SÁCH LỆNH CHẠY TỪNG NHIỆM VỤ:
   npm run lay-nuisam    : Trăm lạy Miếu Bà Thất Sơn (108 lạy mở thành tựu danh lam)
   npm run pet-hunt      : Tìm kiếm & kết duyên thu phục linh thú ngoài sân chùa (tối đa 5 lượt/ngày)
   npm run pet           : Chăm sóc linh thú tại 4 danh lam cổ tự (Vọng Hải, Thất Sơn, Cửu Phong, Hoa Ngọc)
+  npm run weekly        : Tự động kiểm tra và hoàn thành toàn bộ nhiệm vụ tuần còn thiếu
+  npm run loc:all       : Dạo khắp 12 chùa nhặt hoa sen vàng mở trọn bộ thành tựu a_loc_*
+  npm run speedrun      : Siêu chu trình bứt phá lên Cấp 10 (Trăm lạy danh lam, bắt Linh thú, Tuyến hành hương)
   npm run tham          : Đi thăm đủ các ngôi chùa 3D (mở danh hiệu và tuyến hành hương)
   npm run chores        : Làm công quả trọn gói (quét sân, phóng sinh cá, thắp đèn, chăm mèo)
   npm run mo [số tiếng] : Gõ mõ tụng kinh (mặc định 108 tiếng, vd: node cli.js mo 108 hoặc npm run mo 300)
@@ -285,6 +288,44 @@ async function main() {
       try {
         await client.connect();
         await client.doHuntPets();
+      } finally {
+        client.close();
+      }
+      break;
+    }
+
+    case 'weekly':
+    case 'nhiemvu-tuan': {
+      const client = new DiDenChuaClient();
+      try {
+        await client.connect();
+        await client.doWeeklyQuests({ withMeditate: args.includes('--meditate') });
+      } finally {
+        client.close();
+      }
+      break;
+    }
+
+    case 'loc-all':
+    case 'loc:all':
+    case 'dao-chua': {
+      const client = new DiDenChuaClient();
+      try {
+        await client.connect();
+        await client.doLocAllTemples();
+      } finally {
+        client.close();
+      }
+      break;
+    }
+
+    case 'speedrun':
+    case 'speedrun-level10':
+    case 'cap10': {
+      const client = new DiDenChuaClient();
+      try {
+        await client.connect();
+        await client.doSpeedrunLevel10();
       } finally {
         client.close();
       }

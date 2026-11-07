@@ -146,3 +146,4 @@ test('server.js: TASKS_CATALOG and QUEST_METADATA correctly expose pet-hunt and 
   assert.ok(html.includes('🐾 Bắt Linh thú (5 lượt)'), 'Must render button label for pet-hunt');
   assert.ok(html.includes('runTask(\'petAll\')'), 'Must generate runTask(petAll) for a_pet_nuisam');
 });
+
