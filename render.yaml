@@ -10,7 +10,7 @@ services:
       - key: CID
         sync: false
       - key: NAME
-        value: Hoa Hiền
+        value: "Phật Tử Đồng Tu"
       - key: ROOM
         value: chua-1
       - key: SAFE_MODE

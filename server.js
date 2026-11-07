@@ -1853,9 +1853,10 @@ export function renderDashboardHTML() {
   const me = state.merit?.me || {};
   const j = state.journal || {};
   const journal = j;
-  const displayName = j.name || me.name || process.env.NAME || 'Phật Tử';
-  const rawUser = (j.user && j.user !== 'null') ? j.user : ((me.user && me.user !== 'null') ? me.user : null);
-  const userTag = rawUser ? `<span>(@${escapeHTML(rawUser)})</span>` : '';
+  // Ẩn toàn bộ thông tin định danh người dùng (tên nhân vật, username) theo yêu cầu bảo mật quyền riêng tư
+  const displayName = 'Phật Tử Đồng Tu';
+  const rawUser = null;
+  const userTag = '';
   const clientConfigBio = me.bio || j.bio || process.env.BIO || 'Không thích nói xấu vừa thỉnh chuông';
 
   // Dữ liệu thiếu phải hiện là thiếu, không dùng giá trị mẫu làm báo cáo thật.
@@ -3508,7 +3509,7 @@ export function renderDashboardHTML() {
     <header>
       <div class="header-top-bar">
         <div class="who">
-          <h1>🪷 ${escapeHTML(displayName)} ${userTag}</h1>
+          <h1>🪷 Báo Cáo Tu Tập</h1>
           <p>Cấp bậc: <b>${reportValue(me.level || j.level)} (Lv.${reportValue(me.lv ?? j.lv)})</b> · Chuỗi lên chùa: <b>${reportValue(me.days ?? j.days)} ngày liên tục</b></p>
         </div>
         <div class="header-version" id="reportHeaderVersion">
@@ -3587,8 +3588,8 @@ export function renderDashboardHTML() {
 
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
             <div>
-              <b style="font-size:16px; color:var(--gold);">${escapeHTML(displayName)}</b>
-              <span style="font-size:12px; color:var(--text-dim); margin-left:6px;">(@${escapeHTML(rawUser || 'phat-tu')})</span>
+              <b style="font-size:16px; color:var(--gold);">Phật Tử Đồng Tu</b>
+              <span style="font-size:12px; color:var(--text-dim); margin-left:6px;">(Đã ẩn danh)</span>
               <div style="font-size:12px; color:var(--text-dim); margin-top:2px;">
                 Cấp bậc: <b style="color:var(--text);">${reportValue(me.level || j.level)} (Lv.${reportValue(me.lv ?? j.lv)})</b> · Danh hiệu: <b style="color:var(--gold);">${escapeHTML(activeTitleName)}</b>
               </div>
@@ -3818,8 +3819,8 @@ export function renderDashboardHTML() {
           <div style="background:rgba(0,0,0,0.25); border:1px solid var(--card-border); padding:14px; border-radius:12px; margin-top:16px;">
             <h3 style="color:var(--gold); font-size:13px; margin-bottom:8px;">🔐 Thông Tin Tài Khoản & Kết Nối Máy Chủ</h3>
             <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; font-size:12px;">
-              <div>Tài khoản: <b style="color:var(--gold);">@${escapeHTML(rawUser || 'phat-tu')}</b></div>
-              <div>Pháp danh: <b>${escapeHTML(displayName)}</b></div>
+              <div>Tài khoản: <b style="color:var(--gold);">*** (Đã ẩn danh)</b></div>
+              <div>Pháp danh: <b>Phật Tử Đồng Tu (Đã ẩn)</b></div>
               <div>Phòng hiện tại: <b>chua-1</b></div>
               <div>Máy chủ WebSocket: <b>wss://didenchua.com:443/ws</b></div>
               <div>Render Health Check: <b>/health (alias: /heath, /ping)</b></div>

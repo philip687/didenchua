@@ -9,4 +9,5 @@ SYSTEM_LOG_REPORT_UPGRADE_GUIDE.md
 *_GUIDE.md
 *GUIDE.md
 scratch/
+.cached_token.json
 
