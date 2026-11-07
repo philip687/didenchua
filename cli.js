@@ -57,6 +57,8 @@ DANH SÁCH LỆNH CHẠY TỪNG NHIỆM VỤ:
   npm run lay [số lạy]  : Lạy Phật sám hối (mặc định 108 lạy mở danh hiệu "Trăm lạy")
   npm run lay-vonghai   : Trăm lạy Chùa Vọng Hải (108 lạy mở thành tựu danh lam)
   npm run lay-nuisam    : Trăm lạy Miếu Bà Thất Sơn (108 lạy mở thành tựu danh lam)
+  npm run pet-hunt      : Tìm kiếm & kết duyên thu phục linh thú ngoài sân chùa (tối đa 5 lượt/ngày)
+  npm run pet           : Chăm sóc linh thú tại 4 danh lam cổ tự (Vọng Hải, Thất Sơn, Cửu Phong, Hoa Ngọc)
   npm run tham          : Đi thăm đủ các ngôi chùa 3D (mở danh hiệu và tuyến hành hương)
   npm run chores        : Làm công quả trọn gói (quét sân, phóng sinh cá, thắp đèn, chăm mèo)
   npm run mo [số tiếng] : Gõ mõ tụng kinh (mặc định 108 tiếng, vd: node cli.js mo 108 hoặc npm run mo 300)
@@ -256,6 +258,33 @@ async function main() {
       try {
         await client.connect();
         await client.doVisitAll();
+      } finally {
+        client.close();
+      }
+      break;
+    }
+
+    case 'pet':
+    case 'pet-all':
+    case 'cham-thu': {
+      const client = new DiDenChuaClient();
+      try {
+        await client.connect();
+        await client.doPetAll();
+      } finally {
+        client.close();
+      }
+      break;
+    }
+
+    case 'pet-hunt':
+    case 'pet-bond':
+    case 'bat-thu':
+    case 'san-thu': {
+      const client = new DiDenChuaClient();
+      try {
+        await client.connect();
+        await client.doHuntPets();
       } finally {
         client.close();
       }

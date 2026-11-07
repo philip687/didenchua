@@ -56,6 +56,8 @@
     "lay": "node cli.js lay",
     "lay:vonghai": "node cli.js lay-vonghai",
     "lay:nuisam": "node cli.js lay-nuisam",
+    "pet": "node cli.js pet",
+    "pet:hunt": "node cli.js pet-hunt",
     "tham": "node cli.js tham",
     "ci": "node cli.js ci",
     "cicd": "node cli.js cicd",

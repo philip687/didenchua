@@ -666,6 +666,16 @@ export const TASKS_CATALOG = [
     badge: 'Đại hành hương'
   },
   {
+    id: 'pet-hunt',
+    group: 'milestone',
+    questId: 'a_ketduyen',
+    title: 'Thu Phục & Kết Duyên Linh Thú (5 Lượt)',
+    desc: 'Đi dạo sân các danh lam (Vọng Hải, Thất Sơn, Cửu Phong, Hoa Ngọc...), tiếp cận linh thú và kết duyên 8 giây để thu phục linh thú đồng hành',
+    icon: '🐾',
+    reward: 'Linh thú & +80 EXP',
+    badge: 'Kết duyên'
+  },
+  {
     id: 'petAll',
     group: 'milestone',
     title: 'Chăm Sóc Linh Thú Danh Lam',
@@ -1134,6 +1144,10 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
         case 'petAll':
           await client.doPetAll();
           break;
+        case 'pet-hunt':
+        case 'pet-bond':
+          await client.doHuntPets(runOptions);
+          break;
         case 'plant':
           await client.doPlant();
           break;
@@ -1217,7 +1231,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
       }
 
       // Tự động nhận thưởng nếu nhiệm vụ này hoàn thành quest ngày hoặc quest tuần
-      if (['bell', 'vow', 'incense', 'lay-daily', 'lay', 'greet', 'lantern-daily', 'chores-daily', 'xam', 'que', 'wheel', 'vieng', 'visitAll', 'pilgrim', 'petAll', 'plant', 'loc', 'chores', 'quet', 'farm-bows-beads', 'tung', 'tuoi', 'chu', 'garden', 'tuyhy', 'secrets', 'tangkinh', 'chu-all', 'meditate', 'ngoi-daily', 'quiz', 'am', 'khoe', 'checkin', 'ca', 'dendau', 'cat', 'wAm', 'chuoi', 'beads'].includes(taskId)) {
+      if (['bell', 'vow', 'incense', 'lay-daily', 'lay', 'greet', 'lantern-daily', 'chores-daily', 'xam', 'que', 'wheel', 'vieng', 'visitAll', 'pilgrim', 'petAll', 'pet-hunt', 'pet-bond', 'plant', 'loc', 'chores', 'quet', 'farm-bows-beads', 'tung', 'tuoi', 'chu', 'garden', 'tuyhy', 'secrets', 'tangkinh', 'chu-all', 'meditate', 'ngoi-daily', 'quiz', 'am', 'khoe', 'checkin', 'ca', 'dendau', 'cat', 'wAm', 'chuoi', 'beads'].includes(taskId)) {
         await client.sleep(client.isTurbo() ? 80 : 300);
         await client.claimAllQuests();
       }
@@ -2164,11 +2178,11 @@ export const QUEST_METADATA = {
     taskId: 'lay'
   },
   a_ketduyen: {
-    icon: '🤝',
-    title: 'Kết duyên',
-    desc: 'Kết thiện duyên cùng các bạn đồng tu tại chùa',
-    tip: 'Chắp tay chào bạn đồng tu',
-    taskId: 'greet'
+    icon: '🐾',
+    title: 'Kết duyên Linh thú',
+    desc: 'Kết duyên thành công 3 linh thú đồng hành ngoài sân chùa',
+    tip: 'Đứng cạnh linh thú hoang ngoài sân 8 giây để kết duyên',
+    taskId: 'pet-hunt'
   },
   a_chuoi7: {
     icon: '📅',
@@ -2375,6 +2389,9 @@ export function renderDashboardHTML() {
       if (q.id.startsWith('r_') || taskId === 'visitAll') {
         runLabel = '🗺️ Hành hương';
         targetTask = 'visitAll';
+      } else if (q.id === 'a_ketduyen' || taskId === 'pet-hunt') {
+        runLabel = '🐾 Bắt Linh thú (5 lượt)';
+        targetTask = 'pet-hunt';
       } else if (q.id.startsWith('a_pet_') || taskId === 'petAll') {
         runLabel = '🐾 Vuốt linh thú';
         targetTask = 'petAll';

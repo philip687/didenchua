@@ -78,8 +78,18 @@ export const PHAPKHI_CATALOG = {
 };
 
 export const PETS_CATALOG = {
-  meo: { name: 'Mèo chùa', lv: 2, days: 7, desc: 'Lười biếng mà hiền, thích nằm sưởi nắng bên hiên' },
-  tho: { name: 'Thỏ trắng', lv: 4, days: 21, desc: 'Nhút nhát nhưng quấn chủ, nhảy từng bước nhỏ' }
+  tho_ngoc: { name: 'Thỏ Ngọc', rank: 'thuong', rankName: 'Thường', mult: 1.5, reqLv: 1, desc: 'Linh thú hiền hòa chạy nhảy quanh vườn chùa' },
+  huou: { name: 'Bạch Hươu', rank: 'thuong', rankName: 'Thường', mult: 1.5, reqLv: 1, desc: 'Hươu sao thanh tịnh gặm cỏ bờ kinh' },
+  nghe: { name: 'Nghê Cổ Tự', rank: 'quy', rankName: 'Quý', mult: 1.75, reqLv: 1, desc: 'Linh vật thuần Việt bảo hộ cửa chùa, xua tan chướng khí' },
+  trau_vang: { name: 'Thanh Ngưu / Trâu Vàng', rank: 'quy', rankName: 'Quý', mult: 1.75, reqLv: 1, desc: 'Biểu trưng của sự siêng năng, thuần phác và định lực' },
+  huyen_vu: { name: 'Huyền Vũ', rank: 'quy', rankName: 'Quý', mult: 1.75, reqLv: 1, desc: 'Rùa rắn trường thọ, trấn giữ phương Bắc trầm mặc' },
+  bach_tuong: { name: 'Bạch Tượng', rank: 'hiem', rankName: 'Hiếm', mult: 2.0, reqLv: 5, desc: 'Voi trắng sáu ngà cát tường của Bồ Tát Phổ Hiền' },
+  chu_tuoc: { name: 'Chu Tước', rank: 'hiem', rankName: 'Hiếm', mult: 2.0, reqLv: 5, desc: 'Phượng hoàng lửa sải cánh rực rỡ phương Nam' },
+  su_tu_xanh: { name: 'Sư Tử Xanh', rank: 'hiem', rankName: 'Hiếm', mult: 2.0, reqLv: 5, desc: 'Thanh sư dũng mãnh của Bồ Tát Văn Thù (Pity bảo hiểm 40 lần)' },
+  thanh_long: { name: 'Thanh Long', rank: 'toi_thuong', rankName: 'Tối thượng', mult: 2.4, reqLv: 5, desc: 'Rồng xanh uy nghiêm uốn lượn hào quang vảy ngọc' },
+  // Tương thích ngược các tên cũ
+  meo: { name: 'Mèo chùa', rank: 'thuong', rankName: 'Thường', mult: 1.5, reqLv: 1, desc: 'Lười biếng mà hiền, thích nằm sưởi nắng bên hiên' },
+  tho: { name: 'Thỏ trắng', rank: 'thuong', rankName: 'Thường', mult: 1.5, reqLv: 1, desc: 'Nhút nhát nhưng quấn chủ, nhảy từng bước nhỏ' }
 };
 
 export const ALL_TEMPLES = [
@@ -263,6 +273,10 @@ export class DiDenChuaClient {
       }
     }
     return this.api(path, { method: 'POST', body });
+  }
+
+  async get(path, options = {}) {
+    return this.api(path, { method: 'GET', ...options });
   }
 
   async authenticate() {
@@ -1016,9 +1030,15 @@ export class DiDenChuaClient {
     log.success('🎉 Đã hoàn tất hành trình viếng thăm các ngôi chùa!');
   }
 
-  async doPetAll() {
+  async doPetAll(options = {}) {
     this.checkAborted();
     log.temple('🐾', 'Bắt đầu chu trình chăm sóc linh thú tại các danh lam cổ tự...');
+    if (options.withHunt && this.token) {
+      try {
+        await this.doHuntPets({ ...options, templeList: ['linhung', 'nuisam', 'cuuphong', 'hoangoc'] });
+      } catch {}
+    }
+
     const petTemples = ['linhung', 'nuisam', 'cuuphong', 'hoangoc'];
     for (const templeId of petTemples) {
       this.checkAborted();
@@ -1032,6 +1052,10 @@ export class DiDenChuaClient {
       }
       this.send({ t: 'claim', q: `a_pet_${templeId}` });
     }
+    if (this.token) {
+      try { await this.post('/quests/a_ketduyen/claim'); } catch {}
+    }
+    this.send({ t: 'claim', q: 'a_ketduyen' });
     log.success('🎉 Đã chăm sóc toàn bộ linh thú danh lam thành công!');
     return { ok: true };
   }
@@ -1207,6 +1231,169 @@ export class DiDenChuaClient {
       } catch {}
     }
     return res || { ok: true };
+  }
+
+  async getPetBook() {
+    this.checkAborted();
+    return await this.get('/pets');
+  }
+
+  async getPetSpawns(templeId) {
+    this.checkAborted();
+    return await this.get(`/pets/spawns?temple=${encodeURIComponent(templeId)}`);
+  }
+
+  async doBondPet(templeId, beast, options = {}) {
+    this.checkAborted();
+    const tId = templeId || this.temple || 'voluong';
+    const bId = typeof beast === 'object' ? beast.id : beast;
+    const bModel = typeof beast === 'object' ? (beast.model || beast.item) : null;
+    const petMeta = (bModel && PETS_CATALOG[bModel]) || null;
+    const petName = petMeta ? petMeta.name : (typeof beast === 'object' && beast.name ? beast.name : `Linh thú #${bId}`);
+
+    log.temple('🐾', `Tiếp cận và kết duyên với [${petName}] tại chùa [${tId}]...`);
+
+    // Gửi toạ độ vị trí tiếp cận cạnh linh thú nếu có toạ độ
+    if (typeof beast === 'object' && beast.x != null && beast.z != null) {
+      this.send({ t: 's', x: beast.x, z: beast.z, r: 0, a: 0 });
+      await this.sleep(this.isTurbo() ? 50 : 300);
+    }
+
+    let startRes;
+    try {
+      startRes = await this.post('/pets/bond/start', { temple: tId, id: bId });
+    } catch (err) {
+      log.warn(`⚠️ Chưa thể bắt đầu kết duyên: ${err.message}`);
+      return { ok: false, error: err.message };
+    }
+
+    const waitMs = options.fast || this.isTurbo() ? 100 : Math.max(1000, (startRes?.ms || 8000) + 200);
+    log.info(`⏳ Đang tĩnh tâm đứng cạnh linh thú ${Math.round(waitMs / 1000)}s để tạo thiện duyên...`);
+
+    const t0 = Date.now();
+    while (Date.now() - t0 < waitMs) {
+      this.checkAborted();
+      if (this.ws && typeof beast === 'object' && beast.x != null) {
+        this.send({ t: 's', x: beast.x, z: beast.z, r: 0, a: 0 });
+      }
+      await this.sleep(Math.min(1000, Math.max(50, waitMs - (Date.now() - t0))));
+    }
+
+    let finishRes;
+    try {
+      finishRes = await this.post('/pets/bond/finish', { temple: tId, id: bId });
+    } catch (err) {
+      log.warn(`⚠️ Lỗi khi hoàn tất kết duyên: ${err.message}`);
+      return { ok: false, error: err.message };
+    }
+
+    if (finishRes?.ok) {
+      if (finishRes.dup) {
+        log.success(`✨ Kết duyên thành công! Đã có loài này nên phóng sinh về tự nhiên và nhận +${finishRes.sen || 0} Sen công đức!`);
+      } else {
+        log.success(`🎉 Chúc mừng! Đã kết duyên và thu phục thành công linh thú [${petName}]!`);
+        if (finishRes.item) {
+          try {
+            await this.doEquipPet(finishRes.item);
+            log.success(`🐾 Đã cho linh thú [${petName}] đồng hành và sẵn sàng cưỡi ngoài sân chùa!`);
+          } catch {}
+        }
+      }
+      // Tự động claim quest liên quan
+      const petQuests = [`a_pet_${tId}`, 'a_ketduyen'];
+      for (const qId of petQuests) {
+        try { await this.post(`/quests/${qId}/claim`); } catch {}
+        this.send({ t: 'claim', q: qId });
+      }
+    } else {
+      log.warn(`🍂 Duyên chưa đủ, linh thú khẽ lánh đi. (Hôm nay còn ${finishRes?.left ?? '?'} lượt)`);
+    }
+
+    return finishRes;
+  }
+
+  async doEquipPet(petItemId) {
+    this.checkAborted();
+    log.info(`Trang bị linh thú [${petItemId}] đồng hành...`);
+    return await this.post('/equip', { item: petItemId });
+  }
+
+  async doHuntPets(options = {}) {
+    this.checkAborted();
+    log.temple('🐾', 'Bắt đầu hành trình tìm kiếm và thu phục linh thú...');
+
+    let book = null;
+    try {
+      book = await this.getPetBook();
+    } catch (err) {
+      log.warn(`Không thể lấy Sổ linh thú: ${err.message}`);
+    }
+
+    if (book && typeof book.left === 'number' && book.left <= 0) {
+      log.warn(`⚠️ Hôm nay bạn đã dùng hết ${book.daily || 5}/${book.daily || 5} lượt kết duyên miễn phí.`);
+      return { ok: false, reason: 'no_attempts_left', book };
+    }
+
+    const priorityTemples = options.temple ? [options.temple] : (options.templeList || ['linhung', 'nuisam', 'cuuphong', 'hoangoc', 'voluong', 'tranho', 'baison']);
+    let remaining = book && typeof book.left === 'number' ? book.left : (options.maxAttempts || 5);
+    const results = [];
+    let caughtPet = null;
+
+    for (const templeId of priorityTemples) {
+      if (remaining <= 0) break;
+      this.checkAborted();
+
+      log.temple('🐾', `Đang tìm linh thú tại sân chùa [${templeId}]...`);
+      await this.doVisit(templeId);
+      await this.sleep(this.isTurbo() ? 50 : 600);
+
+      let spawnsData;
+      try {
+        spawnsData = await this.getPetSpawns(templeId);
+      } catch (err) {
+        log.warn(`Chùa [${templeId}] không lấy được danh sách linh thú: ${err.message}`);
+        continue;
+      }
+
+      const spawns = spawnsData?.spawns || [];
+      if (spawns.length === 0) {
+        log.info(`Sân chùa [${templeId}] hiện chưa có linh thú xuất hiện.`);
+        continue;
+      }
+
+      log.success(`Phát hiện ${spawns.length} linh thú xuất hiện tại sân chùa [${templeId}]!`);
+
+      for (const beast of spawns) {
+        if (remaining <= 0) break;
+        this.checkAborted();
+
+        const res = await this.doBondPet(templeId, beast, options);
+        results.push({ temple: templeId, beast, result: res });
+
+        if (res && typeof res.left === 'number') {
+          remaining = res.left;
+        } else {
+          remaining--;
+        }
+
+        if (res?.ok && !res?.dup) {
+          caughtPet = res.item || beast.item;
+        }
+
+        await this.sleep(this.isTurbo() ? 50 : 500);
+      }
+    }
+
+    // Tự động nhận thưởng quest kết duyên nếu có
+    if (this.token) {
+      for (const t of priorityTemples) {
+        try { await this.post(`/quests/a_pet_${t}/claim`); } catch {}
+      }
+      try { await this.post('/quests/a_ketduyen/claim'); } catch {}
+    }
+
+    log.success(`🏁 Hoàn tất đợt tìm kiếm linh thú (Còn lại ${remaining} lượt kết duyên).`);
+    return { ok: true, remaining, results, caughtPet };
   }
 
   async doPlant() {
