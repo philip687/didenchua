@@ -822,8 +822,12 @@ function loadCachedState() {
       if (data.merit) state.merit = data.merit;
       if (data.journal) state.journal = data.journal;
       if (data.lastUpdated) state.lastUpdated = data.lastUpdated;
-      if (typeof data.autoEnabled === 'boolean' && process.env.AUTO_PLAY === undefined && process.env.NP_AUTO_PLAY === undefined) {
-        state.autoEnabled = data.autoEnabled;
+      // Tuyệt đối không tự ý bật chế độ chơi tự động khi khởi động / build dự án.
+      // Luôn khởi động ở trạng thái an toàn (autoEnabled = false) trừ khi có cờ môi trường chỉ định rõ.
+      if (process.env.AUTO_PLAY === 'true' || process.env.NP_AUTO_PLAY === 'true') {
+        state.autoEnabled = true;
+      } else {
+        state.autoEnabled = false;
       }
       if (Array.isArray(data.runHistory) && data.runHistory.length > 0) {
         state.runHistory = data.runHistory;
@@ -1612,7 +1616,8 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
 // Lập lịch tự động chạy sau 00:05 sáng mỗi ngày giờ VN (UTC+7)
 function startDailyScheduler() {
   async function checkSchedule() {
-    if (isSchedulerRunning || state.isRunning || state.isStopping) return;
+    // Chỉ kích hoạt lịch chạy tự động nếu chế độ Auto đang BẬT
+    if (!state.autoEnabled || isSchedulerRunning || state.isRunning || state.isStopping) return;
 
     const now = new Date(Date.now() + 7 * 3600 * 1000);
     const todayStr = now.toISOString().slice(0, 10);
@@ -4468,13 +4473,7 @@ if (isDirectRun && process.env.NODE_ENV !== 'test') {
     // Khởi động vòng lặp Tự Chơi Auto
     startAutoLoop();
 
-    if (state.autoEnabled) {
-      log.temple('🤖', 'Chế độ Tự Động Chơi (Auto Engine) đang BẬT. Sẽ tự động kiểm tra và chạy sau 5 giây...');
-      setTimeout(() => {
-        if (!state.isRunning && !state.isStopping) {
-          executeRoutine('Auto Engine Boot Initializer', { fast: true }).catch(console.error);
-        }
-      }, 5000);
-    }
+    // Khởi động ở trạng thái an toàn: tuyệt đối không tự ý kích hoạt bất kỳ chu trình chơi tự động nào khi build / khởi động
+    log.info(`🛡️ Dự án đã khởi động an toàn (Trạng thái Auto: ${state.autoEnabled ? 'BẬT' : 'TẮT'}). Không tự ý chơi tự động khi build.`);
   });
 }
