@@ -1173,7 +1173,20 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           await client.doWheel();
           break;
         case 'claim':
-          await client.claimAllQuests();
+          if (runOptions.questId) {
+            log.temple('🎁', `Nhận thưởng nhiệm vụ [${runOptions.questId}]...`);
+            if (client.token) {
+              try {
+                const res = await client.post(`/quests/${runOptions.questId}/claim`);
+                log.success(`🎁 Đã nhận thưởng nhiệm vụ [${runOptions.questId}]: +${res.reward?.sen || 10} Sen!`);
+              } catch (e) {
+                log.warn(`Không thể nhận thưởng [${runOptions.questId}]: ${e.message}`);
+              }
+            }
+            client.send({ t: 'claim', q: runOptions.questId });
+          } else {
+            await client.claimAllQuests();
+          }
           break;
         case 'garden':
           await client.doGarden({ autoWaterOthers: true });
@@ -1302,12 +1315,8 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           throw new Error(`Nhiệm vụ không xác định: ${taskId}`);
       }
 
-      // Tự động nhận thưởng nếu nhiệm vụ này hoàn thành quest ngày hoặc quest tuần
-      if (['bell', 'vow', 'incense', 'lay-daily', 'lay', 'greet', 'lantern-daily', 'chores-daily', 'xam', 'que', 'wheel', 'vieng', 'visitAll', 'pilgrim', 'petAll', 'pet-hunt', 'pet-bond', 'plant', 'loc', 'loc-all', 'weekly', 'speedrun-level10', 'speedrun', 'chores', 'quet', 'farm-bows-beads', 'tung', 'tuoi', 'chu', 'garden', 'tuyhy', 'secrets', 'tangkinh', 'chu-all', 'meditate', 'ngoi-daily', 'quiz', 'am', 'khoe', 'checkin', 'ca', 'dendau', 'cat', 'wAm', 'chuoi', 'beads'].includes(taskId)) {
-        await client.sleep(client.isTurbo() ? 80 : 300);
-        await client.claimAllQuests();
-      }
-
+      // Khi bấm chạy 1 nhiệm vụ riêng lẻ, CHỈ thực hiện duy nhất nhiệm vụ đó.
+      // Tuyệt đối không tự ý chạy claimAllQuests() để tránh gây hiệu ứng phụ hoặc spam request.
       client.close();
     }
 
@@ -2450,7 +2459,7 @@ export function renderDashboardHTML() {
     } else if (have >= need || q.done) {
       statusClass = 'quest-ready';
       fillClass = 'fill-ready';
-      actionBtn = `<button class="btn-task btn-quick-claim" onclick="runTask('claim')" ${isAnyRunning ? 'disabled' : ''} title="Nhận phần thưởng công đức">🎁 Nhận (+${escapeHTML(q.reward)}đ)</button>`;
+      actionBtn = `<button class="btn-task btn-quick-claim" onclick="runTask('claim', { questId: '${escapeHTML(q.id)}' })" ${isAnyRunning ? 'disabled' : ''} title="Nhận phần thưởng công đức">🎁 Nhận (+${escapeHTML(q.reward)}đ)</button>`;
     } else if (isLevelMilestone) {
       actionBtn = `<span class="badge badge-milestone" title="Tích luỹ EXP công đức từ các thời khoá để lên cấp">🎯 Mốc Cấp Độ (EXP)</span>`;
     } else if (isStreakMilestone) {
@@ -4348,6 +4357,11 @@ const server = http.createServer(async (req, res) => {
     // Kiểm tra bài kinh (sutra)
     if (bodyData.sutra || url.searchParams.get('sutra')) {
       runOptions.sutra = String(bodyData.sutra || url.searchParams.get('sutra')).trim();
+    }
+
+    // Nhận thưởng nhiệm vụ cụ thể (questId)
+    if (bodyData.questId || url.searchParams.get('questId')) {
+      runOptions.questId = String(bodyData.questId || url.searchParams.get('questId')).trim();
     }
 
     // Các tham số cho danh hiệu, bản đồ, trang bị và thời lượng

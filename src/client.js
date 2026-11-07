@@ -594,7 +594,7 @@ export class DiDenChuaClient {
     return res;
   }
 
-  async doCheckin() {
+  async doCheckin(options = {}) {
     this.checkAborted();
     log.temple('📅', `Bắt đầu điểm danh lên chùa hôm nay...`);
     this.send({ t: 'checkin' });
@@ -612,12 +612,14 @@ export class DiDenChuaClient {
         }
       }
 
-      try { await this.doQue(); } catch {}
-      await this.sleep(this.isTurbo() ? 100 : 400);
-      try { await this.doBell(); } catch {}
-      await this.sleep(this.isTurbo() ? 100 : 400);
-      try { await this.doWheel(); } catch {}
-      await this.sleep(this.isTurbo() ? 100 : 400);
+      if (options.withActivities) {
+        try { await this.doQue(); } catch {}
+        await this.sleep(this.isTurbo() ? 100 : 400);
+        try { await this.doBell(); } catch {}
+        await this.sleep(this.isTurbo() ? 100 : 400);
+        try { await this.doWheel(); } catch {}
+        await this.sleep(this.isTurbo() ? 100 : 400);
+      }
       try { await this.fetchMe(); } catch {}
     }
     return checkinRes;
