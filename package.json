@@ -54,6 +54,8 @@
     "amrieng": "node cli.js am",
     "phapduong": "node cli.js phapduong",
     "lay": "node cli.js lay",
+    "lay:vonghai": "node cli.js lay-vonghai",
+    "lay:nuisam": "node cli.js lay-nuisam",
     "tham": "node cli.js tham",
     "ci": "node cli.js ci",
     "cicd": "node cli.js cicd",

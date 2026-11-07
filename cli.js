@@ -40,7 +40,7 @@ const args = process.argv.slice(3);
 function showHelp() {
   console.log(`
 ========================================================================
-🪷  HỆ THỐNG TỰ ĐỘNG HÓA - ĐI ĐẾN CHÙA ONLINE (didenchua.online)
+🪷  HỆ THỐNG TỰ ĐỘNG HÓA - NIỆM PHẬT ONLINE (niemphat.online)
 ========================================================================
 
 CÁCH DÙNG:
@@ -55,7 +55,9 @@ DANH SÁCH LỆNH CHẠY TỪNG NHIỆM VỤ:
   npm run chao          : Chắp tay chào một bạn đồng tu trong chùa
   npm run quet [số lần] : Quét lá sân chùa (mặc định 1 lần, vd: node cli.js quet 20)
   npm run lay [số lạy]  : Lạy Phật sám hối (mặc định 108 lạy mở danh hiệu "Trăm lạy")
-  npm run tham          : Đi thăm đủ 10 khu vực trong chùa (mở danh hiệu "Thăm khắp chùa")
+  npm run lay-vonghai   : Trăm lạy Chùa Vọng Hải (108 lạy mở thành tựu danh lam)
+  npm run lay-nuisam    : Trăm lạy Miếu Bà Thất Sơn (108 lạy mở thành tựu danh lam)
+  npm run tham          : Đi thăm đủ các ngôi chùa 3D (mở danh hiệu và tuyến hành hương)
   npm run chores        : Làm công quả trọn gói (quét sân, phóng sinh cá, thắp đèn, chăm mèo)
   npm run mo [số tiếng] : Gõ mõ tụng kinh (mặc định 108 tiếng, vd: node cli.js mo 108 hoặc npm run mo 300)
   npm run chuoi [số hạt]: Lăn chuỗi tràng hạt niệm Phật (mặc định 20 hạt, vd: 108 hạt)
@@ -133,6 +135,17 @@ async function main() {
 
     case 'lay':
       await runLay(args[0] ? parseInt(args[0], 10) : 108);
+      break;
+
+    case 'lay-vonghai':
+    case 'vonghai':
+      await runLay(args[0] ? parseInt(args[0], 10) : 108, { temple: 'linhung' });
+      break;
+
+    case 'lay-nuisam':
+    case 'nuisam':
+    case 'thatson':
+      await runLay(args[0] ? parseInt(args[0], 10) : 108, { temple: 'nuisam' });
       break;
 
     case 'tham':

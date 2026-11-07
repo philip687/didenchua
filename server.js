@@ -371,6 +371,40 @@ export const TASKS_CATALOG = [
 
   // --- TẦNG 2: MỐC TU TẬP & THÀNH TỰU VĨNH VIỄN (MILESTONES) ---
   {
+    id: 'lay-vonghai',
+    group: 'milestone',
+    questId: 'a_bow_linhung',
+    title: 'Trăm Lạy Vọng Hải',
+    desc: 'Di chuyển đến Chùa Vọng Hải (Đà Nẵng) lễ bái 108 lạy Tam Bảo mở khóa thành tựu danh lam',
+    icon: '🌊',
+    reward: '+150 EXP, +300 Sen, 3 Nến',
+    badge: 'Thành tựu danh lam',
+    hasCount: true,
+    defaultCount: 108,
+    countOptions: [
+      { value: 108, label: '108 lạy (Trọn vẹn 🏆)' },
+      { value: 54, label: '54 lạy' },
+      { value: 27, label: '27 lạy' }
+    ]
+  },
+  {
+    id: 'lay-nuisam',
+    group: 'milestone',
+    questId: 'a_bow_nuisam',
+    title: 'Trăm Lạy Thất Sơn',
+    desc: 'Di chuyển đến Miếu Bà Thất Sơn lễ bái 108 lạy Tam Bảo mở khóa thành tựu danh lam',
+    icon: '⛰️',
+    reward: '+150 EXP, +300 Sen, 3 Nến',
+    badge: 'Thành tựu danh lam',
+    hasCount: true,
+    defaultCount: 108,
+    countOptions: [
+      { value: 108, label: '108 lạy (Trọn vẹn 🏆)' },
+      { value: 54, label: '54 lạy' },
+      { value: 27, label: '27 lạy' }
+    ]
+  },
+  {
     id: 'lay',
     group: 'milestone',
     title: 'Lạy Phật Sám Hối',
@@ -985,6 +1019,12 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
         case 'xinchu-all':
           await client.doXinAllChu();
           break;
+        case 'lay-vonghai':
+          await client.doLayVongHai(runOptions.count || 108, runOptions);
+          break;
+        case 'lay-nuisam':
+          await client.doLayThatSon(runOptions.count || 108, runOptions);
+          break;
         case 'lay':
           const bowsCount = runOptions.count || 18;
           await client.doLay(bowsCount, runOptions);
@@ -1217,7 +1257,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           verificationStatus = 'unverified';
           verificationDetail = 'Chưa ghi nhận biến động công đức/nhiệm vụ trong snapshot sau chu trình.';
         }
-      } else if (taskId === 'lay' || taskId === 'lay-daily') {
+      } else if (taskId === 'lay' || taskId === 'lay-daily' || taskId === 'lay-vonghai' || taskId === 'lay-nuisam') {
         if (postBows > preBows || postMeritTotal > preMeritTotal || postClaimedCount > preClaimedCount) {
           verificationStatus = 'verified';
           verificationDetail = `Máy chủ đã ghi nhận số lạy: ${preBows} -> ${postBows} lạy.`;
@@ -2058,18 +2098,18 @@ export const QUEST_METADATA = {
   },
   // Trăm lạy danh lam
   a_bow_linhung: {
-    icon: '🙇',
+    icon: '🌊',
     title: 'Trăm lạy Vọng Hải',
-    desc: 'Lễ bái Tam Bảo 108 lạy tại Chùa Vọng Hải',
+    desc: 'Lễ bái Tam Bảo 108 lạy tại Chùa Vọng Hải (Đà Nẵng)',
     tip: 'Lạy Phật tại Chùa Vọng Hải sám hối tiêu nghiệp',
-    taskId: 'lay'
+    taskId: 'lay-vonghai'
   },
   a_bow_nuisam: {
-    icon: '🙇',
+    icon: '⛰️',
     title: 'Trăm lạy Thất Sơn',
     desc: 'Lễ bái Tam Bảo 108 lạy tại Miếu Bà Thất Sơn',
     tip: 'Lạy Phật tại Thất Sơn sám hối tiêu nghiệp',
-    taskId: 'lay'
+    taskId: 'lay-nuisam'
   },
   // Dạo vườn nhặt lộc
   w_loc15: {
@@ -2344,6 +2384,12 @@ export function renderDashboardHTML() {
       } else if (q.id === 'd_plant' || q.id === 'a_plant30' || taskId === 'plant') {
         runLabel = '🌱 Trồng cây';
         targetTask = 'plant';
+      } else if (q.id === 'a_bow_linhung' || taskId === 'lay-vonghai') {
+        runLabel = '🌊 Lạy Vọng Hải (108)';
+        targetTask = 'lay-vonghai';
+      } else if (q.id === 'a_bow_nuisam' || taskId === 'lay-nuisam') {
+        runLabel = '⛰️ Lạy Thất Sơn (108)';
+        targetTask = 'lay-nuisam';
       } else if (q.id === 'a_lay1000' || q.id.startsWith('a_bow_') || taskId === 'lay') {
         runLabel = '🙇 Lạy Phật';
         targetTask = 'lay';

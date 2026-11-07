@@ -142,3 +142,37 @@ test('renderDashboardHTML: separates daily, weekly and achievement tabs with int
   assert.ok(html.includes('runTask(\'petAll\')'), 'Must generate runTask(petAll) for temple pet');
   assert.ok(html.includes('runTask(\'loc\')'), 'Must generate runTask(loc) for w_loc15');
 });
+
+test('renderDashboardHTML & DiDenChuaClient: supports Trăm lạy Vọng Hải and Thất Sơn', async () => {
+  const { DiDenChuaClient } = await import('../src/client.js');
+  const client = new DiDenChuaClient();
+  assert.equal(typeof client.doLayVongHai, 'function', 'client.doLayVongHai must be a function');
+  assert.equal(typeof client.doLayThatSon, 'function', 'client.doLayThatSon must be a function');
+
+  // Verify mock execution
+  let visitedTemple = null;
+  client.doVisit = async (t) => { visitedTemple = t; };
+  client.practice = async (type, payload) => { return { gained: 5 }; };
+  client.post = async (path) => { return { ok: true }; };
+
+  await client.doLayVongHai(3, { intervalMs: 1 });
+  assert.equal(visitedTemple, 'linhung', 'doLayVongHai must visit linhung');
+
+  await client.doLayThatSon(3, { intervalMs: 1 });
+  assert.equal(visitedTemple, 'nuisam', 'doLayThatSon must visit nuisam');
+
+  // Verify UI buttons in renderDashboardHTML
+  state.merit = {
+    me: {
+      quests: [
+        { id: 'a_bow_linhung', name: 'Trăm lạy Vọng Hải', need: 108, have: 0, claimed: false, done: false, period: 'achievement' },
+        { id: 'a_bow_nuisam', name: 'Trăm lạy Thất Sơn', need: 108, have: 0, claimed: false, done: false, period: 'achievement' }
+      ]
+    }
+  };
+  const html = renderDashboardHTML();
+  assert.ok(html.includes('runTask(\'lay-vonghai\')'), 'Must generate runTask(lay-vonghai)');
+  assert.ok(html.includes('🌊 Lạy Vọng Hải (108)'), 'Must render button label for Vọng Hải');
+  assert.ok(html.includes('runTask(\'lay-nuisam\')'), 'Must generate runTask(lay-nuisam)');
+  assert.ok(html.includes('⛰️ Lạy Thất Sơn (108)'), 'Must render button label for Thất Sơn');
+});

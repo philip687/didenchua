@@ -625,7 +625,14 @@ export class DiDenChuaClient {
 
   async doLay(count = 27, options = {}) {
     this.checkAborted();
-    log.temple('🙏', `Bắt đầu lễ Phật sám hối (${count} lạy trang nghiêm - chốt an toàn từng chặng)...`);
+    const targetTemple = options.temple || this.temple;
+    if (options.temple && options.temple !== this.temple) {
+      log.temple('🚶', `Di chuyển đến ${options.temple} để hành trì lễ lạy...`);
+      await this.doVisit(options.temple);
+      await this.sleep(this.isTurbo() ? 50 : 350);
+    }
+
+    log.temple('🙏', `Bắt đầu lễ Phật sám hối tại [${targetTemple}] (${count} lạy trang nghiêm - chốt an toàn từng chặng)...`);
     this.send({ t: 'visit', zone: 'Chánh điện' });
     await this.sleep(this.isTurbo() ? 80 : 300);
 
@@ -639,11 +646,11 @@ export class DiDenChuaClient {
       for (let i = 1; i <= emotesNeeded; i++) {
         this.checkAborted();
         const currentBows = Math.min(i * 3, count);
-        log.info(`...[${currentBows}/${count} lạy] Thành kính cúi lạy Phật đài...`);
+        log.info(`...[${currentBows}/${count} lạy tại ${targetTemple}] Thành kính cúi lạy Phật đài...`);
 
         if (this.token) {
           try {
-            await this.practice('bow', { count: Math.min(3, count - (i - 1) * 3), lite: true });
+            await this.practice('bow', { count: Math.min(3, count - (i - 1) * 3), lite: true, temple: targetTemple });
           } catch {}
         }
 
@@ -671,6 +678,12 @@ export class DiDenChuaClient {
             log.success(`🙏 [Chốt an toàn chặng: ${currentBows}/${count} lạy] -> Thu thập ngay nhiệm vụ tuần Lạy Phật!`);
           }
 
+          if (targetTemple === 'linhung' && currentBows >= 108) {
+            try { await this.post('/quests/a_bow_linhung/claim'); } catch {}
+          } else if (targetTemple === 'nuisam' && currentBows >= 108) {
+            try { await this.post('/quests/a_bow_nuisam/claim'); } catch {}
+          }
+
           if (!claimedAny && !isFinalEmote) {
             log.temple('🙏', `[Chốt an toàn chặng: ${currentBows}/${count} lạy] Đã đồng bộ ${currentBows} lạy vào máy chủ chùa. Tiếp tục lạy...`);
           }
@@ -682,7 +695,7 @@ export class DiDenChuaClient {
           await this.sleep(options.intervalMs ?? (this.isTurbo() ? 80 : 1250));
         }
       }
-      log.success(`🎉 HOÀN TẤT: Đã hoàn thành gửi ${count} lạy sám hối và chốt toàn bộ công đức.`);
+      log.success(`🎉 HOÀN TẤT: Đã hoàn thành gửi ${count} lạy sám hối tại [${targetTemple}] và chốt toàn bộ công đức.`);
     } finally {
       if (sentEmotes > 0 && sentEmotes < emotesNeeded) {
         const bowsSoFar = Math.min(sentEmotes * 3, count);
@@ -693,6 +706,36 @@ export class DiDenChuaClient {
         this.send({ t: 'journal' });
       }
     }
+  }
+
+  /**
+   * Trăm lạy Vọng Hải (108 lạy tại Chùa Vọng Hải - Đà Nẵng).
+   * Mở khóa và nhận thưởng thành tựu a_bow_linhung (+150 EXP, +300 Sen, 3 Nến Sáp).
+   * @param {number} count - Số lạy (mặc định 108).
+   * @param {object} options - Tùy chọn thực thi.
+   */
+  async doLayVongHai(count = 108, options = {}) {
+    this.checkAborted();
+    log.temple('🌊', `Bắt đầu thời khóa Trăm lạy Vọng Hải (${count} lạy tại Chùa Vọng Hải)...`);
+    const res = await this.doLay(count, { ...options, temple: 'linhung' });
+    try { await this.post('/quests/a_bow_linhung/claim'); } catch {}
+    log.success('🎉 Đã hoàn tất Trăm lạy Vọng Hải và nhận thưởng!');
+    return res;
+  }
+
+  /**
+   * Trăm lạy Thất Sơn (108 lạy tại Miếu Bà Thất Sơn).
+   * Mở khóa và nhận thưởng thành tựu a_bow_nuisam (+150 EXP, +300 Sen, 3 Nến Sáp).
+   * @param {number} count - Số lạy (mặc định 108).
+   * @param {object} options - Tùy chọn thực thi.
+   */
+  async doLayThatSon(count = 108, options = {}) {
+    this.checkAborted();
+    log.temple('⛰️', `Bắt đầu thời khóa Trăm lạy Thất Sơn (${count} lạy tại Miếu Bà Thất Sơn)...`);
+    const res = await this.doLay(count, { ...options, temple: 'nuisam' });
+    try { await this.post('/quests/a_bow_nuisam/claim'); } catch {}
+    log.success('🎉 Đã hoàn tất Trăm lạy Thất Sơn và nhận thưởng!');
+    return res;
   }
 
   async doMo(count = 108, options = {}) {
