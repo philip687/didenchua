@@ -93,3 +93,52 @@ test('renderDashboardHTML: inline script must be valid JavaScript with zero synt
     new vm.Script(scriptMatch[1]);
   }, 'Inline script must compile without SyntaxError');
 });
+
+test('renderDashboardHTML: separates daily, weekly and achievement tabs with internal scroll box', async () => {
+  state.merit = {
+    me: {
+      name: 'Hân Ánh Vũ',
+      user: 'thichkngan',
+      quests: [
+        { id: 'd_lay27', name: 'Lạy 27 lạy', need: 27, have: 27, claimed: true, done: true, period: 'daily' },
+        { id: 'w_lay300', name: 'Tinh tấn lễ bái', need: 300, have: 300, claimed: true, done: true, period: 'weekly' },
+        { id: 'w_loc15', name: 'Hành hương nhặt lộc', need: 15, have: 2, claimed: false, done: false, period: 'weekly' },
+        { id: 'a_cap10', name: 'Đạt cấp 10', need: 10, have: 9, claimed: false, done: false, period: 'achievement' },
+        { id: 'a_chuoi7', name: 'Bảy ngày tinh tấn', need: 7, have: 2, claimed: false, done: false, period: 'achievement' },
+        { id: 'r_xuyenviet', name: 'Tuyến: Xuyên Việt hành hương', need: 10, have: 7, claimed: false, done: false, period: 'achievement' },
+        { id: 'a_pet_linhung', name: 'Linh thú Vọng Hải', need: 1, have: 0, claimed: false, done: false, period: 'achievement' }
+      ]
+    }
+  };
+
+  const html = renderDashboardHTML();
+
+  // 1. Quests breakdown pills
+  assert.ok(html.includes('quest-categories-pills'), 'Must render category breakdown pills');
+  assert.ok(html.includes('🌟 Hàng ngày:'), 'Must show daily breakdown');
+  assert.ok(html.includes('📅 Tuần:'), 'Must show weekly breakdown');
+  assert.ok(html.includes('🏆 Thành tựu & Tuyến:'), 'Must show achievement breakdown');
+
+  // 2. Filter bar with category buttons and search
+  assert.ok(html.includes('quests-filter-bar'), 'Must contain filter bar');
+  assert.ok(html.includes('quest-cat-btn'), 'Must contain category tag buttons');
+  assert.ok(html.includes('data-cat="daily"'), 'Must have daily filter tag');
+  assert.ok(html.includes('data-cat="weekly"'), 'Must have weekly filter tag');
+  assert.ok(html.includes('data-cat="achievement"'), 'Must have achievement filter tag');
+  assert.ok(html.includes('id="questSearchInput"'), 'Must have search input for quests');
+  assert.ok(html.includes('id="questStatusFilter"'), 'Must have status filter for quests');
+
+  // 3. Scroll container
+  assert.ok(html.includes('quests-scroll-box'), 'Must wrap list in .quests-scroll-box');
+
+  // 4. Milestone badges without broken runTask buttons
+  assert.ok(html.includes('badge-milestone'), 'Must show badge-milestone for a_cap10');
+  assert.ok(html.includes('badge-streak'), 'Must show badge-streak for a_chuoi7');
+  assert.ok(!html.includes('runTask(\'a_cap10\')'), 'Must NOT generate broken runTask(a_cap10)');
+  assert.ok(!html.includes('runTask(\'a_chuoi7\')'), 'Must NOT generate broken runTask(a_chuoi7)');
+
+  // 5. Targeted runTask buttons for routes and pets
+  assert.ok(html.includes('runTask(\'visitAll\')'), 'Must generate runTask(visitAll) for pilgrimage route');
+  assert.ok(html.includes('runTask(\'petAll\')'), 'Must generate runTask(petAll) for temple pet');
+  assert.ok(html.includes('runTask(\'loc\')'), 'Must generate runTask(loc) for w_loc15');
+});

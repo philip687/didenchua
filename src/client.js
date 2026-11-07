@@ -82,6 +82,29 @@ export const PETS_CATALOG = {
   tho: { name: 'Thỏ trắng', lv: 4, days: 21, desc: 'Nhút nhát nhưng quấn chủ, nhảy từng bước nhỏ' }
 };
 
+export const ALL_TEMPLES = [
+  { id: 'voluong', name: 'Chùa Vô Lượng' },
+  { id: 'tranho', name: 'Chùa Trấn Hồ' },
+  { id: 'huongson', name: 'Động Hương Sơn' },
+  { id: 'nhattru', name: 'Chùa Nhất Trụ' },
+  { id: 'dinhmay', name: 'Thiền viện Đỉnh Mây' },
+  { id: 'baison', name: 'Chùa Bái Sơn' },
+  { id: 'lamkinh', name: 'Chùa Lam Kinh' },
+  { id: 'thienmau', name: 'Chùa Thiên Mẫu' },
+  { id: 'vinhan', name: 'Chùa Vĩnh An' },
+  { id: 'doivang', name: 'Chùa Dơi Vàng' },
+  { id: 'linhson', name: 'Chùa Bà Linh Phong' },
+  { id: 'linhung', name: 'Chùa Vọng Hải' },
+  { id: 'nuisam', name: 'Miếu Bà Thất Sơn' },
+  { id: 'cuuphong', name: 'Chùa Cửu Phong' },
+  { id: 'hoangoc', name: 'Chùa Hoa Ngọc' },
+  { id: 'kimson', name: 'Chùa Kim Sơn' },
+  { id: 'tutue', name: 'Thiền viện Từ Tuệ' },
+  { id: 'bachlien', name: 'Chùa Bạch Liên' },
+  { id: 'tuam', name: 'Chùa Từ Am' },
+  { id: 'liengiang', name: 'Chùa Liên Giang' }
+];
+
 export const AM_SLOTS = [
   { id: 'altar', name: 'Giữa bàn thờ', kind: 'tuong' }
 ];
@@ -921,20 +944,26 @@ export class DiDenChuaClient {
     return res;
   }
 
-  async doVisitAll() {
+  async doVisitAll(options = {}) {
     this.checkAborted();
     log.temple('🗺️', 'Bắt đầu hành hương viếng thăm các danh lam cổ tự...');
-    const temples = this.meta?.temples || [
-      { id: 'voluong' }, { id: 'tranho' }, { id: 'huongson' }, { id: 'nhattru' },
-      { id: 'dinhmay' }, { id: 'baison' }, { id: 'lamkinh' }, { id: 'thienmau' }
-    ];
-    for (const t of temples.slice(0, 10)) {
+    const candidateTemples = this.meta?.temples || ALL_TEMPLES;
+    const limit = options.limit || candidateTemples.length;
+    for (const t of candidateTemples.slice(0, limit)) {
       this.checkAborted();
       await this.doVisit(t.id);
       await this.sleep(this.isTurbo() ? 50 : 1300);
+      if (options.withPet && ['linhung', 'nuisam', 'cuuphong', 'hoangoc'].includes(t.id)) {
+        await this.doPet(t.id);
+        await this.sleep(this.isTurbo() ? 50 : 400);
+      }
     }
     // Tự động claim các tuyến hành hương và thành tựu tám chùa nếu hoàn tất
-    const routeQuests = ['r_thanglong', 'r_datbac', 'r_codo', 'r_phuongnam', 'r_biendong', 'r_nonnuoc', 'r_bacoi', 'a_tamchua'];
+    const routeQuests = [
+      'r_thanglong', 'r_datbac', 'r_codo', 'r_phuongnam', 'r_biendong',
+      'r_nonnuoc', 'r_bacoi', 'r_xuyenviet', 'a_tamchua',
+      'a_pet_linhung', 'a_pet_nuisam', 'a_pet_cuuphong', 'a_pet_hoangoc'
+    ];
     for (const rq of routeQuests) {
       if (this.token) {
         try { await this.post(`/quests/${rq}/claim`); } catch {}
@@ -942,6 +971,26 @@ export class DiDenChuaClient {
       this.send({ t: 'claim', q: rq });
     }
     log.success('🎉 Đã hoàn tất hành trình viếng thăm các ngôi chùa!');
+  }
+
+  async doPetAll() {
+    this.checkAborted();
+    log.temple('🐾', 'Bắt đầu chu trình chăm sóc linh thú tại các danh lam cổ tự...');
+    const petTemples = ['linhung', 'nuisam', 'cuuphong', 'hoangoc'];
+    for (const templeId of petTemples) {
+      this.checkAborted();
+      await this.doVisit(templeId);
+      await this.sleep(this.isTurbo() ? 50 : 800);
+      log.temple('🐾', `Chăm sóc linh thú tại chùa [${templeId}]...`);
+      await this.doPet(templeId);
+      await this.sleep(this.isTurbo() ? 50 : 600);
+      if (this.token) {
+        try { await this.post(`/quests/a_pet_${templeId}/claim`); } catch {}
+      }
+      this.send({ t: 'claim', q: `a_pet_${templeId}` });
+    }
+    log.success('🎉 Đã chăm sóc toàn bộ linh thú danh lam thành công!');
+    return { ok: true };
   }
 
   async doKhoe() {
@@ -1104,11 +1153,17 @@ export class DiDenChuaClient {
     await this.doBell();
   }
 
-  async doPet() {
+  async doPet(temple = null) {
     this.checkAborted();
-    log.info('Chăm sóc linh thú chùa...');
+    log.info(`Chăm sóc linh thú chùa ${temple ? `[${temple}]` : ''}...`);
     this.send({ t: 'pet' });
-    return { ok: true };
+    let res = null;
+    if (this.token) {
+      try {
+        res = await this.practice('pet', { temple: temple || this.temple });
+      } catch {}
+    }
+    return res || { ok: true };
   }
 
   async doPlant() {

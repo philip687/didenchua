@@ -619,6 +619,53 @@ export const TASKS_CATALOG = [
     icon: '🥼',
     reward: 'Pháp bảo',
     badge: 'Bộ sưu tập'
+  },
+
+  // --- HÀNH HƯƠNG & CÔNG QUẢ CẢNH CHÙA (PILGRIMAGE & GARDEN) ---
+  {
+    id: 'visitAll',
+    group: 'milestone',
+    title: 'Hành Hương 20 Cảnh Chùa',
+    desc: 'Hành hương viếng thăm toàn bộ 20 danh lam cổ tự trên khắp đất nước, mở khoá trọn vẹn tuyến Xuyên Việt',
+    icon: '🗺️',
+    reward: 'Tuyến Xuyên Việt',
+    badge: 'Đại hành hương'
+  },
+  {
+    id: 'petAll',
+    group: 'milestone',
+    title: 'Chăm Sóc Linh Thú Danh Lam',
+    desc: 'Ghé thăm và chăm sóc linh thú tại các chùa Vọng Hải, Thất Sơn, Cửu Phong, Hoa Ngọc',
+    icon: '🐾',
+    reward: 'Linh thú chùa',
+    badge: 'Linh thú'
+  },
+  {
+    id: 'plant',
+    group: 'extra',
+    questId: 'd_plant',
+    title: 'Công Quả Trồng Cây Xanh',
+    desc: 'Trồng cây xanh bóng mát nơi sân chùa tích lũy đại công đức',
+    icon: '🌱',
+    reward: '+15-20đ & Sen',
+    badge: 'Công quả'
+  },
+  {
+    id: 'loc',
+    group: 'extra',
+    questId: 'd_loc2',
+    title: 'Dạo Vườn Nhặt Lộc Sen Vàng',
+    desc: 'Dạo quanh các khuôn viên chùa tìm và nhận hoa sen vàng lộc may mắn',
+    icon: '🍀',
+    reward: 'Lộc phước & Sen',
+    badge: 'Nhặt lộc',
+    hasCount: true,
+    defaultCount: 2,
+    countOptions: [
+      { value: 2, label: '2 lộc (Quest ngày 🎯)' },
+      { value: 5, label: '5 lộc' },
+      { value: 15, label: '15 lộc (Quest tuần 🏆)' }
+    ]
   }
 ];
 
@@ -1040,7 +1087,18 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           break;
         case 'visit':
         case 'vieng':
+        case 'visitAll':
+        case 'pilgrim':
           await client.doVisitAll();
+          break;
+        case 'petAll':
+          await client.doPetAll();
+          break;
+        case 'plant':
+          await client.doPlant();
+          break;
+        case 'loc':
+          await client.doLoc(runOptions.count || 2);
           break;
         case 'meditate':
           const secs = runOptions.meditateSeconds || 300;
@@ -1119,7 +1177,7 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
       }
 
       // Tự động nhận thưởng nếu nhiệm vụ này hoàn thành quest ngày hoặc quest tuần
-      if (['bell', 'vow', 'incense', 'lay-daily', 'lay', 'greet', 'lantern-daily', 'chores-daily', 'xam', 'que', 'wheel', 'vieng', 'chores', 'quet', 'farm-bows-beads', 'tung', 'tuoi', 'chu', 'garden', 'tuyhy', 'secrets', 'tangkinh', 'chu-all', 'meditate', 'ngoi-daily', 'quiz', 'am', 'khoe', 'checkin', 'ca', 'dendau', 'cat', 'wAm', 'chuoi', 'beads'].includes(taskId)) {
+      if (['bell', 'vow', 'incense', 'lay-daily', 'lay', 'greet', 'lantern-daily', 'chores-daily', 'xam', 'que', 'wheel', 'vieng', 'visitAll', 'pilgrim', 'petAll', 'plant', 'loc', 'chores', 'quet', 'farm-bows-beads', 'tung', 'tuoi', 'chu', 'garden', 'tuyhy', 'secrets', 'tangkinh', 'chu-all', 'meditate', 'ngoi-daily', 'quiz', 'am', 'khoe', 'checkin', 'ca', 'dendau', 'cat', 'wAm', 'chuoi', 'beads'].includes(taskId)) {
         await client.sleep(client.isTurbo() ? 80 : 300);
         await client.claimAllQuests();
       }
@@ -1890,6 +1948,222 @@ export const QUEST_METADATA = {
     desc: 'Gieo quẻ cát tường nhận lời Phật dạy đầu ngày',
     tip: 'Gieo quẻ nhận lời khuyên',
     taskId: 'que'
+  },
+  // Tuyến hành hương danh lam cổ tự (Pilgrimage Routes)
+  r_xuyenviet: {
+    icon: '🗺️',
+    title: 'Tuyến: Xuyên Việt hành hương',
+    desc: 'Hành hương viếng thăm 10 danh lam cổ tự trên khắp dải đất Việt Nam',
+    tip: 'Chiêm bái danh lam khắp ba miền Tổ quốc',
+    taskId: 'visitAll'
+  },
+  r_thanglong: {
+    icon: '🏯',
+    title: 'Tuyến: Thăng Long tự viện',
+    desc: 'Chiêm bái các cổ tự linh thiêng vùng kinh kỳ Thăng Long',
+    tip: 'Viếng Chùa Hương Sơn, Trấn Hồ, Nhất Trụ',
+    taskId: 'visitAll'
+  },
+  r_datbac: {
+    icon: '🏔️',
+    title: 'Tuyến: Non thiêng đất Bắc',
+    desc: 'Hành hương chiêm bái Yên Tử và Bái Đính đất Bắc',
+    tip: 'Viếng Đỉnh Mây, Bái Sơn',
+    taskId: 'visitAll'
+  },
+  r_codo: {
+    icon: '🏛️',
+    title: 'Tuyến: Hai miền cố đô',
+    desc: 'Chiêm bái các danh lam cổ tự chốn cố đô nghìn năm văn hiến',
+    tip: 'Viếng Thiên Mẫu, Vĩnh An',
+    taskId: 'visitAll'
+  },
+  r_phuongnam: {
+    icon: '🌴',
+    title: 'Tuyến: Về phương Nam',
+    desc: 'Hành hương phương Nam qua Vĩnh An, Dơi Vàng và Núi Bà Đen',
+    tip: 'Viếng Vĩnh An, Dơi Vàng, Linh Sơn',
+    taskId: 'visitAll'
+  },
+  r_biendong: {
+    icon: '🌊',
+    title: 'Tuyến: Từ biển Đông đến Thất Sơn',
+    desc: 'Hành hương từ Vọng Hải hướng về vùng đất Thất Sơn huyền bí',
+    tip: 'Viếng Vọng Hải, Thất Sơn',
+    taskId: 'visitAll'
+  },
+  r_nonnuoc: {
+    icon: '⛰️',
+    title: 'Tuyến: Từ non nước lên cao nguyên',
+    desc: 'Hành hương từ Cửu Phong lên miền đất cao nguyên Hoa Ngọc',
+    tip: 'Viếng Cửu Phong, Hoa Ngọc',
+    taskId: 'visitAll'
+  },
+  r_bacoi: {
+    icon: '🪷',
+    title: 'Tuyến: Ba miền đại nguyện',
+    desc: 'Hoàn thành đại nguyện hành hương ba miền Bắc - Trung - Nam',
+    tip: 'Hoàn tất các tuyến hành hương lớn',
+    taskId: 'visitAll'
+  },
+  a_tamchua: {
+    icon: '☸️',
+    title: 'Hành hương tám chùa',
+    desc: 'Chiêm bái trọn vẹn 8 ngôi danh lam cổ tự danh tiếng',
+    tip: 'Nhận 50 Ngọc và Chuỗi Trầm Hương',
+    taskId: 'visitAll'
+  },
+  visitAll: {
+    icon: '🗺️',
+    title: 'Hành hương toàn bộ danh lam',
+    desc: 'Hành hương viếng thăm toàn bộ 20 danh lam cổ tự',
+    tip: 'Viếng thăm toàn bộ các chùa trên bản đồ',
+    taskId: 'visitAll'
+  },
+  // Linh thú danh lam (Temple Pets)
+  a_pet_linhung: {
+    icon: '🐾',
+    title: 'Linh thú Vọng Hải',
+    desc: 'Vuốt ve và chăm sóc linh thú tại Chùa Vọng Hải',
+    tip: 'Ghé Chùa Vọng Hải chăm sóc linh thú',
+    taskId: 'petAll'
+  },
+  a_pet_nuisam: {
+    icon: '🐾',
+    title: 'Linh thú Thất Sơn',
+    desc: 'Vuốt ve và chăm sóc linh thú tại Miếu Bà Thất Sơn',
+    tip: 'Ghé Thất Sơn chăm sóc linh thú',
+    taskId: 'petAll'
+  },
+  a_pet_cuuphong: {
+    icon: '🐾',
+    title: 'Linh thú Cửu Phong',
+    desc: 'Vuốt ve và chăm sóc linh thú tại Chùa Cửu Phong',
+    tip: 'Ghé Cửu Phong chăm sóc linh thú',
+    taskId: 'petAll'
+  },
+  a_pet_hoangoc: {
+    icon: '🐾',
+    title: 'Linh thú Hoa Ngọc',
+    desc: 'Vuốt ve và chăm sóc linh thú tại Chùa Hoa Ngọc',
+    tip: 'Ghé Hoa Ngọc chăm sóc linh thú',
+    taskId: 'petAll'
+  },
+  petAll: {
+    icon: '🐾',
+    title: 'Chăm sóc toàn bộ linh thú',
+    desc: 'Chăm sóc linh thú tại các danh lam cổ tự',
+    tip: 'Vuốt ve linh thú các chùa',
+    taskId: 'petAll'
+  },
+  // Trăm lạy danh lam
+  a_bow_linhung: {
+    icon: '🙇',
+    title: 'Trăm lạy Vọng Hải',
+    desc: 'Lễ bái Tam Bảo 108 lạy tại Chùa Vọng Hải',
+    tip: 'Lạy Phật tại Chùa Vọng Hải sám hối tiêu nghiệp',
+    taskId: 'lay'
+  },
+  a_bow_nuisam: {
+    icon: '🙇',
+    title: 'Trăm lạy Thất Sơn',
+    desc: 'Lễ bái Tam Bảo 108 lạy tại Miếu Bà Thất Sơn',
+    tip: 'Lạy Phật tại Thất Sơn sám hối tiêu nghiệp',
+    taskId: 'lay'
+  },
+  // Dạo vườn nhặt lộc
+  w_loc15: {
+    icon: '🍀',
+    title: 'Hành hương nhặt lộc',
+    desc: 'Dạo các cảnh chùa tìm nhặt 15 đóa sen vàng tích phước tuần',
+    tip: 'Nhặt lộc quanh chùa mỗi ngày (2 đóa sen lộc/ngày)',
+    taskId: 'loc'
+  },
+  d_loc2: {
+    icon: '🍀',
+    title: 'Dạo vườn chùa nhặt lộc',
+    desc: 'Dạo vườn chùa nhặt 2 hoa sen vàng lộc đầu ngày',
+    tip: 'Nhặt 2 đóa sen lộc quanh chùa nhận phước',
+    taskId: 'loc'
+  },
+  loc: {
+    icon: '🍀',
+    title: 'Dạo vườn nhặt lộc',
+    desc: 'Dạo vườn chùa nhặt hoa sen vàng lộc',
+    tip: 'Nhặt lộc quanh chùa nhận phước',
+    taskId: 'loc'
+  },
+  // Trồng cây công quả
+  d_plant: {
+    icon: '🌱',
+    title: 'Trồng một cây',
+    desc: 'Làm công quả trồng cây xanh che mát khuôn viên chùa',
+    tip: 'Trồng cây xanh công quả ngoài sân chùa',
+    taskId: 'plant'
+  },
+  plant: {
+    icon: '🌱',
+    title: 'Trồng cây công quả',
+    desc: 'Làm công quả trồng cây xanh che mát khuôn viên chùa',
+    tip: 'Trồng cây công quả',
+    taskId: 'plant'
+  },
+  a_plant30: {
+    icon: '🌳',
+    title: 'Người gieo bóng mát',
+    desc: 'Công quả trồng đủ 30 cây xanh tạo bóng mát nơi thiền môn',
+    tip: 'Trồng cây công quả sân chùa',
+    taskId: 'plant'
+  },
+  // Thành tựu tu tập & Mốc tuần
+  a_lay1000: {
+    icon: '🙇',
+    title: 'Ngàn lạy',
+    desc: 'Tinh tấn lễ lạy 1.000 lạy sám hối trước Phật đài',
+    tip: 'Cúi đầu đảnh lễ sám hối nghiệp chướng',
+    taskId: 'lay'
+  },
+  a_ketduyen: {
+    icon: '🤝',
+    title: 'Kết duyên',
+    desc: 'Kết thiện duyên cùng các bạn đồng tu tại chùa',
+    tip: 'Chắp tay chào bạn đồng tu',
+    taskId: 'greet'
+  },
+  a_chuoi7: {
+    icon: '📅',
+    title: 'Bảy ngày tinh tấn',
+    desc: 'Điểm danh tu tập liên tục trong 7 ngày',
+    tip: 'Điểm danh tu tập mỗi ngày',
+    taskId: 'checkin'
+  },
+  a_chuoi30: {
+    icon: '📅',
+    title: 'Một tháng không ngơi nghỉ',
+    desc: 'Điểm danh tu tập liên tục trong 30 ngày',
+    tip: 'Điểm danh tu tập mỗi ngày',
+    taskId: 'checkin'
+  },
+  w_lay300: {
+    icon: '🙇',
+    title: 'Tinh tấn lễ bái',
+    desc: 'Lạy đủ 300 lạy sám hối trong tuần',
+    tip: 'Lạy Phật sám hối trong tuần',
+    taskId: 'lay'
+  },
+  w_chuoi7: {
+    icon: '📿',
+    title: 'Bảy chuỗi niệm Phật',
+    desc: 'Lăn đủ 7 chuỗi tràng hạt niệm Phật trong tuần',
+    tip: 'Lăn tràng hạt niệm Phật trong tuần',
+    taskId: 'beads'
+  },
+  w_thien60: {
+    icon: '🧘',
+    title: 'Một giờ tĩnh lặng',
+    desc: 'Tọa thiền tĩnh tâm đủ 60 phút trong tuần',
+    tip: 'Ngồi thiền định trong tuần',
+    taskId: 'meditate'
   }
 };
 
@@ -1945,6 +2219,22 @@ export function renderDashboardHTML() {
   const earnedReward = quests.filter(q => q.claimed).reduce((acc, q) => acc + (Number(q.reward) || 0), 0);
   const overallPercent = totalQuests > 0 ? Math.round((claimedQuests / totalQuests) * 100) : 0;
 
+  // Detailed group breakdown
+  const dailyQuests = quests.filter(q => q.period === 'daily' || (!q.period && !q.id.startsWith('w_') && !q.id.startsWith('a_') && !q.id.startsWith('r_')));
+  const dailyTotal = dailyQuests.length;
+  const dailyClaimed = dailyQuests.filter(q => q.claimed).length;
+  const dailyPercent = dailyTotal > 0 ? Math.round((dailyClaimed / dailyTotal) * 100) : 0;
+
+  const weeklyQuests = quests.filter(q => q.period === 'weekly' || q.id.startsWith('w_'));
+  const weeklyTotal = weeklyQuests.length;
+  const weeklyClaimed = weeklyQuests.filter(q => q.claimed).length;
+  const weeklyPercent = weeklyTotal > 0 ? Math.round((weeklyClaimed / weeklyTotal) * 100) : 0;
+
+  const achieveQuests = quests.filter(q => q.period === 'achievement' || q.id.startsWith('a_') || q.id.startsWith('r_'));
+  const achieveTotal = achieveQuests.length;
+  const achieveClaimed = achieveQuests.filter(q => q.claimed).length;
+  const achievePercent = achieveTotal > 0 ? Math.round((achieveClaimed / achieveTotal) * 100) : 0;
+
   const questsSummaryHTML = totalQuests > 0 ? `
     <div class="quests-summary-card">
       <div class="quests-summary-top">
@@ -1960,6 +2250,18 @@ export function renderDashboardHTML() {
       <div class="quest-progress-track" style="margin-top:10px;">
         <div class="quest-progress-fill ${overallPercent === 100 ? 'fill-done' : 'fill-pending'}" style="width: ${overallPercent}%;"></div>
       </div>
+      <div class="quest-categories-pills">
+        <span class="pill-stat ${dailyClaimed === dailyTotal && dailyTotal > 0 ? 'pill-done' : ''}">
+          🌟 Hàng ngày: <b>${dailyClaimed}/${dailyTotal}</b> (${dailyPercent}%)
+          ${dailyClaimed === dailyTotal && dailyTotal > 0 ? '🎉 100% Hoàn thành' : ''}
+        </span>
+        <span class="pill-stat ${weeklyClaimed === weeklyTotal && weeklyTotal > 0 ? 'pill-done' : ''}">
+          📅 Tuần: <b>${weeklyClaimed}/${weeklyTotal}</b> (${weeklyPercent}%)
+        </span>
+        <span class="pill-stat">
+          🏆 Thành tựu & Tuyến: <b>${achieveClaimed}/${achieveTotal}</b> (${achievePercent}%)
+        </span>
+      </div>
       ${readyQuests > 0 ? `
         <div class="quests-claim-banner">
           <span>🎉 Có <b>${readyQuests}</b> nhiệm vụ đã xong chưa nhận thưởng!</span>
@@ -1969,16 +2271,47 @@ export function renderDashboardHTML() {
     </div>
   ` : '';
 
+  const questsFilterBarHTML = totalQuests > 0 ? `
+    <div class="quests-filter-bar">
+      <div class="quest-tags">
+        <button type="button" class="quest-cat-btn active" data-cat="all" onclick="filterQuests('all')">
+          🌟 Tất Cả <span class="badge">${totalQuests}</span>
+        </button>
+        <button type="button" class="quest-cat-btn" data-cat="daily" onclick="filterQuests('daily')">
+          🪷 Hàng Ngày <span class="badge ${dailyClaimed === dailyTotal && dailyTotal > 0 ? 'badge-done' : ''}">${dailyClaimed}/${dailyTotal}</span>
+        </button>
+        <button type="button" class="quest-cat-btn" data-cat="weekly" onclick="filterQuests('weekly')">
+          📅 Tuần <span class="badge">${weeklyClaimed}/${weeklyTotal}</span>
+        </button>
+        <button type="button" class="quest-cat-btn" data-cat="achievement" onclick="filterQuests('achievement')">
+          🏆 Thành Tựu & Tuyến <span class="badge">${achieveClaimed}/${achieveTotal}</span>
+        </button>
+      </div>
+      <div class="quest-filter-inputs">
+        <select id="questStatusFilter" onchange="applyQuestFilters()" class="quest-select" ${isAnyRunning ? 'disabled' : ''}>
+          <option value="all">Tất cả trạng thái</option>
+          <option value="pending">⏳ Cần làm (${totalQuests - claimedQuests})</option>
+          <option value="done">✅ Đã xong (${claimedQuests})</option>
+        </select>
+        <input type="text" id="questSearchInput" placeholder="🔍 Tìm nhanh nhiệm vụ..." oninput="applyQuestFilters()" class="quest-search" autocomplete="off">
+      </div>
+    </div>
+  ` : '';
+
   const questsListHTML = quests.map(q => {
     const meta = QUEST_METADATA[q.id] || {};
     const title = q.name || q.title || meta.title || q.id;
-    const icon = meta.icon || '📋';
+    const icon = meta.icon || (q.id.startsWith('r_') ? '🗺️' : (q.id.startsWith('a_pet_') ? '🐾' : (q.id.startsWith('a_loc_') ? '🍀' : (q.id.startsWith('a_cap') ? '⭐' : '📋'))));
     const desc = meta.desc || '';
     const tip = meta.tip || '';
     const taskId = meta.taskId || q.id;
     const have = Number(q.have) || 0;
     const need = Math.max(1, Number(q.need) || 1);
     const percent = Math.min(100, Math.round((have / need) * 100));
+
+    const isLevelMilestone = q.id.startsWith('a_cap');
+    const isStreakMilestone = q.id.startsWith('a_chuoi');
+    const period = q.period || (q.id.startsWith('w_') ? 'weekly' : (q.id.startsWith('a_') || q.id.startsWith('r_') ? 'achievement' : 'daily'));
 
     let actionBtn = '';
     let statusClass = 'quest-pending';
@@ -1992,12 +2325,34 @@ export function renderDashboardHTML() {
       statusClass = 'quest-ready';
       fillClass = 'fill-ready';
       actionBtn = `<button class="btn-task btn-quick-claim" onclick="runTask('claim')" ${isAnyRunning ? 'disabled' : ''} title="Nhận phần thưởng công đức">🎁 Nhận (+${escapeHTML(q.reward)}đ)</button>`;
+    } else if (isLevelMilestone) {
+      actionBtn = `<span class="badge badge-milestone" title="Tích luỹ EXP công đức từ các thời khoá để lên cấp">🎯 Mốc Cấp Độ (EXP)</span>`;
+    } else if (isStreakMilestone) {
+      actionBtn = `<span class="badge badge-streak" title="Điểm danh đăng nhập đều đặn mỗi ngày">📆 Mốc Chuỗi Ngày</span>`;
     } else {
-      actionBtn = `<button class="btn-task btn-quick-run" onclick="runTask('${escapeHTML(taskId)}')" ${isAnyRunning ? 'disabled' : ''} title="Làm nhiệm vụ này ngay">⚡ Làm ngay</button>`;
+      let runLabel = '⚡ Làm ngay';
+      let targetTask = taskId;
+      if (q.id.startsWith('r_') || taskId === 'visitAll') {
+        runLabel = '🗺️ Hành hương';
+        targetTask = 'visitAll';
+      } else if (q.id.startsWith('a_pet_') || taskId === 'petAll') {
+        runLabel = '🐾 Vuốt linh thú';
+        targetTask = 'petAll';
+      } else if (q.id.startsWith('a_loc_') || q.id === 'w_loc15' || q.id === 'd_loc2' || taskId === 'loc') {
+        runLabel = '🍀 Dạo vườn nhặt lộc';
+        targetTask = 'loc';
+      } else if (q.id === 'd_plant' || q.id === 'a_plant30' || taskId === 'plant') {
+        runLabel = '🌱 Trồng cây';
+        targetTask = 'plant';
+      } else if (q.id === 'a_lay1000' || q.id.startsWith('a_bow_') || taskId === 'lay') {
+        runLabel = '🙇 Lạy Phật';
+        targetTask = 'lay';
+      }
+      actionBtn = `<button class="btn-task btn-quick-run" onclick="runTask('${escapeHTML(targetTask)}')" ${isAnyRunning ? 'disabled' : ''} title="Làm nhiệm vụ này ngay">${runLabel}</button>`;
     }
 
     return `
-      <div class="quest-card ${statusClass}">
+      <div class="quest-card ${statusClass}" data-period="${escapeHTML(period)}" data-title="${escapeHTML(title)} ${escapeHTML(desc)}">
         <div class="quest-main-row">
           <div class="quest-left">
             <div class="quest-icon">${icon}</div>
@@ -2490,6 +2845,136 @@ export function renderDashboardHTML() {
     }
     .btn-quick-claim:hover:not(:disabled) { background: #d29922; }
 
+    /* QUEST BREAKDOWN PILLS & CATEGORIES */
+    .quest-categories-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .pill-stat {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      color: var(--text-dim);
+    }
+    .pill-stat b { color: var(--text-main); }
+    .pill-stat.pill-done {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: rgba(16, 185, 129, 0.4);
+      color: #34d399;
+    }
+    .pill-stat.pill-done b { color: #10b981; }
+
+    /* QUESTS FILTER BAR & SCROLL BOX */
+    .quests-filter-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-top: 16px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .quest-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .quest-cat-btn {
+      background: var(--bg-card-sub);
+      border: 1px solid var(--card-border);
+      color: var(--text-dim);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+    .quest-cat-btn:hover {
+      border-color: var(--gold-dim);
+      color: var(--text-main);
+    }
+    .quest-cat-btn.active {
+      background: var(--gold-dim);
+      border-color: var(--gold);
+      color: #fff;
+      font-weight: 600;
+    }
+    .quest-cat-btn .badge {
+      background: rgba(0, 0, 0, 0.25);
+      padding: 1px 6px;
+      border-radius: 999px;
+      font-size: 10px;
+    }
+    .quest-cat-btn .badge.badge-done {
+      background: var(--success);
+      color: #fff;
+    }
+    .quest-filter-inputs {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .quest-select, .quest-search {
+      background: var(--bg-card-sub);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      outline: none;
+    }
+    .quest-select:focus, .quest-search:focus {
+      border-color: var(--gold);
+    }
+    .quest-search { min-width: 180px; }
+
+    .quests-scroll-box {
+      max-height: 480px;
+      overflow-y: auto;
+      padding-right: 6px;
+      margin-top: 6px;
+    }
+    .quests-scroll-box::-webkit-scrollbar { width: 6px; }
+    .quests-scroll-box::-webkit-scrollbar-track { background: #0d1117; border-radius: 4px; }
+    .quests-scroll-box::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+    .quests-scroll-box::-webkit-scrollbar-thumb:hover { background: #484f58; }
+
+    .badge-milestone {
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      color: #60a5fa;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .badge-streak {
+      background: rgba(168, 85, 247, 0.15);
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      color: #c084fc;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 640px) {
+      .quests-filter-bar { flex-direction: column; align-items: stretch; }
+      .quest-filter-inputs { flex-direction: column; width: 100%; }
+      .quest-search, .quest-select { width: 100%; }
+      .quests-scroll-box { max-height: 400px; }
+    }
+
     /* DEEP PRACTICE GRID */
     .practice-grid {
       display: grid;
@@ -2773,10 +3258,21 @@ export function renderDashboardHTML() {
 
     <!-- DAILY QUESTS REPORT -->
     <section class="quests-section">
-      <h2 class="section-title">📋 Báo Cáo Nhiệm Vụ Hôm Nay</h2>
+      <div class="quests-header-row" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+        <h2 class="section-title" style="margin:0;">📋 Báo Cáo Tiến Độ Tu Tập & Nhiệm Vụ</h2>
+        <div class="quests-header-badge">
+          ${dailyClaimed === dailyTotal && dailyTotal > 0 ? `<span class="badge badge-done" style="font-size:12px; padding:4px 10px;">🎉 Đã hoàn tất 100% nhiệm vụ ngày (${dailyTotal}/${dailyTotal})</span>` : ''}
+        </div>
+      </div>
       ${questsSummaryHTML}
-      <div class="quests-list">
-        ${questsListHTML}
+      ${questsFilterBarHTML}
+      <div class="quests-scroll-box">
+        <div class="quests-list">
+          ${questsListHTML}
+        </div>
+        <div id="questsEmptyNotice" style="display:none; text-align:center; padding:28px 16px; color:var(--text-dim); background:var(--bg-card-sub); border-radius:8px; border:1px dashed var(--card-border); margin-top:10px;">
+          <span>Không tìm thấy nhiệm vụ nào khớp với tiêu chí tìm kiếm hoặc bộ lọc hiện tại.</span>
+        </div>
       </div>
     </section>
 
@@ -3199,6 +3695,48 @@ export function renderDashboardHTML() {
       }
     }, 1000);
 
+    // Quests filter & search
+    let currentQuestCat = 'all';
+    function filterQuests(cat) {
+      currentQuestCat = cat;
+      document.querySelectorAll('.quest-cat-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-cat') === cat);
+      });
+      applyQuestFilters();
+    }
+
+    function applyQuestFilters() {
+      const status = document.getElementById('questStatusFilter')?.value || 'all';
+      const query = (document.getElementById('questSearchInput')?.value || '').trim().toLowerCase();
+      const cards = document.querySelectorAll('.quest-card');
+      let visible = 0;
+
+      cards.forEach(card => {
+        const cat = card.getAttribute('data-period') || 'achievement';
+        const isDone = card.classList.contains('quest-done');
+        const isReady = card.classList.contains('quest-ready');
+        const title = (card.getAttribute('data-title') || '').toLowerCase();
+
+        const matchCat = (currentQuestCat === 'all') || (cat === currentQuestCat);
+        let matchStatus = true;
+        if (status === 'done') matchStatus = isDone;
+        else if (status === 'pending') matchStatus = !isDone;
+        else if (status === 'ready') matchStatus = isReady;
+
+        const matchQuery = !query || title.includes(query);
+
+        if (matchCat && matchStatus && matchQuery) {
+          card.style.display = '';
+          visible++;
+        } else {
+          card.style.display = 'none';
+        }
+      });
+
+      const emptyEl = document.getElementById('questsEmptyNotice');
+      if (emptyEl) emptyEl.style.display = visible === 0 ? 'block' : 'none';
+    }
+
     // Status Polling
     let pollingInterval = 3000;
     async function pollStatus() {
@@ -3469,7 +4007,7 @@ const server = http.createServer(async (req, res) => {
 
     const runOptions = {};
     const task = String(bodyData.task || url.searchParams.get('task') || 'all').trim();
-    const validTaskIds = ['all', 'wAm', 'chuoi', 'viec-ca', 'lamp', 'pet', 'chu-all', 'xinchu-all', 'tangkinh', 'kinh', 'nghekinh', ...TASKS_CATALOG.map(t => t.id)];
+    const validTaskIds = ['all', 'wAm', 'chuoi', 'viec-ca', 'lamp', 'pet', 'chu-all', 'xinchu-all', 'tangkinh', 'kinh', 'nghekinh', 'pilgrim', ...TASKS_CATALOG.map(t => t.id)];
     if (!validTaskIds.includes(task)) {
       res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ ok: false, error: `Tác vụ không hợp lệ: "${task}".` }));

@@ -107,3 +107,40 @@ describe('doLoc() — d_loc2 and w_loc15 quest support', () => {
   });
 });
 
+describe('doVisitAll() and doPetAll() — pilgrimage & temple pets support', () => {
+  it('doVisitAll visits candidate temples and claims route quests', async () => {
+    const client = makeMockClient();
+    client.doVisit = async (templeId) => {
+      client.send({ t: 'visit', zone: templeId });
+    };
+    await client.doVisitAll({ limit: 5 });
+
+    const visitPackets = client._sent.filter(p => p.t === 'visit');
+    assert.equal(visitPackets.length, 5, 'should visit 5 temples');
+
+    const claimPackets = client._sent.filter(p => p.t === 'claim');
+    const claimedIds = claimPackets.map(p => p.q);
+    assert.ok(claimedIds.includes('r_xuyenviet'), 'must claim r_xuyenviet');
+    assert.ok(claimedIds.includes('r_phuongnam'), 'must claim r_phuongnam');
+    assert.ok(claimedIds.includes('a_tamchua'), 'must claim a_tamchua');
+  });
+
+  it('doPetAll visits pet temples and interacts with pets', async () => {
+    const client = makeMockClient();
+    client.doVisit = async (templeId) => {
+      client.send({ t: 'visit', zone: templeId });
+    };
+    await client.doPetAll();
+
+    const petPackets = client._sent.filter(p => p.t === 'pet');
+    assert.equal(petPackets.length, 4, 'should interact with 4 temple pets');
+
+    const claimPackets = client._sent.filter(p => p.t === 'claim');
+    const claimedIds = claimPackets.map(p => p.q);
+    assert.ok(claimedIds.includes('a_pet_linhung'), 'must claim a_pet_linhung');
+    assert.ok(claimedIds.includes('a_pet_nuisam'), 'must claim a_pet_nuisam');
+    assert.ok(claimedIds.includes('a_pet_cuuphong'), 'must claim a_pet_cuuphong');
+    assert.ok(claimedIds.includes('a_pet_hoangoc'), 'must claim a_pet_hoangoc');
+  });
+});
+
