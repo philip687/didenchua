@@ -256,13 +256,13 @@ export class DiDenChuaClient {
     } catch {}
 
     if (!res.ok) {
-      const isRateLimited = res.status === 429 || /quá nhanh|nhanh|rate limit|too fast|cooldown|thử lại/i.test(data?.error || '');
+      const isRateLimited = res.status === 429 || /quá nhanh|nhanh|chậm lại|chậm rãi|rate limit|too fast|cooldown|thử lại/i.test(data?.error || '');
       if (isRateLimited && retries < 2) {
-        const backoffMs = 2000 + (retries * 1000);
+        const backoffMs = 2500 + (retries * 1000);
         log.warn(`⏳ Máy chủ yêu cầu giãn cách: "${data?.error || 'Thao tác quá nhanh'}" - Tự động nghỉ ${backoffMs / 1000}s và thử lại (${retries + 1}/2)...`);
         const resumeAt = Date.now() + backoffMs;
         this.postNext = Math.max(this.postNext || 0, resumeAt + 600);
-        this.practiceNext = Math.max(this.practiceNext || 0, resumeAt + 1500);
+        this.practiceNext = Math.max(this.practiceNext || 0, resumeAt + 2500);
         await this.sleep(backoffMs);
         return this.api(path, { method, body, headers, retries: retries + 1 });
       }
@@ -282,11 +282,17 @@ export class DiDenChuaClient {
 
     // Giãn cách quy định an toàn chống lỗi thao tác quá nhanh:
     // - Tu tập (/practice): máy chủ yêu cầu gap >= 1500ms
+    // - Riêng lễ lạy ('bow'): máy chủ kiểm tra nhịp thể lực, yêu cầu tối thiểu ~1.35s cho mỗi lạy (3 lạy ~ 4s) để tránh "Lạy chậm rãi thôi"
     // - Nhận thưởng (/claim): gap an toàn >= 600ms
     // - Mọi request POST khác: gap an toàn >= 500ms
+    let practiceRequiredGap = Math.max(1500, this.practiceGap || 1500);
+    if (isPractice && body?.type === 'bow' && body?.count) {
+      practiceRequiredGap = Math.max(practiceRequiredGap, body.count * 1350);
+    }
+
     const baseGap = (!this.token || this.isTurbo() || options.fast)
       ? 20
-      : (isPractice ? Math.max(1500, this.practiceGap || 1500) : (isClaim ? 600 : 500));
+      : (isPractice ? practiceRequiredGap : (isClaim ? 600 : 500));
 
     // Thời điểm sớm nhất được phép gửi request này
     const at = Math.max(now, this.postNext || 0, isPractice ? (this.practiceNext || 0) : 0);
@@ -543,9 +549,9 @@ export class DiDenChuaClient {
     }
     if (msg.t === 'toast' && msg.text) {
       this.recentToasts.push(msg.text);
-      if (/quá nhanh|chậm lại|đợi chút|bình tĩnh|thử lại/i.test(msg.text)) {
+      if (/quá nhanh|chậm lại|chậm rãi|đợi chút|bình tĩnh|thử lại/i.test(msg.text)) {
         log.warn(`⚠️ Máy chủ nhắc nhở: "${msg.text}" - Hệ thống tự động điều chỉnh giãn cách an toàn.`);
-        this.practiceNext = Math.max(this.practiceNext, Date.now() + 2000);
+        this.practiceNext = Math.max(this.practiceNext, Date.now() + 3500);
         this.postNext = Math.max(this.postNext || 0, Date.now() + 1500);
       }
     }
@@ -701,11 +707,12 @@ export class DiDenChuaClient {
       for (let i = 1; i <= emotesNeeded; i++) {
         this.checkAborted();
         const currentBows = Math.min(i * 3, count);
+        const batchBows = Math.min(3, count - (i - 1) * 3);
         log.info(`...[${currentBows}/${count} lạy tại ${targetTemple}] Thành kính cúi lạy Phật đài...`);
 
         if (this.token) {
           try {
-            await this.practice('bow', { count: Math.min(3, count - (i - 1) * 3), lite: true, temple: targetTemple });
+            await this.practice('bow', { count: batchBows, lite: true, temple: targetTemple });
           } catch {}
         }
 
@@ -747,7 +754,8 @@ export class DiDenChuaClient {
         }
 
         if (i < emotesNeeded) {
-          await this.sleep(options.intervalMs ?? (this.isTurbo() ? 80 : 1250));
+          const bowDelay = (!this.token || this.isTurbo() || options.fast) ? 20 : (batchBows * 1350);
+          await this.sleep(options.intervalMs ?? bowDelay);
         }
       }
       log.success(`🎉 HOÀN TẤT: Đã hoàn thành gửi ${count} lạy sám hối tại [${targetTemple}] và chốt toàn bộ công đức.`);
@@ -871,7 +879,7 @@ export class DiDenChuaClient {
       }
 
       if (sent < count) {
-        await this.sleep(options.intervalMs ?? (this.isTurbo() ? 80 : 1250));
+        await this.sleep(options.intervalMs ?? ((!this.token || this.isTurbo() || options.fast) ? 20 : 1350));
       }
     }
 
@@ -933,7 +941,7 @@ export class DiDenChuaClient {
       }
 
       if (sent < count) {
-        await this.sleep(options.intervalMs ?? (this.isTurbo() ? 80 : 1250));
+        await this.sleep(options.intervalMs ?? ((!this.token || this.isTurbo() || options.fast) ? 20 : 1350));
       }
     }
 
@@ -988,7 +996,7 @@ export class DiDenChuaClient {
       }
 
       if (i < count) {
-        await this.sleep(options.intervalMs ?? (this.isTurbo() ? 80 : 1250));
+        await this.sleep(options.intervalMs ?? ((!this.token || this.isTurbo() || options.fast) ? 20 : 1500));
       }
     }
 
@@ -1729,7 +1737,7 @@ export class DiDenChuaClient {
       const need = qLay ? Math.max(0, qLay.target - (qLay.progress || 0)) : 300;
       if (need > 0) {
         log.info(`Lễ bái bù ${need} lạy cho nhiệm vụ tuần...`);
-        await this.doLay(need, { intervalMs: this.isTurbo() ? 20 : 250 });
+        await this.doLay(need, { fast: this.isTurbo() });
       }
     }
 
