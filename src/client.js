@@ -11,7 +11,7 @@ const TOKEN_CACHE_PATH = path.join(__dirname, '..', '.cached_token.json');
 const DEFAULT_BASE_URL = 'https://niemphat.online';
 const DEFAULT_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 const HEARTBEAT_INTERVAL_MS = 15000;
-const PRACTICE_GAP_MS = 1250; // Máy chủ quy định gap >= 1200ms giữa các lần tu tập
+const PRACTICE_GAP_MS = 1500; // Máy chủ quy định gap an toàn >= 1500ms giữa các lần tu tập
 
 // Danh sách 50 bồ đoàn chính thức tại Chánh điện
 export const CHANH_DIEN_SEATS = (() => {
@@ -258,8 +258,11 @@ export class DiDenChuaClient {
     if (!res.ok) {
       const isRateLimited = res.status === 429 || /quá nhanh|nhanh|rate limit|too fast|cooldown|thử lại/i.test(data?.error || '');
       if (isRateLimited && retries < 2) {
-        const backoffMs = 1500 + (retries * 500);
+        const backoffMs = 2000 + (retries * 1000);
         log.warn(`⏳ Máy chủ yêu cầu giãn cách: "${data?.error || 'Thao tác quá nhanh'}" - Tự động nghỉ ${backoffMs / 1000}s và thử lại (${retries + 1}/2)...`);
+        const resumeAt = Date.now() + backoffMs;
+        this.postNext = Math.max(this.postNext || 0, resumeAt + 600);
+        this.practiceNext = Math.max(this.practiceNext || 0, resumeAt + 1500);
         await this.sleep(backoffMs);
         return this.api(path, { method, body, headers, retries: retries + 1 });
       }
@@ -274,18 +277,33 @@ export class DiDenChuaClient {
 
   async post(path, body, options = {}) {
     const now = Date.now();
-    if (path === '/practice') {
-      const at = Math.max(now, this.practiceNext);
-      this.practiceNext = at + Math.max(1300, this.practiceGap);
-      if (at > now) {
-        await this.sleep(at - now);
-      }
+    const isPractice = path === '/practice';
+    const isClaim = path.includes('/claim');
+
+    // Giãn cách quy định an toàn chống lỗi thao tác quá nhanh:
+    // - Tu tập (/practice): máy chủ yêu cầu gap >= 1500ms
+    // - Nhận thưởng (/claim): gap an toàn >= 600ms
+    // - Mọi request POST khác: gap an toàn >= 500ms
+    const baseGap = (!this.token || this.isTurbo() || options.fast)
+      ? 20
+      : (isPractice ? Math.max(1500, this.practiceGap || 1500) : (isClaim ? 600 : 500));
+
+    // Thời điểm sớm nhất được phép gửi request này
+    const at = Math.max(now, this.postNext || 0, isPractice ? (this.practiceNext || 0) : 0);
+
+    // Cập nhật mốc chặn thời gian tiếp theo
+    this.postNext = at + baseGap;
+    if (isPractice) {
+      this.practiceNext = at + baseGap;
     } else {
-      const at = Math.max(now, this.postNext);
-      this.postNext = at + this.postGap;
-      if (at > now) {
-        await this.sleep(at - now);
-      }
+      // Khi vừa gửi một POST không phải practice (như claim, loc, v.v.),
+      // đảm bảo request practice tiếp theo không chen ngang trong ít nhất 600ms
+      const crossGap = (!this.token || this.isTurbo() || options.fast) ? 20 : 600;
+      this.practiceNext = Math.max(this.practiceNext || 0, at + crossGap);
+    }
+
+    if (at > now) {
+      await this.sleep(at - now);
     }
     return this.api(path, { method: 'POST', body, ...options });
   }
@@ -1039,7 +1057,18 @@ export class DiDenChuaClient {
 
   async doVisit(templeId = this.temple) {
     this.checkAborted();
+    if (!templeId) return null;
+
+    // Tránh gửi lặp viếng thăm cùng một ngôi chùa trong thời gian ngắn (< 5s)
+    if (this.temple === templeId && this._lastVisitedTemple === templeId && (Date.now() - (this._lastVisitTime || 0) < 5000)) {
+      return null;
+    }
+
     log.temple('🏯', `Viếng thăm ngôi chùa [${templeId}]...`);
+    this.temple = templeId;
+    this._lastVisitedTemple = templeId;
+    this._lastVisitTime = Date.now();
+
     let res = null;
     if (this.token) {
       res = await this.practice('visit', { temple: templeId });
@@ -1056,10 +1085,10 @@ export class DiDenChuaClient {
     for (const t of candidateTemples.slice(0, limit)) {
       this.checkAborted();
       await this.doVisit(t.id);
-      await this.sleep(this.isTurbo() ? 50 : 1300);
+      await this.sleep((!this.token || this.isTurbo()) ? 20 : 1500);
       if (options.withPet && ['linhung', 'nuisam', 'cuuphong', 'hoangoc'].includes(t.id)) {
         await this.doPet(t.id);
-        await this.sleep(this.isTurbo() ? 50 : 400);
+        await this.sleep((!this.token || this.isTurbo()) ? 20 : 600);
       }
     }
     // Tự động claim các tuyến hành hương và thành tựu tám chùa nếu hoàn tất
@@ -1617,13 +1646,15 @@ export class DiDenChuaClient {
       log.warn(`Lỗi trong quá trình nhặt lộc: ${err.message}`);
     }
 
-    if (this.token) {
-      try { await this.post('/quests/d_loc2/claim'); } catch {}
-      await this.sleep(350);
-      try { await this.post('/quests/w_loc15/claim'); } catch {}
+    if (!options.skipClaim) {
+      if (this.token) {
+        try { await this.post('/quests/d_loc2/claim'); } catch {}
+        await this.sleep((!this.token || this.isTurbo()) ? 20 : 400);
+        try { await this.post('/quests/w_loc15/claim'); } catch {}
+      }
+      this.send({ t: 'claim', q: 'd_loc2' });
+      this.send({ t: 'claim', q: 'w_loc15' });
     }
-    this.send({ t: 'claim', q: 'd_loc2' });
-    this.send({ t: 'claim', q: 'w_loc15' });
     return { ok: true, claimed, count: targetCount };
   }
 
@@ -1638,22 +1669,33 @@ export class DiDenChuaClient {
       'doivang', 'linhson', 'linhung', 'nuisam', 'cuuphong', 'hoangoc'
     ];
 
+    const sleepDelay = (!this.token || this.isTurbo()) ? 20 : 800;
+    const claimDelay = (!this.token || this.isTurbo()) ? 20 : 400;
+
     let totalClaimed = 0;
     for (const templeId of strollTemples) {
       this.checkAborted();
       log.temple('🍀', `Dạo khuôn viên chùa [${templeId}] nhặt lộc sen vàng...`);
       await this.doVisit(templeId);
-      await this.sleep(this.isTurbo() ? 100 : 800);
-      const res = await this.doLoc(5, { temple: templeId, intervalMs: this.isTurbo() ? 150 : 800 });
+      await this.sleep(sleepDelay);
+      const res = await this.doLoc(5, { temple: templeId, intervalMs: (!this.token || this.isTurbo()) ? 20 : 800, skipClaim: true });
       if (res && res.claimed) totalClaimed += res.claimed;
       if (this.token) {
-        await this.sleep(350);
+        await this.sleep(claimDelay);
         try { await this.post(`/quests/a_loc_${templeId}/claim`); } catch {}
       }
       this.send({ t: 'claim', q: `a_loc_${templeId}` });
-      await this.sleep(this.isTurbo() ? 100 : 600);
-      await this.sleep(this.isTurbo() ? 50 : 400);
+      await this.sleep(sleepDelay);
     }
+
+    if (this.token) {
+      await this.sleep(claimDelay);
+      try { await this.post('/quests/d_loc2/claim'); } catch {}
+      await this.sleep(claimDelay);
+      try { await this.post('/quests/w_loc15/claim'); } catch {}
+    }
+    this.send({ t: 'claim', q: 'd_loc2' });
+    this.send({ t: 'claim', q: 'w_loc15' });
 
     if (this.token) {
       try { await this.post('/quests/w_loc15/claim'); } catch {}
