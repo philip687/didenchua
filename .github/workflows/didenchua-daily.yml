@@ -1,4 +1,4 @@
-name: Tự Động Điểm Danh & Làm Nhiệm Vụ Chùa Online
+name: Tự Động Điểm Danh & Làm Nhiệm Vụ Niệm Phật Online
 
 on:
   schedule:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch: # Cho phép bấm nút Run thủ công trên GitHub Actions bất kỳ lúc nào
 
 jobs:
-  didenchua-routine:
+  niemphat-routine:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -26,6 +26,9 @@ jobs:
 
       - name: Chạy Giai đoạn 1 (Hành động tức thời) & Giai đoạn 2 (Nhiệm vụ treo thiền định)
         env:
+          NP_BASE_URL: ${{ secrets.NP_BASE_URL || 'https://niemphat.online' }}
+          NP_USERNAME: ${{ secrets.NP_USERNAME }}
+          NP_PASSWORD: ${{ secrets.NP_PASSWORD }}
           CID: ${{ secrets.DIDENCHUA_CID }}
           NAME: ${{ secrets.DIDENCHUA_NAME || 'phat-tu' }}
           SAFE_MODE: 'true'

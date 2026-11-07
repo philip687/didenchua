@@ -1,13 +1,13 @@
-# 🪷 Tự Động Hóa Chùa Online (didenchua.online)
+# 🪷 Tự Động Hóa Niệm Phật Online (niemphat.online)
 
-Hệ thống tự động hóa công đức, điểm danh và làm nhiệm vụ hàng ngày cho [An Tự Duyên - didenchua.online](https://didenchua.online/?phong=chua-1).
+Hệ thống tự động hóa công đức, điểm danh và làm nhiệm vụ hàng ngày cho [Niệm Phật Online - niemphat.online](https://niemphat.online/).
 
-> 📖 **TÀI LIỆU TOÀN DIỆN MASTER:** Đọc tài liệu chi tiết đầy đủ 100% về kiến trúc, 4 tab hồ sơ tu tập, 17 danh hiệu, 12 pháp khí, bản đồ 3D 17 thắng cảnh, 31 tác vụ 5 tầng, và cẩm nang vận hành tại:  
+> 📖 **TÀI LIỆU TOÀN DIỆN MASTER:** Đọc tài liệu chi tiết đầy đủ 100% về kiến trúc, 4 tab hồ sơ tu tập, 17 danh hiệu, 12 pháp khí, bản đồ 20 ngôi chùa 3D, 38 tác vụ toàn diện, và cẩm nang vận hành tại:  
 > 👉 [**PROJECT_DOCUMENTATION.md**](PROJECT_DOCUMENTATION.md)
 
 Hỗ trợ 2 chế độ:
-1. **Chạy ngầm siêu nhẹ qua WebSocket**: Tiêu tốn < 20MB RAM, không cần mở Chrome, cày điểm và làm nhiệm vụ trong vài giây.
-2. **Mở trình duyệt ảo (Google Chrome 3D)**: Xem trực tiếp nhân vật, không gian chùa 3D, đồng bộ tài khoản giữa tool và trình duyệt.
+1. **Chạy ngầm siêu nhẹ qua HTTP REST & WebSocket**: Tiêu tốn < 20MB RAM, không cần mở Chrome, cày điểm và làm nhiệm vụ trong vài giây.
+2. **Mở trình duyệt ảo (Google Chrome 3D)**: Xem trực tiếp nhân vật, không gian 20 ngôi chùa 3D, đồng bộ tài khoản giữa tool và trình duyệt.
 
 ---
 
@@ -134,18 +134,23 @@ Mở file `config.json` để tùy chỉnh thông tin hoặc liên kết với n
 
 ```json
 {
-  "cid": "YOUR_ACCOUNT_CID",
+  "domain": "https://niemphat.online",
+  "username": "YOUR_USERNAME",
+  "password": "YOUR_PASSWORD",
+  "temple": "voluong",
   "name": "phat-tu",
+  "sect": "tinhdo",
   "kind": "tieu",
-  "robe": "nau",
+  "robe": "ao_lam",
   "skin": "dong",
   "bio": "Nam Mô A Di Đà Phật · Thân tâm thường an lạc",
-  "beads": "go",
-  "cushion": "xam",
-  "room": "chua-1",
+  "beads": "chuoi_go",
+  "cushion": "bd_xam",
+  "room": "voluong",
   "safeMode": true,
-  "minDelaySec": 3.5,
-  "maxDelaySec": 7.0,
+  "turbo": false,
+  "minDelaySec": 1.25,
+  "maxDelaySec": 2.0,
   "chromePath": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 }
 ```
@@ -182,22 +187,23 @@ Hệ thống đã được thiết kế sẵn một **Web Dashboard giao diện 
 #### Cách 1: Sử dụng Render Blueprint (Nhanh nhất - 1 Click)
 1. Đưa toàn bộ thư mục code này lên repository GitHub của bạn.
 2. Đăng nhập [render.com](https://render.com) ➔ Chọn **Blueprints** ➔ Bấm **New Blueprint Instance**.
-3. Chọn repo `didenchua` của bạn. Render sẽ tự động đọc file [`render.yaml`](render.yaml) và cấu hình sẵn mọi thứ.
+3. Chọn repo của bạn. Render sẽ tự động đọc file [`render.yaml`](render.yaml) và cấu hình sẵn mọi thứ.
 4. Bấm **Apply** để hoàn tất!
 
 #### Cách 2: Tạo thủ công Web Service trên Render
 1. Bấm **New +** ➔ Chọn **Web Service**.
 2. Kết nối repo GitHub của bạn.
 3. Điền cấu hình:
-   - **Name**: `didenchua-bot`
+   - **Name**: `niemphat-online-bot`
    - **Runtime**: `Node`
    - **Build Command**: `npm install`
    - **Start Command**: `npm start`
    - **Plan**: `Free`
 4. Tại phần **Environment Variables**, thêm các biến:
-   - `CID`: `YOUR_ACCOUNT_CID` (Bắt buộc - CID tài khoản của bạn)
-   - `NAME`: `phat-tu` (Tùy chọn - Tên hiển thị)
-   - `ROOM`: `chua-1` (Tùy chọn - Phòng chùa mặc định)
+   - `NP_BASE_URL`: `https://niemphat.online` (Bắt buộc)
+   - `NP_USERNAME`: `YOUR_USERNAME` (Bắt buộc - Tên đăng nhập)
+   - `NP_PASSWORD`: `YOUR_PASSWORD` (Bắt buộc - Mật khẩu)
+   - `NP_TEMPLE`: `voluong` (Tùy chọn - Chùa mặc định)
    - `AUTH_TOKEN`: `YOUR_SECRET_TOKEN` (Bắt buộc khi chạy Render - mã bí mật bảo vệ API/Cron)
    - *(Tùy chọn nhận tin nhắn Telegram)*:
      - `TELEGRAM_BOT_TOKEN`: Token bot Telegram của bạn
@@ -238,6 +244,10 @@ npm run cicd -- --full
 Đã có sẵn file cấu hình tại [`.github/workflows/didenchua-daily.yml`](.github/workflows/didenchua-daily.yml). Bạn chỉ cần:
 1. Đưa mã nguồn lên repository GitHub của bạn.
 2. Vào **Settings** ➔ **Secrets and variables** ➔ **Actions**.
-3. Thêm Secret: `DIDENCHUA_CID` = `YOUR_ACCOUNT_CID`.
+3. Thêm Secrets:
+   - `NP_USERNAME` = `YOUR_USERNAME`
+   - `NP_PASSWORD` = `YOUR_PASSWORD`
+   - `NP_BASE_URL` = `https://niemphat.online`
+   - *(hoặc `DIDENCHUA_CID` cho tài khoản định danh cũ)*.
 4. GitHub Actions sẽ tự động chạy mỗi ngày lúc **00:05 sáng** (giờ VN) để giữ chuỗi điểm danh và tích công đức hoàn toàn tự động!
 

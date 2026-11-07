@@ -1,6 +1,6 @@
 # 🪷 CẨM NANG THÔNG TIN & CÁCH THỨC XÂY DỰNG CỖ MÁY TỰ CHƠI THÔNG MINH
-> **Dự án:** Đi Đến Chùa Online (`didenchua.online`)  
-> **Nhánh phát triển:** `feature/autonomous-play`  
+> **Dự án:** Niệm Phật Online (`niemphat.online`)  
+> **Nhánh phát triển:** `research/niemphat-online`  
 > **Tác giả:** Antigravity (Pair Programming cùng Bạn)  
 > **Ngày hoàn thành:** 06/11/2026  
 
@@ -220,15 +220,15 @@ Khi toàn bộ các hoạt động tích luỹ ở trên **đã đạt đủ m�
 
 | Tệp tin | Trạng thái | Vai trò trong hệ thống |
 | :--- | :---: | :--- |
-| [`src/auto/feedback_tracker.js`](file:///Users/tyson/Library/CloudStorage/GoogleDrive-philip@mtglobal.tech/Drive%20c%E1%BB%A7a%20t%C3%B4i/didenchua/src/auto/feedback_tracker.js) | **Mới** | Chụp Snapshot, đo lường $\Delta M$, $\Delta H_q$, $\Delta J$, phát hiện toast bão hòa và tự dừng sau 2 lần thử không tiến triển. |
-| [`src/auto/schedule_events.js`](file:///Users/tyson/Library/CloudStorage/GoogleDrive-philip@mtglobal.tech/Drive%20c%E1%BB%A7a%20t%C3%B4i/didenchua/src/auto/schedule_events.js) | **Mới** | Chuẩn hóa múi giờ Việt Nam (Asia/Ho_Chi_Minh - UTC+7), kiểm tra khung giờ Thắp đèn (16:30), Đố vui (20:00), Reset (00:01). |
-| [`src/auto/autonomous_bot.js`](file:///Users/tyson/Library/CloudStorage/GoogleDrive-philip@mtglobal.tech/Drive%20c%E1%BB%A7a%20t%C3%B4i/didenchua/src/auto/autonomous_bot.js) | **Mới** | Cỗ máy tự chơi điều phối 4 giai đoạn: Probing hàng ngày $\rightarrow$ Claim thưởng $\rightarrow$ Canh giờ $\rightarrow$ Treo tích luỹ vô hạn. |
-| [`src/auto/index.js`](file:///Users/tyson/Library/CloudStorage/GoogleDrive-philip@mtglobal.tech/Drive%20c%E1%BB%A7a%20t%C3%B4i/didenchua/src/auto/index.js) | **Mới** | Điểm xuất (Export entry point) kết nối module `auto` với toàn dự án. |
-| [`src/client.js`](file:///Users/tyson/Library/CloudStorage/GoogleDrive-philip@mtglobal.tech/Drive%20c%E1%BB%A7a%20t%C3%B4i/didenchua/src/client.js) | **Chỉnh sửa** | Thêm cơ chế Publisher/Subscriber `onMessage()`, bộ đệm `recentGains`, `recentToasts` và hàm `clearRecentFeedback()`. |
-| [`cli.js`](file:///Users/tyson/Library/CloudStorage/GoogleDrive-philip@mtglobal.tech/Drive%20c%E1%BB%A7a%20t%C3%B4i/didenchua/cli.js) | **Chỉnh sửa** | Bổ sung lệnh `auto`, xử lý các tùy chọn `--once`, `--probe` và bắt tín hiệu dừng `SIGINT`/`SIGTERM`. |
-| [`package.json`](file:///Users/tyson/Library/CloudStorage/GoogleDrive-philip@mtglobal.tech/Drive%20c%E1%BB%A7a%20t%C3%B4i/didenchua/package.json) | **Chỉnh sửa** | Đăng ký script `"auto": "node cli.js auto"`, `"selfplay"` và `"test"`. |
-| [`test/auto.test.js`](file:///Users/tyson/Library/CloudStorage/GoogleDrive-philip@mtglobal.tech/Drive%20c%E1%BB%A7a%20t%C3%B4i/didenchua/test/auto.test.js) | **Mới** | Bộ kiểm thử tự động ngoại tuyến 5 test suites (đo delta, bão hòa, dừng vòng lặp, múi giờ UTC+7). |
-| [`AUTONOMOUS_RESEARCH.md`](file:///Users/tyson/Library/CloudStorage/GoogleDrive-philip@mtglobal.tech/Drive%20c%E1%BB%A7a%20t%C3%B4i/didenchua/AUTONOMOUS_RESEARCH.md) | **Mới** | Tài liệu kiến trúc chuyên sâu, công thức toán học và ma trận thời gian thực của hệ thống tự chơi. |
+| [`src/auto/feedback_tracker.js`](src/auto/feedback_tracker.js) | **Mới** | Chụp Snapshot, đo lường $\Delta M$, $\Delta H_q$, $\Delta J$, phát hiện toast bão hòa và tự dừng sau 2 lần thử không tiến triển. |
+| [`src/auto/schedule_events.js`](src/auto/schedule_events.js) | **Mới** | Chuẩn hóa múi giờ Việt Nam (Asia/Ho_Chi_Minh - UTC+7), kiểm tra khung giờ Thắp đèn (16:30), Đố vui (20:00), Reset (00:01). |
+| [`src/auto/autonomous_bot.js`](src/auto/autonomous_bot.js) | **Mới** | Cỗ máy tự chơi điều phối 4 giai đoạn: Probing hàng ngày $\rightarrow$ Claim thưởng $\rightarrow$ Canh giờ $\rightarrow$ Treo tích luỹ vô hạn. |
+| [`src/auto/index.js`](src/auto/index.js) | **Mới** | Điểm xuất (Export entry point) kết nối module `auto` với toàn dự án. |
+| [`src/client.js`](src/client.js) | **Chỉnh sửa** | Thêm cơ chế Publisher/Subscriber `onMessage()`, bộ đệm `recentGains`, `recentToasts` và hàm `clearRecentFeedback()`. |
+| [`cli.js`](cli.js) | **Chỉnh sửa** | Bổ sung lệnh `auto`, xử lý các tùy chọn `--once`, `--probe` và bắt tín hiệu dừng `SIGINT`/`SIGTERM`. |
+| [`package.json`](package.json) | **Chỉnh sửa** | Đăng ký script `"auto": "node cli.js auto"`, `"selfplay"` và `"test"`. |
+| [`test/auto.test.js`](test/auto.test.js) | **Mới** | Bộ kiểm thử tự động ngoại tuyến 5 test suites (đo delta, bão hòa, dừng vòng lặp, múi giờ UTC+7). |
+| [`AUTONOMOUS_RESEARCH.md`](AUTONOMOUS_RESEARCH.md) | **Mới** | Tài liệu kiến trúc chuyên sâu, công thức toán học và ma trận thời gian thực của hệ thống tự chơi. |
 
 ---
 

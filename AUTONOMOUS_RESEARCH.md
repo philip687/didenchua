@@ -1,13 +1,13 @@
 # 🪷 BÁO CÁO NGHIÊN CỨU & KIẾN TRÚC TỰ CHƠI THÔNG MINH (AUTONOMOUS SELF-PLAYING)
-> **Dự án:** Đi Đến Chùa Online (`didenchua.online`)  
-> **Nhánh phát triển:** `feature/autonomous-play`  
+> **Dự án:** Niệm Phật Online (`niemphat.online`)  
+> **Nhánh phát triển:** `research/niemphat-online`  
 > **Mục tiêu:** Xây dựng hệ thống tự hành thông minh, tự nhận diện công đức/tiến độ từ máy chủ, tự đổi việc khi bão hòa, chuyển sang chế độ tu tập tích luỹ dài hạn và tự động canh đúng các khung giờ sự kiện hệ thống (Đố vui 20:00 UTC+7, Thắp đèn Chánh điện 16:30 - 21:30 UTC+7).
 
 ---
 
 ## 1. BỐI CẢNH & PHƯƠNG HƯỚNG BÀI TOÁN
 
-Trong trò chơi tĩnh tâm trực tuyến **Đi Đến Chùa**, các hoạt động tu tập và công quả được chia làm ba nhóm chính:
+Trong trò chơi tĩnh tâm trực tuyến **Niệm Phật Online**, các hoạt động tu tập và công quả được chia làm ba nhóm chính:
 1. **Nhiệm vụ giới hạn hàng ngày (Daily Quota):** Chỉ ghi nhận công đức hoặc tiến độ một số lần nhất định trong ngày (ví dụ: điểm danh, xin chữ, dâng hương, thả hoa đăng, quét lá, thăm thú...).
 2. **Nhiệm vụ có điều kiện khung giờ (Time-Gated Events):**
    - **Thắp đèn dầu Chánh điện:** Chỉ mở từ **16:30 đến 21:30 UTC+7**.
@@ -28,7 +28,7 @@ Mục tiêu nghiên cứu là tạo ra một **Cỗ máy Tự chơi (Autonomous 
 
 ```
                             ┌──────────────────────────────────────────┐
-                            │          DiDenChua Client (WS)           │
+                            │       NiemPhat Client (REST & WS)        │
                             └────────────────────┬─────────────────────┘
                                                  │ onMessage()
                                                  ▼
@@ -240,7 +240,7 @@ Kết quả kiểm thử kiểm chứng:
 
 ## 9. TỔNG KẾT & KẾT LUẬN
 
-Nhánh `feature/autonomous-play` đã hiện thực hóa trọn vẹn 4 yêu cầu cốt lõi:
+Nhánh `research/niemphat-online` đã hiện thực hóa trọn vẹn các yêu cầu cốt lõi:
 1. ✅ **Nhận diện ghi nhận máy chủ:** Đo lường công đức tức thời, tiến độ nhiệm vụ và nhật ký thành tựu; tiếp tục tích luỹ cho đến khi chạm ngưỡng bão hòa.
 2. ✅ **Tự đổi việc:** Linh hoạt chuyển việc ngay khi một hành động chạm trần.
 3. ✅ **Treo tích luỹ phước điền:** Chuyển sang chu kỳ lạy Phật, tràng hạt, mõ và tọa thiền sau khi hoàn thành mọi nhiệm vụ ngày.

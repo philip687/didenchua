@@ -1,7 +1,7 @@
-# 🪷 TÀI LIỆU TOÀN DIỆN DỰ ÁN TỰ ĐỘNG HÓA CHÙA ONLINE (AN TỰ DUYÊN)
-> **Nền tảng:** [An Tự Duyên - didenchua.online](https://didenchua.online/?phong=chua-1)  
-> **Phiên bản hệ thống:** v1.0.0 (Production Ready)  
-> **Kiến trúc:** Node.js (ESM), WebSocket Game Protocol, Gemini Flash AI, Web Dashboard, Render Cloud 24/7  
+# 🪷 TÀI LIỆU TOÀN DIỆN DỰ ÁN TỰ ĐỘNG HÓA NIỆM PHẬT ONLINE (niemphat.online)
+> **Nền tảng:** [Niệm Phật Online - niemphat.online](https://niemphat.online/)  
+> **Phiên bản hệ thống:** v2.0.0 (Production Ready - 20 Chùa 3D & REST/WS Hybrid)  
+> **Kiến trúc:** Node.js (ESM), HTTP REST API (/api/practice) + WebSocket Presence, Gemini Flash AI, Web Dashboard, Render Cloud 24/7  
 > **Tôn chỉ vận hành:** *Thanh tịnh · Chánh niệm · Tinh tấn · Khoan thai*
 
 ---
@@ -16,7 +16,7 @@
    - 4.2. [Tab 2: Bộ Sưu Tập (Trang Phục, Pháp Bảo, Bồ Đoàn, Linh Thú)](#42-tab-2-bộ-sưu-tập-trang-phục-pháp-bảo-bồ-đoàn-linh-thú)
    - 4.3. [Tab 3: Bảng Vàng Danh Hiệu (17 Danh Hiệu)](#43-tab-3-bảng-vàng-danh-hiệu-17-danh-hiệu)
    - 4.4. [Tab 4: Bản Đồ Chùa & Thông Tin Tài Khoản](#44-tab-4-bản-đồ-chùa--thông-tin-tài-khoản)
-5. [Bản Đồ 3D Chùa An Tự Duyên & Tọa Độ Không Gian](#5-bản-đồ-3d-chùa-an-tự-duyên--tọa-độ-không-gian)
+5. [Bản Đồ 3D 20 Ngôi Chùa & Tọa Độ Không Gian](#5-bản-đồ-3d-20-ngôi-chùa--tọa-độ-không-gian)
 6. [Bảng Điều Khiển Tác Vụ 5 Tầng (31 Tasks Toàn Diện)](#6-bảng-điều-khiển-tác-vụ-5-tầng-31-tasks-toàn-diện)
    - 6.1. [Tầng 1: Nhiệm Vụ Hàng Ngày (13 Tasks)](#61-tầng-1-nhiệm-vụ-hàng-ngày-13-tasks)
    - 6.2. [Tầng 2: Mốc Tu Tập & Thành Tựu Vĩnh Viễn (6 Tasks)](#62-tầng-2-mốc-tu-tập--thành-tựu-vĩnh-viễn-6-tasks)
@@ -41,7 +41,7 @@
 
 ## 1. GIỚI THIỆU DỰ ÁN & TÔN CHỈ VẬN HÀNH
 
-Dự án **Tự Động Hóa Chùa Online (An Tự Duyên)** là giải pháp toàn diện hỗ trợ Phật tử thực hành tu tập, giữ gìn thời khóa nhật tụng, tích lũy công đức và tham gia các hoạt động cộng đồng trên nền tảng thế giới ảo Phật giáo **An Tự Duyên** ([didenchua.online](https://didenchua.online/?phong=chua-1)).
+Dự án **Tự Động Hóa Niệm Phật Online (niemphat.online)** là giải pháp toàn diện hỗ trợ Phật tử thực hành tu tập, giữ gìn thời khóa nhật tụng, tích lũy công đức và tham gia các hoạt động cộng đồng trên nền tảng thế giới ảo Phật giáo **Niệm Phật Online** ([niemphat.online](https://niemphat.online/)).
 
 ### 🌸 Tôn Chỉ Hoạt Động
 - **Thanh Tịnh & Trang Nghiêm**: Mọi hành vi (lạy Phật, niệm Phật, dâng hương, thả hoa đăng, quét lá...) đều được thực hiện theo nhịp điệu tự nhiên, từ tốn, không spam, không gây nhiễu loạn không gian chùa.
@@ -62,8 +62,8 @@ graph TD
     Dashboard -->|Điều khiển tác vụ| Engine["Lõi Tự Động Hóa (src/tasks/)"]
     CLI -->|Điều khiển tác vụ| Engine
     
-    Engine -->|Giao thức WebSocket (JSON)| WSClient["DiDenChuaClient (src/client.js)"]
-    WSClient <==>|WSS JSON Protocol| GameServer["Máy Chủ An Tự Duyên (didenchua.online/ws)"]
+    Engine -->|Giao thức HTTP REST & WS| WSClient["NiemPhatClient (src/client.js)"]
+    WSClient <==>|REST & WSS Protocol| GameServer["Máy Chủ Niệm Phật Online (niemphat.online)"]
     
     Engine -->|Tra cứu tri thức| GeminiAI["Gemini 3.5 Flash AI + Quiz Bank (166 câu)"]
     Engine -->|Gửi tổng kết| Notifier["Hệ Thống Thông Báo (Telegram/Discord)"]
@@ -71,7 +71,7 @@ graph TD
     CloudCron["UptimeRobot / Cron-Job.org"] -->|Ping /health & /cron| Dashboard
 ```
 
-### 🛰️ Giao Thức WebSocket Game (`wss://didenchua.online/ws`)
+### 🛰️ Giao Thức Niệm Phật Online (REST API & WebSocket `wss://niemphat.online/ws`)
 Mọi giao tiếp giữa client và máy chủ game đều sử dụng các gói tin JSON với trường định danh hành động `t`:
 - `t: "join"`: Đăng nhập vào phòng chùa với danh tính `id` (CID), diện mạo `name`, `robe`, `beads`, `cushion`, `weapon`, `pet`, `title`...
 - `t: "p"`: Heartbeat ping giữ kết nối mỗi 10-15 giây.
@@ -97,8 +97,8 @@ Mọi giao tiếp giữa client và máy chủ game đều sử dụng các gói
 ## 3. NGUYÊN TẮC ĐƠN PHIÊN (SINGLE SESSION ETIQUETTE)
 
 > [!CAUTION]
-> **QUY TẮC BẤT DI BẤT DỊCH CỦA MÁY CHỦ AN TỰ DUYÊN:**  
-> Mỗi tài khoản (`CID`) chỉ được phép kết nối **MỘT PHIÊN DUY NHẤT** tại một thời điểm.  
+> **QUY TẮC BẤT DI BẤT DỊCH CỦA MÁY CHỦ NIỆM PHẬT ONLINE:**  
+> Mỗi tài khoản chỉ được phép kết nối **MỘT PHIÊN WEBSOCKET DUY NHẤT** tại một thời điểm.  
 > Nếu bạn đang mở chùa trên trình duyệt web và tool chạy ngầm kết nối tới máy chủ, trình duyệt sẽ bị đẩy văng ra với thông báo:  
 > **"Chùa đang mở ở nơi khác"**.
 
@@ -117,7 +117,7 @@ Mọi giao tiếp giữa client và máy chủ game đều sử dụng các gói
 
 ## 4. HỆ THỐNG HỒ SƠ NHÂN VẬT & 4 TAB TU TẬP
 
-Khi nhấp vào nhân vật của mình trên Chùa An Tự Duyên, giao diện **Hồ Sơ Tu Tập** hiện lên với 4 tab thông tin chuẩn mực:
+Khi nhấp vào nhân vật của mình trên Niệm Phật Online, giao diện **Hồ Sơ Tu Tập** hiện lên với 4 tab thông tin chuẩn mực:
 
 ```
 ┌───────────────────────────────────────────────────────────┐
@@ -250,7 +250,7 @@ Tài khoản hiện đã đạt xuất sắc **10 / 17 danh hiệu**:
 
 | ID Danh Hiệu | Tên Danh Hiệu Hiển Thị | Trạng Thái | Điều Kiện Đạt Thành Tựu |
 | :--- | :--- | :---: | :--- |
-| `moi` | Người mới lên chùa | ✅ ĐÃ ĐẠT | Lần đầu tiên đặt chân đến chùa An Tự Duyên. |
+| `moi` | Người mới lên chùa | ✅ ĐÃ ĐẠT | Lần đầu tiên đặt chân đến chùa Niệm Phật Online. |
 | `tram-lay` | Trăm lạy | ✅ ĐÃ ĐẠT | Lạy Phật sám hối đủ 108 lạy. |
 | `ngan-lay` | Ngàn lạy | ✅ ĐÃ ĐẠT | Cúi lạy Phật sám hối đạt mốc 1.000 lạy. |
 | `tron-chuoi` | Tròn chuỗi hạt | ✅ ĐÃ ĐẠT | Lần hạt trọn vẹn một chuỗi 108 hạt. |
@@ -281,7 +281,7 @@ Tài khoản hiện đã đạt xuất sắc **10 / 17 danh hiệu**:
 
 ---
 
-## 5. BẢN ĐỒ 3D CHÙA AN TỰ DUYÊN & TỌA ĐỘ KHÔNG GIAN
+## 5. BẢN ĐỒ 3D 20 NGÔI CHÙA & TỌA ĐỘ KHÔNG GIAN
 
 Dữ liệu tọa độ 3D được trích xuất trực tiếp từ mã nguồn thế giới ảo (`data/temple_map.json` và `src/map.js`):
 
@@ -395,7 +395,7 @@ Hệ thống phân cấp 31 tác vụ thành 5 tầng ưu tiên khoa học, giú
 ## 7. CÁC PHÂN HỆ CHUYÊN BIỆT NỔI BẬT
 
 ### 7.1. AM RIÊNG TU TẬP (TỊNH XÁ CÁ NHÂN)
-- **Tập tin đảm trách**: [`src/tasks/am.js`](file:///Users/tyson/Library/CloudStorage/GoogleDrive-philip@mtglobal.tech/Drive%20của%20tôi/didenchua/src/tasks/am.js)
+- **Tập tin đảm trách**: [`src/tasks/am.js`](src/tasks/am.js)
 - **Cơ chế vận hành**:
   1. Gửi lệnh dịch chuyển `goto` đưa nhân vật đến cửa Am (`x: -45.6, z: 33.5`), sau đó bước vào cõi tịnh độ riêng biệt tại tọa độ `x: 3000, y: 0, z: 3000`.
   2. Gửi gói tin `t: 'wAm'` kích hoạt trạng thái tu tập tịnh xá.
@@ -406,7 +406,7 @@ Hệ thống phân cấp 31 tác vụ thành 5 tầng ưu tiên khoa học, giú
 ---
 
 ### 7.2. PHÁP ĐƯỜNG ĐẠI GIẢNG ĐƯỜNG
-- **Tập tin đảm trách**: [`src/tasks/phapduong.js`](file:///Users/tyson/Library/CloudStorage/GoogleDrive-philip@mtglobal.tech/Drive%20của%20tôi/didenchua/src/tasks/phapduong.js)
+- **Tập tin đảm trách**: [`src/tasks/phapduong.js`](src/tasks/phapduong.js)
 - **Cơ chế vận hành**:
   1. Di chuyển nhân vật đến cửa Pháp đường (`x: -40.5, z: 4`), bước vào đại giảng đường tại tọa độ `x: -3006, y: 0, z: 3006`.
   2. Phát tín hiệu `t: 'wPhapDuong'` báo cáo hiện diện tại Pháp đường.
@@ -415,18 +415,18 @@ Hệ thống phân cấp 31 tác vụ thành 5 tầng ưu tiên khoa học, giú
 ---
 
 ### 7.3. GÁC CHUÔNG BÁT NHÃ & TIẾNG CHUÔNG TỈNH THỨC
-- **Tập tin đảm trách**: [`src/tasks/bell.js`](file:///Users/tyson/Library/CloudStorage/GoogleDrive-philip@mtglobal.tech/Drive%20của%20tôi/didenchua/src/tasks/bell.js)
+- **Tập tin đảm trách**: [`src/tasks/bell.js`](src/tasks/bell.js)
 - **Cơ chế vận hành**:
   1. Di chuyển đến Gác chuông cổ kính (`x: -15, z: 47.4`).
   2. Gửi gói tin thỉnh chuông `t: 'bell'` với nhịp điệu trang nghiêm (cách nhau 2.5s mỗi tiếng).
-  3. Tiếng Đại hồng chung ngân vang khắp cõi An Tự Duyên, giải tỏa phiền não, tích lũy công đức và hướng tới pháp bảo *Chuông tay*.
+  3. Tiếng Đại hồng chung ngân vang khắp cõi Niệm Phật Online, giải tỏa phiền não, tích lũy công đức và hướng tới pháp bảo *Chuông tay*.
 
 ---
 
 ### 7.4. ĐỘNG CƠ AI GEMINI & NGÂN HÀNG PHẬT HỌC 166 CÂU
-- **Tập tin đảm trách**: [`src/tasks/quiz.js`](file:///Users/tyson/Library/CloudStorage/GoogleDrive-philip@mtglobal.tech/Drive%20của%20tôi/didenchua/src/tasks/quiz.js), [`data/quiz_bank.json`](file:///Users/tyson/Library/CloudStorage/GoogleDrive-philip@mtglobal.tech/Drive%20của%20tôi/didenchua/data/quiz_bank.json)
+- **Tập tin đảm trách**: [`src/tasks/quiz.js`](src/tasks/quiz.js), [`data/quiz_bank.json`](data/quiz_bank.json)
 - **Kiến trúc giải đố 2 tầng hoàn hảo**:
-  - **Tầng 1 (Local Bank - Offline)**: Ngân hàng tri thức Phật học gồm **166 câu hỏi - đáp chính xác 100%** được crawl và chọn lọc từ giáo lý nhà Phật chùa An Tự Duyên. Tốc độ tra cứu < 5ms, không phụ thuộc internet ngoài.
+  - **Tầng 1 (Local Bank - Offline)**: Ngân hàng tri thức Phật học gồm **166 câu hỏi - đáp chính xác 100%** được crawl và chọn lọc từ giáo lý nhà Phật trên Niệm Phật Online. Tốc độ tra cứu < 5ms, không phụ thuộc internet ngoài.
   - **Tầng 2 (Gemini 3.5 Flash AI - Online)**: Khi gặp các câu hỏi mới lạ ngoài ngân hàng, hệ thống tự động gọi API Google Gemini với prompt chuyên gia Phật học để suy luận đáp án chính xác trong vòng 1 giây.
 - **Hỗ trợ 2 chế độ**:
   - `practice`: Tự do luyện tập ôn luyện giáo lý bất kỳ lúc nào.
@@ -435,7 +435,7 @@ Hệ thống phân cấp 31 tác vụ thành 5 tầng ưu tiên khoa học, giú
 ---
 
 ### 7.5. TỌA THIỀN CHỐNG RỚT KẾT NỐI (KEEP-ALIVE MEDITATION)
-- **Tập tin đảm trách**: [`src/tasks/meditate.js`](file:///Users/tyson/Library/CloudStorage/GoogleDrive-philip@mtglobal.tech/Drive%20của%20tôi/didenchua/src/tasks/meditate.js)
+- **Tập tin đảm trách**: [`src/tasks/meditate.js`](src/tasks/meditate.js)
 - **Vấn đề đã khắc phục**: Máy chủ game tự động ngắt kết nối các client đứng yên sau 3-5 phút không có tương tác.
 - **Giải pháp**:
   - Gửi gói tin `t: 'meditate'` đặt trạng thái ngồi thiền chính thức.
@@ -446,22 +446,22 @@ Hệ thống phân cấp 31 tác vụ thành 5 tầng ưu tiên khoa học, giú
 
 ## 8. GIAO DIỆN QUẢN TRỊ WEB DASHBOARD & GIÁM SÁT THỜI GIAN THỰC
 
-File máy chủ [`server.js`](file:///Users/tyson/Library/CloudStorage/GoogleDrive-philip@mtglobal.tech/Drive%20của%20tôi/didenchua/server.js) cung cấp một Web Dashboard hiện đại chuẩn Chùa Online:
+File máy chủ [`server.js`](server.js) cung cấp một Web Dashboard hiện đại chuẩn Chùa Online:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│  🪷 AN TỰ DUYÊN · BẢNG ĐIỀU KHIỂN TU TẬP 24/7             [00:05 CRON] │
+│  🪷 NIỆM PHẬT ONLINE · BẢNG ĐIỀU KHIỂN TU TẬP 24/7        [00:05 CRON] │
 ├────────────────────────────────────────────────────────────────────────┤
 │  [ẢNH ĐẠI DIỆN 3D]   <configured account> · An lạc (Lv.4)               │
 │                      Công đức: 1.839 / 3.000 (61.3%)                   │
 │                      [Xem 4 Tab Hồ Sơ Tu Tập]  [Đổi Danh Hiệu]         │
 ├────────────────────────────────────────────────────────────────────────┤
-│  ⚡ TÁC VỤ 5 TẦNG (31 TASKS):                                           │
-│  [Tầng 1: 13 Quests Ngày]  [Tầng 2: 6 Mốc Thành Tựu]  [Tầng 3: Tâm Linh]│
-│  [Tầng 4: Vườn Sen Tùy Hỷ] [Tầng 5: Thiền & AI Quiz]  [Tùy Chỉnh Avatar]│
+│  ⚡ BẢNG ĐIỀU KHIỂN NHIỆM VỤ & TÁC VỤ RIÊNG LẺ:                        │
+│  [Daily: 13 Quests]   [Weekly: 4 Quests]   [Achievement: 38 Tasks]     │
+│  [Bộ lọc: Tất cả / Chưa xong / Đã xong]   [Ô tìm kiếm nhanh nhiệm vụ]   │
 ├────────────────────────────────────────────────────────────────────────┤
 │  📜 NHẬT KÝ TU TẬP THỜI GIAN THỰC (REALTIME SSE LOG STREAM)            │
-│  [22:48:28] Kết nối máy chủ chùa An Tự Duyên thành công...             │
+│  [22:48:28] Kết nối máy chủ chùa Niệm Phật Online thành công...         │
 │  [22:48:29] Đã dâng 1 nén tâm hương tại Chánh điện.                    │
 │  [22:48:30] Thu hoạch phần thưởng: +10 điểm công đức.                  │
 └────────────────────────────────────────────────────────────────────────┘
@@ -475,7 +475,7 @@ File máy chủ [`server.js`](file:///Users/tyson/Library/CloudStorage/GoogleDri
 - `GET /`: Giao diện Dashboard HTML responsive, hỗ trợ hoàn hảo trên cả máy tính và điện thoại.
 - `GET /health`: Endpoint báo cáo trạng thái máy chủ, phục vụ Keep-Alive ping chống ngủ đông:
   ```json
-  { "status": "ok", "service": "didenchua-bot", "uptime": 86400, "time": "2026-11-05T22:48:00+07:00" }
+  { "status": "ok", "service": "niemphat-online-bot", "uptime": 86400, "time": "2026-11-05T22:48:00+07:00" }
   ```
 - `POST /cron`: Kích hoạt chu trình làm nhiệm vụ tự động. Bắt buộc header `Authorization: Bearer <AUTH_TOKEN>`; không hỗ trợ GET để tránh crawler/prefetch kích hoạt nhầm.
 - `GET /events`: Luồng Server-Sent Events (SSE) đẩy nhật ký trực tiếp xuống trình duyệt không cần reload trang.
@@ -490,33 +490,37 @@ File máy chủ [`server.js`](file:///Users/tyson/Library/CloudStorage/GoogleDri
 
 ## 9. CẤU HÌNH HỆ THỐNG & CHẾ ĐỘ AN TOÀN (SAFE HUMAN DELAY)
 
-Cấu hình được quản lý tập trung tại [`config.json`](file:///Users/tyson/Library/CloudStorage/GoogleDrive-philip@mtglobal.tech/Drive%20của%20tôi/didenchua/config.json) và [`config.js`](file:///Users/tyson/Library/CloudStorage/GoogleDrive-philip@mtglobal.tech/Drive%20của%20tôi/didenchua/config.js):
+Cấu hình được quản lý tập trung tại [`config.json`](config.json) và [`src/config.js`](src/config.js):
 
 ```json
 {
-  "cid": "YOUR_ACCOUNT_CID",
-  "name": "Phật Tử Tịnh Tâm",
+  "domain": "https://niemphat.online",
+  "username": "YOUR_USERNAME",
+  "password": "YOUR_PASSWORD",
+  "temple": "voluong",
+  "name": "phat-tu",
+  "sect": "tinhdo",
   "kind": "tieu",
-  "robe": "nau",
+  "robe": "ao_lam",
   "skin": "dong",
   "bio": "Nam Mô A Di Đà Phật · Thân tâm thường an lạc",
-  "beads": "go",
-  "cushion": "xam",
-  "room": "chua-1",
+  "beads": "chuoi_go",
+  "cushion": "bd_xam",
+  "room": "voluong",
   "safeMode": true,
   "turbo": false,
-  "minDelaySec": 1.0,
+  "minDelaySec": 1.25,
   "maxDelaySec": 2.0,
-  "meditateSeconds": 3600,
+  "meditateSeconds": 300,
   "autoWaterOthers": true,
   "maxWaterOthers": 50,
   "calligraphyWish": "binh-an",
   "milestoneFarming": {
     "enabled": true,
-    "dailyBows": 18,
+    "dailyBows": 27,
     "dailyBeads": 108,
     "dailySweeps": 5,
-    "dailyIncense": 2,
+    "dailyIncense": 1,
     "dailyLanterns": 1
   }
 }
@@ -538,23 +542,30 @@ Cấu hình được quản lý tập trung tại [`config.json`](file:///Users/
 
 ## 10. HƯỚNG DẪN TRIỂN KHAI LÊN RENDER CLOUD 24/7
 
-Dự án đã tích hợp sẵn tệp khai báo [`render.yaml`](file:///Users/tyson/Library/CloudStorage/GoogleDrive-philip@mtglobal.tech/Drive%20của%20tôi/didenchua/render.yaml) để deploy miễn phí lên Render.com:
+Dự án đã tích hợp sẵn tệp khai báo [`render.yaml`](render.yaml) để deploy miễn phí lên Render.com:
 
 ### Các Bước Thực Hiện:
 1. Đẩy mã nguồn lên kho chứa GitHub cá nhân.
 2. Đăng nhập [render.com](https://render.com) ➔ Chọn **Blueprints** ➔ Bấm **New Blueprint Instance**.
-3. Chọn repo `didenchua` vừa đẩy lên. Render sẽ tự động nhận diện cấu hình:
+3. Chọn repo `niemphat` / `niemphat-online-bot`. Render sẽ tự động nhận diện cấu hình:
+   - **Name**: `niemphat-online-bot`
    - **Runtime**: `Node`
    - **Build Command**: `npm install`
    - **Start Command**: `node server.js`
    - **Plan**: `Free`
 4. Cài đặt các biến môi trường quan trọng:
-   - `CID`: `YOUR_ACCOUNT_CID` (Bắt buộc)
-   - `NAME`: `phat-tu`
-   - `ROOM`: `chua-1`
+   - `NP_BASE_URL`: `https://niemphat.online` (Bắt buộc)
+   - `NP_USERNAME`: `YOUR_USERNAME` (Bắt buộc)
+   - `NP_PASSWORD`: `YOUR_PASSWORD` (Bắt buộc)
+   - `NP_TEMPLE`: `voluong` (Tùy chọn)
    - `AUTH_TOKEN`: `YOUR_SECRET_TOKEN` (Bắt buộc để gọi `/cron`, `/run` hoặc API quản trị)
-   - `TELEGRAM_BOT_TOKEN`: *(Tùy chọn nhận tin nhắn báo cáo)*
-   - `TELEGRAM_CHAT_ID`: *(Tùy chọn nhận tin nhắn báo cáo)*
+   - `AUTO_PLAY`: `true`
+   - `SAFE_MODE`: `true`
+   - `RENDER_EXTERNAL_URL`: `https://niemphat-online-bot.onrender.com`
+   - `NODE_VERSION`: `22`
+   - *(Tùy chọn nhận tin nhắn Telegram)*:
+     - `TELEGRAM_BOT_TOKEN`: Token bot Telegram của bạn
+     - `TELEGRAM_CHAT_ID`: Chat ID Telegram của bạn
 5. Bấm **Apply** để hoàn tất triển khai!
 
 > [!TIP]
@@ -567,10 +578,10 @@ Dự án đã tích hợp sẵn tệp khai báo [`render.yaml`](file:///Users/ty
 
 ## 11. HỆ THỐNG THÔNG BÁO TỰ ĐỘNG (TELEGRAM & DISCORD)
 
-Tập tin [`src/notify.js`](file:///Users/tyson/Library/CloudStorage/GoogleDrive-philip@mtglobal.tech/Drive%20của%20tôi/didenchua/src/notify.js) hỗ trợ định dạng bảng tin trang nhã gửi trực tiếp về điện thoại:
+Tập tin [`src/notify.js`](src/notify.js) hỗ trợ định dạng bảng tin trang nhã gửi trực tiếp về điện thoại:
 
 ```
-🪷 BÁO CÁO THỜI KHÓA TU TẬP CHÙA AN TỰ DUYÊN 🪷
+🪷 BÁO CÁO THỜI KHÓA TU TẬP NIỆM PHẬT ONLINE 🪷
 ────────────────────────────────────────
 👤 Phật tử: <configured account>
 🏅 Danh hiệu: Trăm chuỗi hạt 🏆
