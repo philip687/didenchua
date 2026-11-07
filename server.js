@@ -688,11 +688,21 @@ export const TASKS_CATALOG = [
     id: 'plant',
     group: 'extra',
     questId: 'd_plant',
-    title: 'Công Quả Trồng Cây Xanh',
-    desc: 'Trồng cây xanh bóng mát nơi sân chùa tích lũy đại công đức',
+    title: 'Công Quả Trồng Cây Xanh (Người Gieo Bóng Mát)',
+    desc: 'Trồng cây xanh tạo bóng mát sân chùa (tự động trồng bù đủ 30 cây mở Người gieo bóng mát 🏆)',
     icon: '🌱',
-    reward: '+15-20đ & Sen',
-    badge: 'Công quả'
+    reward: '+15-20đ & Sen / cây',
+    badge: 'Công quả',
+    hasCount: true,
+    defaultCount: 1,
+    countOptions: [
+      { value: 1, label: '1 cây (Quest ngày 🎯)' },
+      { value: 5, label: '5 cây (Vườn xanh)' },
+      { value: 10, label: '10 cây (Bóng mát)' },
+      { value: 15, label: '15 cây (Nửa chặng)' },
+      { value: 29, label: '29 cây (Bù đủ mốc)' },
+      { value: 30, label: '30 cây (Người gieo bóng mát 🏆)' }
+    ]
   },
   {
     id: 'loc',
@@ -1062,10 +1072,15 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
         case 'lay-nuisam':
           await client.doLayThatSon(runOptions.count || 108, runOptions);
           break;
-        case 'lay':
-          const bowsCount = runOptions.count || 18;
+        case 'lay': {
+          const activeLayQ = (client.merit?.me?.quests || []).find(q => q.id === 'a_lay1000' || q.id === 'w_lay300' || q.id === 'lay');
+          const defaultLayBows = activeLayQ && !activeLayQ.claimed && typeof activeLayQ.have === 'number'
+            ? Math.max(1, (activeLayQ.need || 18) - activeLayQ.have)
+            : 18;
+          const bowsCount = runOptions.count || defaultLayBows;
           await client.doLay(bowsCount, runOptions);
           break;
+        }
         case 'greet':
           await client.doGreet();
           break;
@@ -1103,21 +1118,36 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           client.send({ t: 'lamp' });
           await client.doPet();
           break;
-        case 'quet':
-          await client.doQuetLa(runOptions.count || 5, runOptions);
+        case 'quet': {
+          const activeQuetQ = (client.merit?.me?.quests || []).find(q => q.id === 'w_viec5' || q.id === 'd_sweep' || q.id === 'quet');
+          const defaultQuetCount = activeQuetQ && !activeQuetQ.claimed && typeof activeQuetQ.have === 'number'
+            ? Math.max(1, (activeQuetQ.need || 5) - activeQuetQ.have)
+            : 5;
+          await client.doQuetLa(runOptions.count || defaultQuetCount, runOptions);
           break;
+        }
         case 'chores':
           await client.doChores();
           await client.doPet();
           break;
-        case 'mo':
-          await client.doMo(runOptions.count || 108, runOptions);
+        case 'mo': {
+          const activeMoQ = (client.merit?.me?.quests || []).find(q => q.id === 'tung' || q.id === 'd_mo108' || q.id === 'w_mo500');
+          const defaultMoCount = activeMoQ && !activeMoQ.claimed && typeof activeMoQ.have === 'number'
+            ? Math.max(1, (activeMoQ.need || 108) - activeMoQ.have)
+            : 108;
+          await client.doMo(runOptions.count || defaultMoCount, runOptions);
           break;
+        }
         case 'beads':
-        case 'chuoi':
-          const beadsCount = runOptions.count || 108;
+        case 'chuoi': {
+          const activeChuoiQ = (client.merit?.me?.quests || []).find(q => q.id === 'w_chuoi7' || q.id === 'chuoi' || q.id === 'd_chuoi1');
+          const defaultBeadsCount = activeChuoiQ && !activeChuoiQ.claimed && typeof activeChuoiQ.have === 'number'
+            ? Math.max(1, (activeChuoiQ.id === 'w_chuoi7' ? ((activeChuoiQ.need || 7) - (activeChuoiQ.have || 0)) * 108 : (activeChuoiQ.need || 108) - activeChuoiQ.have))
+            : 108;
+          const beadsCount = runOptions.count || defaultBeadsCount;
           await client.doBeads(beadsCount, runOptions);
           break;
+        }
         case 'farm-bows-beads':
           const farmBows = runOptions.bowsCount ?? runOptions.count ?? 18;
           const farmBeads = runOptions.beadsCount ?? 108;
@@ -1176,10 +1206,10 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
           await client.doHuntPets(runOptions);
           break;
         case 'plant':
-          await client.doPlant();
+          await client.doPlant(runOptions.count || 1, runOptions);
           break;
         case 'loc':
-          await client.doLoc(runOptions.count || 2);
+          await client.doLoc(runOptions.count || 2, runOptions);
           break;
         case 'loc-all':
           await client.doLocAllTemples();
@@ -1191,10 +1221,15 @@ async function executeRoutine(triggerSource = 'Manual / Web', runOptions = {}) {
         case 'speedrun':
           await client.doSpeedrunLevel10(runOptions);
           break;
-        case 'meditate':
-          const secs = runOptions.meditateSeconds || 300;
+        case 'meditate': {
+          const activeThienQ = (client.merit?.me?.quests || []).find(q => q.id === 'w_thien60' || q.id === 'd_thien5' || q.id === 'ngoi');
+          const defaultThienMin = activeThienQ && !activeThienQ.claimed && typeof activeThienQ.have === 'number'
+            ? Math.max(1, (activeThienQ.need || 5) - activeThienQ.have)
+            : 5;
+          const secs = runOptions.meditateSeconds || (runOptions.count && runOptions.count <= 120 ? runOptions.count * 60 : runOptions.count) || (defaultThienMin * 60);
           await runMeditateWithClient(client, secs, runOptions);
           break;
+        }
         case 'quiz':
           await runQuizWithClient(client, runOptions);
           break;
@@ -2423,6 +2458,8 @@ export function renderDashboardHTML() {
     } else {
       let runLabel = '⚡ Làm ngay';
       let targetTask = taskId;
+      const remain = Math.max(1, need - have);
+
       if (q.id.startsWith('r_') || taskId === 'visitAll') {
         runLabel = '🗺️ Hành hương';
         targetTask = 'visitAll';
@@ -2433,24 +2470,53 @@ export function renderDashboardHTML() {
         runLabel = '🐾 Vuốt linh thú';
         targetTask = 'petAll';
       } else if (q.id.startsWith('a_loc_') || taskId === 'loc-all') {
-        runLabel = '🍀 Dạo 12 chùa nhặt lộc';
+        runLabel = '🍀 Dạo 12 chùa (1 lần kích hoạt xong hết 🏆)';
         targetTask = 'loc-all';
       } else if (q.id === 'w_loc15' || q.id === 'd_loc2' || taskId === 'loc') {
-        runLabel = q.id === 'w_loc15' ? '🍀 Nhặt lộc tuần (15)' : '🍀 Dạo vườn nhặt lộc';
+        runLabel = q.id === 'w_loc15' ? (have > 0 ? `🍀 Nhặt ${remain} lộc (Xong tuần 🏆)` : '🍀 Nhặt lộc tuần (15)') : `🍀 Nhặt ${remain} lộc 🎯`;
         targetTask = 'loc';
-      } else if (q.id === 'd_plant' || q.id === 'a_plant30' || taskId === 'plant') {
-        runLabel = '🌱 Trồng cây';
+      } else if (q.id === 'a_plant30') {
+        runLabel = `🌳 Trồng ${remain} cây (Xong bóng mát 🏆)`;
+        targetTask = 'plant';
+      } else if (q.id === 'd_plant' || taskId === 'plant') {
+        runLabel = `🌱 Trồng ${remain} cây 🎯`;
         targetTask = 'plant';
       } else if (q.id === 'a_bow_linhung' || taskId === 'lay-vonghai') {
-        runLabel = '🌊 Lạy Vọng Hải (108)';
+        runLabel = have > 0 ? `🌊 Lạy Vọng Hải (${remain} lạy 🏆)` : '🌊 Lạy Vọng Hải (108)';
         targetTask = 'lay-vonghai';
       } else if (q.id === 'a_bow_nuisam' || taskId === 'lay-nuisam') {
-        runLabel = '⛰️ Lạy Thất Sơn (108)';
+        runLabel = have > 0 ? `⛰️ Lạy Thất Sơn (${remain} lạy 🏆)` : '⛰️ Lạy Thất Sơn (108)';
         targetTask = 'lay-nuisam';
-      } else if (q.id === 'a_lay1000' || q.id.startsWith('a_bow_') || taskId === 'lay') {
-        runLabel = '🙇 Lạy Phật';
+      } else if (q.id === 'w_lay300') {
+        runLabel = `🙇 Lạy ${remain} lạy (Xong tuần 🏆)`;
         targetTask = 'lay';
+      } else if (q.id === 'a_lay1000' || q.id.startsWith('a_bow_') || taskId === 'lay') {
+        runLabel = `🙇 Lạy Phật (${remain} lạy)`;
+        targetTask = 'lay';
+      } else if (q.id === 'w_chuoi7') {
+        const remainBeads = remain * 108;
+        runLabel = `📿 Lăn ${remain} chuỗi (${remainBeads} hạt 🏆)`;
+        targetTask = 'beads';
+      } else if (q.id === 'chuoi' || q.id === 'd_chuoi1' || taskId === 'beads' || taskId === 'chuoi') {
+        runLabel = `📿 Lăn tràng (${remain} hạt)`;
+        targetTask = 'beads';
+      } else if (q.id === 'w_thien60') {
+        runLabel = `🧘 Thiền ${remain} phút (Xong tuần 🏆)`;
+        targetTask = 'meditate';
+      } else if (q.id === 'd_thien5' || q.id === 'ngoi' || taskId === 'meditate' || taskId === 'ngoi-daily') {
+        runLabel = `🧘 Thiền ${remain} phút 🎯`;
+        targetTask = 'meditate';
+      } else if (q.id === 'd_mo108' || q.id === 'tung' || q.id === 'w_mo500' || taskId === 'mo' || taskId === 'tung') {
+        runLabel = `🪵 Gõ mõ (${remain} tiếng)`;
+        targetTask = 'mo';
+      } else if (q.id === 'w_viec5') {
+        runLabel = `🧹 Quét ${remain} lần (Xong tuần 🏆)`;
+        targetTask = 'quet';
+      } else if (q.id === 'd_sweep' || q.id === 'quet' || taskId === 'quet') {
+        runLabel = `🧹 Quét sân (${remain} lần)`;
+        targetTask = 'quet';
       }
+
       actionBtn = `<button class="btn-task btn-quick-run" onclick="runTask('${escapeHTML(targetTask)}')" ${isAnyRunning ? 'disabled' : ''} title="Làm nhiệm vụ này ngay">${runLabel}</button>`;
     }
 
@@ -3438,40 +3504,150 @@ export function renderDashboardHTML() {
           <span class="practice-icon">📿</span>
           <div class="practice-title-box">
             <b>Lăn Tràng Hạt Niệm Phật</b>
-            <small>Lăn tràng hạt niệm Phật A Di Đà (108 hạt)</small>
+            <small>Lăn tràng hạt niệm Phật (nhập số hạt hoặc chọn mốc)</small>
           </div>
         </div>
-        <button type="button" class="btn btn-sm btn-gold" onclick="runTask('beads', { count: 108 })" ${isAnyRunning ? 'disabled' : ''}>
-          📿 Lăn 1 Chuỗi Hạt
-        </button>
+        <div class="practice-controls">
+          <input type="number" id="count_beads" value="108" min="1" max="50000" ${isAnyRunning ? 'disabled' : ''}>
+          <select onchange="if(this.value){ document.getElementById('count_beads').value = this.value; }" ${isAnyRunning ? 'disabled' : ''}>
+            <option value="" disabled selected>Gợi ý ▼</option>
+            <option value="54">54 hạt (Nửa chuỗi)</option>
+            <option value="108">108 hạt (1 chuỗi 🏆)</option>
+            <option value="216">216 hạt (2 chuỗi)</option>
+            <option value="756">756 hạt (7 chuỗi - Xong tuần 🏆)</option>
+            <option value="1080">1.080 hạt (10 chuỗi)</option>
+            <option value="3240">3.240 hạt (30 chuỗi 🏆)</option>
+            <option value="10800">10.800 hạt (Vạn niệm 🏆)</option>
+          </select>
+          <button type="button" class="btn btn-sm btn-gold" onclick="runTask('beads', { count: parseInt(document.getElementById('count_beads').value, 10) || 108 })" ${isAnyRunning ? 'disabled' : ''}>
+            📿 Lăn Tràng Hạt
+          </button>
+        </div>
       </div>
 
-      <!-- Lạy Phật -->
+      <!-- Lạy Phật Sám Hối -->
       <div class="practice-card">
         <div class="practice-top">
           <span class="practice-icon">🙇</span>
           <div class="practice-title-box">
             <b>Lạy Phật Sám Hối</b>
-            <small>Cúi đầu đảnh lễ Đức Phật sám hối</small>
+            <small>Cúi đầu đảnh lễ sám hối (nhập số lạy hoặc chọn mốc)</small>
           </div>
         </div>
-        <button type="button" class="btn btn-sm btn-primary" onclick="runTask('lay-daily')" ${isAnyRunning ? 'disabled' : ''}>
-          🙇 Lạy Phật Ngay
-        </button>
+        <div class="practice-controls">
+          <input type="number" id="count_lay" value="108" min="1" max="10000" ${isAnyRunning ? 'disabled' : ''}>
+          <select onchange="if(this.value){ document.getElementById('count_lay').value = this.value; }" ${isAnyRunning ? 'disabled' : ''}>
+            <option value="" disabled selected>Gợi ý ▼</option>
+            <option value="18">18 lạy (Khóa ngày 🎯)</option>
+            <option value="27">27 lạy (Quest ngày)</option>
+            <option value="54">54 lạy (Nửa khóa)</option>
+            <option value="108">108 lạy (Trăm lạy 🏆)</option>
+            <option value="300">300 lạy (Xong tuần 🏆)</option>
+            <option value="1000">1.000 lạy (Ngàn lạy 🏆)</option>
+          </select>
+          <button type="button" class="btn btn-sm btn-primary" onclick="runTask('lay', { count: parseInt(document.getElementById('count_lay').value, 10) || 108 })" ${isAnyRunning ? 'disabled' : ''}>
+            🙇 Lạy Phật
+          </button>
+        </div>
       </div>
 
-      <!-- Quét Sân Chùa -->
+      <!-- Quét Lá Sân Chùa -->
       <div class="practice-card">
         <div class="practice-top">
           <span class="practice-icon">🧹</span>
           <div class="practice-title-box">
             <b>Quét Lá Sân Chùa</b>
-            <small>Công quả dọn sạch lá rụng khuôn viên</small>
+            <small>Công quả dọn sạch khuôn viên (nhập số lần quét)</small>
           </div>
         </div>
-        <button type="button" class="btn btn-sm" onclick="runTask('quet', { count: 10 })" ${isAnyRunning ? 'disabled' : ''}>
-          🧹 Quét 10 Lần
-        </button>
+        <div class="practice-controls">
+          <input type="number" id="count_quet" value="5" min="1" max="1000" ${isAnyRunning ? 'disabled' : ''}>
+          <select onchange="if(this.value){ document.getElementById('count_quet').value = this.value; }" ${isAnyRunning ? 'disabled' : ''}>
+            <option value="" disabled selected>Gợi ý ▼</option>
+            <option value="1">1 lần (Nhiệm vụ ngày 🎯)</option>
+            <option value="5">5 lần (Xong tuần 🏆)</option>
+            <option value="10">10 lần (Công quả sạch)</option>
+            <option value="30">30 lần (Đại công quả)</option>
+            <option value="100">100 lần (Tích luỹ mốc 🏆)</option>
+          </select>
+          <button type="button" class="btn btn-sm" onclick="runTask('quet', { count: parseInt(document.getElementById('count_quet').value, 10) || 5 })" ${isAnyRunning ? 'disabled' : ''}>
+            🧹 Quét Sân
+          </button>
+        </div>
+      </div>
+
+      <!-- Ngồi Thiền Tĩnh Tâm -->
+      <div class="practice-card">
+        <div class="practice-top">
+          <span class="practice-icon">🧘</span>
+          <div class="practice-title-box">
+            <b>Ngồi Thiền Tĩnh Tâm</b>
+            <small>Tọa thiền định tĩnh tâm (nhập số phút thiền)</small>
+          </div>
+        </div>
+        <div class="practice-controls">
+          <input type="number" id="count_thien" value="5" min="1" max="120" ${isAnyRunning ? 'disabled' : ''}>
+          <select onchange="if(this.value){ document.getElementById('count_thien').value = this.value; }" ${isAnyRunning ? 'disabled' : ''}>
+            <option value="" disabled selected>Gợi ý ▼</option>
+            <option value="5">5 phút (Nhiệm vụ ngày 🎯)</option>
+            <option value="15">15 phút (Định tâm)</option>
+            <option value="30">30 phút (Khóa tĩnh tọa)</option>
+            <option value="60">60 phút (Xong tuần 🏆)</option>
+            <option value="120">120 phút (Đại định 2h)</option>
+          </select>
+          <button type="button" class="btn btn-sm btn-gold" onclick="const mins = parseInt(document.getElementById('count_thien').value, 10) || 5; runTask('meditate', { count: mins, minutes: mins, meditateSeconds: mins * 60 })" ${isAnyRunning ? 'disabled' : ''}>
+            🧘 Ngồi Thiền
+          </button>
+        </div>
+      </div>
+
+      <!-- Trồng Cây Che Bóng Mát -->
+      <div class="practice-card">
+        <div class="practice-top">
+          <span class="practice-icon">🌱</span>
+          <div class="practice-title-box">
+            <b>Trồng Cây Che Bóng Mát</b>
+            <small>Công quả sân chùa (Người gieo bóng mát 30 cây 🏆)</small>
+          </div>
+        </div>
+        <div class="practice-controls">
+          <input type="number" id="count_plant" value="1" min="1" max="100" ${isAnyRunning ? 'disabled' : ''}>
+          <select onchange="if(this.value){ document.getElementById('count_plant').value = this.value; }" ${isAnyRunning ? 'disabled' : ''}>
+            <option value="" disabled selected>Gợi ý ▼</option>
+            <option value="1">1 cây (Nhiệm vụ ngày 🎯)</option>
+            <option value="5">5 cây (Vườn xanh)</option>
+            <option value="10">10 cây (Bóng mát)</option>
+            <option value="15">15 cây (Nửa chặng)</option>
+            <option value="29">29 cây (Bù đủ mốc)</option>
+            <option value="30">30 cây (Người gieo bóng mát 🏆)</option>
+          </select>
+          <button type="button" class="btn btn-sm btn-gold" onclick="runTask('plant', { count: parseInt(document.getElementById('count_plant').value, 10) || 1 })" ${isAnyRunning ? 'disabled' : ''}>
+            🌱 Trồng Cây
+          </button>
+        </div>
+      </div>
+
+      <!-- Dạo Vườn Nhặt Lộc -->
+      <div class="practice-card">
+        <div class="practice-top">
+          <span class="practice-icon">🍀</span>
+          <div class="practice-title-box">
+            <b>Dạo Vườn Nhặt Lộc</b>
+            <small>Dạo quanh khuôn viên nhặt hoa sen vàng (15 hoa xong tuần 🏆)</small>
+          </div>
+        </div>
+        <div class="practice-controls">
+          <input type="number" id="count_loc" value="2" min="1" max="50" ${isAnyRunning ? 'disabled' : ''}>
+          <select onchange="if(this.value){ document.getElementById('count_loc').value = this.value; }" ${isAnyRunning ? 'disabled' : ''}>
+            <option value="" disabled selected>Gợi ý ▼</option>
+            <option value="2">2 hoa (Nhiệm vụ ngày 🎯)</option>
+            <option value="5">5 hoa (Hái lộc)</option>
+            <option value="15">15 hoa (Xong tuần 🏆)</option>
+          </select>
+          <button type="button" class="btn btn-sm" onclick="runTask('loc', { count: parseInt(document.getElementById('count_loc').value, 10) || 2 })" ${isAnyRunning ? 'disabled' : ''}>
+            🍀 Nhặt Lộc
+          </button>
+        </div>
       </div>
 
       <!-- Thỉnh Chuông -->
@@ -4121,7 +4297,7 @@ const server = http.createServer(async (req, res) => {
     const rawCount = bodyData.count ?? url.searchParams.get('count');
     if (rawCount !== undefined && rawCount !== null) {
       const c = parseInt(rawCount, 10);
-      if (Number.isInteger(c) && c > 0 && c <= 20000) {
+      if (Number.isInteger(c) && c > 0 && c <= 50000) {
         runOptions.count = c;
       }
     }
@@ -4135,13 +4311,17 @@ const server = http.createServer(async (req, res) => {
 
     if (bodyData.beadsCount !== undefined && bodyData.beadsCount !== null) {
       const bd = parseInt(bodyData.beadsCount, 10);
-      if (Number.isInteger(bd) && bd >= 0 && bd <= 20000) {
+      if (Number.isInteger(bd) && bd >= 0 && bd <= 50000) {
         runOptions.beadsCount = bd;
       }
     }
 
-    // Kiểm tra và validate tham số meditate
-    const medRaw = bodyData.meditate ?? (url.searchParams.has('meditate') ? url.searchParams.get('meditate') : null);
+    // Kiểm tra và validate tham số meditate (hoặc meditateSeconds, minutes)
+    let medRaw = bodyData.meditateSeconds ?? bodyData.meditate ?? (url.searchParams.has('meditateSeconds') ? url.searchParams.get('meditateSeconds') : (url.searchParams.has('meditate') ? url.searchParams.get('meditate') : null));
+    if (medRaw === null && (bodyData.minutes || url.searchParams.has('minutes'))) {
+      const m = Number(bodyData.minutes || url.searchParams.get('minutes'));
+      if (Number.isInteger(m) && m > 0) medRaw = m * 60;
+    }
     if (medRaw !== null && medRaw !== undefined) {
       const parsedMed = Number(medRaw);
       if (!Number.isInteger(parsedMed) || parsedMed < 60 || parsedMed > 7200) {

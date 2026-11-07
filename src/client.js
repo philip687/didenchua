@@ -724,30 +724,52 @@ export class DiDenChuaClient {
 
   /**
    * Trăm lạy Vọng Hải (108 lạy tại Chùa Vọng Hải - Đà Nẵng).
-   * Mở khóa và nhận thưởng thành tựu a_bow_linhung (+150 EXP, +300 Sen, 3 Nến Sáp).
-   * @param {number} count - Số lạy (mặc định 108).
+   * Tự động kiểm tra tiến độ hiện tại để lạy bù đủ 108 lạy trong 1 lần chạy, mở khóa thành tựu a_bow_linhung (+150 EXP, +300 Sen, 3 Nến Sáp).
+   * @param {number} count - Số lạy (mặc định 108 hoặc số lạy còn thiếu).
    * @param {object} options - Tùy chọn thực thi.
    */
   async doLayVongHai(count = 108, options = {}) {
     this.checkAborted();
-    log.temple('🌊', `Bắt đầu thời khóa Trăm lạy Vọng Hải (${count} lạy tại Chùa Vọng Hải)...`);
-    const res = await this.doLay(count, { ...options, temple: 'linhung' });
-    try { await this.post('/quests/a_bow_linhung/claim'); } catch {}
+    let targetCount = count;
+    const q = (this.merit?.me?.quests || []).find(x => x.id === 'a_bow_linhung');
+    if (q && !q.claimed && typeof q.have === 'number') {
+      const needed = Math.max(1, (q.need || 108) - q.have);
+      if (options.remainOnly || options.autoComplete || count === 108) {
+        targetCount = needed;
+      }
+    }
+    log.temple('🌊', `Bắt đầu thời khóa Trăm lạy Vọng Hải (${targetCount} lạy tại Chùa Vọng Hải - đảm bảo hoàn thành)...`);
+    const res = await this.doLay(targetCount, { ...options, temple: 'linhung' });
+    if (this.token) {
+      try { await this.post('/quests/a_bow_linhung/claim'); } catch {}
+    }
+    this.send({ t: 'claim', q: 'a_bow_linhung' });
     log.success('🎉 Đã hoàn tất Trăm lạy Vọng Hải và nhận thưởng!');
     return res;
   }
 
   /**
    * Trăm lạy Thất Sơn (108 lạy tại Miếu Bà Thất Sơn).
-   * Mở khóa và nhận thưởng thành tựu a_bow_nuisam (+150 EXP, +300 Sen, 3 Nến Sáp).
-   * @param {number} count - Số lạy (mặc định 108).
+   * Tự động kiểm tra tiến độ hiện tại để lạy bù đủ 108 lạy trong 1 lần chạy, mở khóa thành tựu a_bow_nuisam (+150 EXP, +300 Sen, 3 Nến Sáp).
+   * @param {number} count - Số lạy (mặc định 108 hoặc số lạy còn thiếu).
    * @param {object} options - Tùy chọn thực thi.
    */
   async doLayThatSon(count = 108, options = {}) {
     this.checkAborted();
-    log.temple('⛰️', `Bắt đầu thời khóa Trăm lạy Thất Sơn (${count} lạy tại Miếu Bà Thất Sơn)...`);
-    const res = await this.doLay(count, { ...options, temple: 'nuisam' });
-    try { await this.post('/quests/a_bow_nuisam/claim'); } catch {}
+    let targetCount = count;
+    const q = (this.merit?.me?.quests || []).find(x => x.id === 'a_bow_nuisam');
+    if (q && !q.claimed && typeof q.have === 'number') {
+      const needed = Math.max(1, (q.need || 108) - q.have);
+      if (options.remainOnly || options.autoComplete || count === 108) {
+        targetCount = needed;
+      }
+    }
+    log.temple('⛰️', `Bắt đầu thời khóa Trăm lạy Thất Sơn (${targetCount} lạy tại Miếu Bà Thất Sơn - đảm bảo hoàn thành)...`);
+    const res = await this.doLay(targetCount, { ...options, temple: 'nuisam' });
+    if (this.token) {
+      try { await this.post('/quests/a_bow_nuisam/claim'); } catch {}
+    }
+    this.send({ t: 'claim', q: 'a_bow_nuisam' });
     log.success('🎉 Đã hoàn tất Trăm lạy Thất Sơn và nhận thưởng!');
     return res;
   }
@@ -1396,28 +1418,70 @@ export class DiDenChuaClient {
     return { ok: true, remaining, results, caughtPet };
   }
 
-  async doPlant() {
+  async doPlant(count = 1, options = {}) {
     this.checkAborted();
-    log.temple('🌱', 'Làm công quả trồng cây ngoài sân chùa...');
-    this.send({ t: 'visit', zone: 'Sân chùa' });
-    this.send({ t: 'plant', k: 'cuc' });
-    this.send({ t: 'water', pid: this.myPid || '' });
-    this.send({ t: 'chore', k: 'plant' });
-    this.send({ t: 'emote', e: 'plant' });
-    this.send({ t: 'viec', k: 'plant' });
-    let res = null;
-    if (this.token) {
-      try {
-        res = await this.practice('plant');
-        log.success(`🌱 Đã trồng cây công quả: +${res.gained || 15} công đức!`);
-        if (res?.questsDone?.includes('d_plant')) {
-          try { await this.post('/quests/d_plant/claim'); } catch {}
-        }
-      } catch (e) {
-        log.warn(`Lỗi khi trồng cây công quả: ${e.message}`);
+    let targetCount = count;
+    const qPlant30 = (this.merit?.me?.quests || []).find(q => q.id === 'a_plant30');
+    if (qPlant30 && !qPlant30.claimed && typeof qPlant30.have === 'number') {
+      const needed = Math.max(1, (qPlant30.need || 30) - qPlant30.have);
+      if (options.remainOnly || options.autoComplete || count === 1) {
+        targetCount = needed;
       }
     }
-    return res || { ok: true };
+
+    log.temple('🌱', `Làm công quả trồng cây ngoài sân chùa (${targetCount} cây che bóng mát)...`);
+    this.send({ t: 'visit', zone: 'Sân chùa' });
+    await this.sleep(this.isTurbo() ? 50 : 250);
+
+    let totalGained = 0;
+    let lastRes = null;
+    const checkpointInterval = options.chunkSize || 5;
+
+    for (let i = 1; i <= targetCount; i++) {
+      this.checkAborted();
+      log.info(`[${i}/${targetCount}] -> Gieo mầm xanh, trồng cây che bóng mát thiền môn...`);
+      this.send({ t: 'plant', k: 'cuc' });
+      this.send({ t: 'water', pid: this.myPid || '' });
+      this.send({ t: 'chore', k: 'plant' });
+      this.send({ t: 'emote', e: 'plant' });
+      this.send({ t: 'viec', k: 'plant' });
+
+      if (this.token) {
+        try {
+          const res = await this.practice('plant');
+          lastRes = res;
+          totalGained += (res?.gained || 15);
+          if (res?.questsDone?.includes('d_plant')) {
+            try { await this.post('/quests/d_plant/claim'); } catch {}
+          }
+          if (res?.questsDone?.includes('a_plant30')) {
+            try { await this.post('/quests/a_plant30/claim'); } catch {}
+          }
+        } catch (e) {
+          log.warn(`Lỗi khi trồng cây công quả [${i}/${targetCount}]: ${e.message}`);
+        }
+      }
+
+      const isFinal = (i >= targetCount);
+      const isInterval = (i % checkpointInterval === 0);
+
+      if (isFinal || isInterval) {
+        if (this.token) {
+          try { await this.post('/quests/d_plant/claim'); } catch {}
+          try { await this.post('/quests/a_plant30/claim'); } catch {}
+        }
+        this.send({ t: 'claim', q: 'd_plant' });
+        this.send({ t: 'claim', q: 'a_plant30' });
+        this.send({ t: 'journal' });
+      }
+
+      if (i < targetCount) {
+        await this.sleep(options.intervalMs ?? (this.isTurbo() ? 80 : 1250));
+      }
+    }
+
+    log.success(`🎉 HOÀN TẤT: Đã hoàn thành trồng ${targetCount} cây công quả tạo bóng mát (+${totalGained || (targetCount * 15)} công đức)!`);
+    return { ok: true, count: targetCount, gained: totalGained, ...(lastRes || {}) };
   }
 
   async doGarden(options = {}) {
@@ -1430,7 +1494,7 @@ export class DiDenChuaClient {
     const plantQuest = (this.merit?.me?.quests || []).find(q => q.id === 'd_plant' || q.id === 'plant');
     const needPlant = plantQuest && !plantQuest.claimed && (plantQuest.have || 0) < plantQuest.need;
     if (needPlant || (!plantQuest && options.alwaysPlant !== false)) {
-      await this.doPlant();
+      await this.doPlant(options.plantCount || 1, options);
     }
 
     if (options.autoWaterOthers) {
@@ -1447,19 +1511,27 @@ export class DiDenChuaClient {
    * Cơ chế: Lấy vị trí hoa sen vàng từ GET /loc?temple=...
    * Gửi tọa độ người chơi tới gần hoa qua gói WS { t: 's', x, z, y: 0, r: 0, seat: -1, a: 0 }
    * Gọi POST /loc/claim { temple, id } để máy chủ xác thực và trao lộc.
-   * @param {number} count - Số lượng lộc cần nhận (mặc định 2).
+   * @param {number} count - Số lượng lộc cần nhận (mặc định 2 hoặc đủ quest tuần w_loc15).
    */
   async doLoc(count = 2, options = {}) {
     this.checkAborted();
-    log.temple('🍀', `Dạo khuôn viên chùa tìm và nhận hoa sen vàng lộc (${count} lần)...`);
+    let targetCount = count;
+    const qLoc15 = (this.merit?.me?.quests || []).find(q => q.id === 'w_loc15');
+    if (qLoc15 && !qLoc15.claimed && typeof qLoc15.have === 'number') {
+      const needed = Math.max(1, (qLoc15.need || 15) - qLoc15.have);
+      if (options.remainOnly || options.autoComplete || count === 2) {
+        targetCount = Math.max(count, needed);
+      }
+    }
+    log.temple('🍀', `Dạo khuôn viên chùa tìm và nhận hoa sen vàng lộc (${targetCount} lần)...`);
     let claimed = 0;
     if (!this.token) {
       // Offline / mock mode
-      for (let i = 0; i < count; i++) {
+      for (let i = 0; i < targetCount; i++) {
         this.send({ t: 'loc' });
         await this.sleep(this.isTurbo() ? 50 : 200);
       }
-      return { ok: true, claimed: count, count };
+      return { ok: true, claimed: targetCount, count: targetCount };
     }
 
     try {
@@ -1469,7 +1541,7 @@ export class DiDenChuaClient {
       ].filter((v, i, a) => a && a.indexOf(v) === i);
       let templeIdx = 0;
 
-      while (claimed < count && templeIdx < candidateTemples.length) {
+      while (claimed < targetCount && templeIdx < candidateTemples.length) {
         this.checkAborted();
         const currentTemple = candidateTemples[templeIdx];
         let locData = null;
@@ -1485,7 +1557,7 @@ export class DiDenChuaClient {
           }
 
           for (const spawn of spawns) {
-            if (claimed >= count) break;
+            if (claimed >= targetCount) break;
             this.checkAborted();
 
             // Báo vị trí của nhân vật tới gần hoa sen vàng để máy chủ xác thực
@@ -1520,11 +1592,13 @@ export class DiDenChuaClient {
       log.warn(`Lỗi trong quá trình nhặt lộc: ${err.message}`);
     }
 
-    try { await this.post('/quests/d_loc2/claim'); } catch {}
-    try { await this.post('/quests/w_loc15/claim'); } catch {}
+    if (this.token) {
+      try { await this.post('/quests/d_loc2/claim'); } catch {}
+      try { await this.post('/quests/w_loc15/claim'); } catch {}
+    }
     this.send({ t: 'claim', q: 'd_loc2' });
     this.send({ t: 'claim', q: 'w_loc15' });
-    return { ok: true, claimed, count };
+    return { ok: true, claimed, count: targetCount };
   }
 
   /**
