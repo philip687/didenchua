@@ -157,6 +157,8 @@ export class DiDenChuaClient {
     this.recentToasts = [];
     this.practiceNext = 0;
     this.practiceGap = this.config.minDelaySec ? (this.config.minDelaySec * 1000) : PRACTICE_GAP_MS;
+    this.postNext = 0;
+    this.postGap = 350; // Giãn cách an toàn giữa mọi lệnh POST để chống báo thao tác quá nhanh
 
     this.profile = null;
     this.meta = null;
@@ -235,7 +237,7 @@ export class DiDenChuaClient {
     this.abort();
   }
 
-  async api(path, { method = 'GET', body, headers = {} } = {}) {
+  async api(path, { method = 'GET', body, headers = {}, retries = 0 } = {}) {
     this.checkAborted();
     const finalHeaders = this.getHeaders({
       ...(body ? { 'Content-Type': 'application/json' } : {}),
@@ -254,6 +256,13 @@ export class DiDenChuaClient {
     } catch {}
 
     if (!res.ok) {
+      const isRateLimited = res.status === 429 || /quá nhanh|nhanh|rate limit|too fast|cooldown|thử lại/i.test(data?.error || '');
+      if (isRateLimited && retries < 2) {
+        const backoffMs = 1500 + (retries * 500);
+        log.warn(`⏳ Máy chủ yêu cầu giãn cách: "${data?.error || 'Thao tác quá nhanh'}" - Tự động nghỉ ${backoffMs / 1000}s và thử lại (${retries + 1}/2)...`);
+        await this.sleep(backoffMs);
+        return this.api(path, { method, body, headers, retries: retries + 1 });
+      }
       const err = new Error(data?.error || `HTTP ${res.status}: Lỗi kết nối API`);
       err.status = res.status;
       err.data = data;
@@ -263,16 +272,22 @@ export class DiDenChuaClient {
     return data;
   }
 
-  async post(path, body) {
+  async post(path, body, options = {}) {
+    const now = Date.now();
     if (path === '/practice') {
-      const now = Date.now();
       const at = Math.max(now, this.practiceNext);
-      this.practiceNext = at + this.practiceGap;
+      this.practiceNext = at + Math.max(1300, this.practiceGap);
+      if (at > now) {
+        await this.sleep(at - now);
+      }
+    } else {
+      const at = Math.max(now, this.postNext);
+      this.postNext = at + this.postGap;
       if (at > now) {
         await this.sleep(at - now);
       }
     }
-    return this.api(path, { method: 'POST', body });
+    return this.api(path, { method: 'POST', body, ...options });
   }
 
   async get(path, options = {}) {
@@ -510,6 +525,11 @@ export class DiDenChuaClient {
     }
     if (msg.t === 'toast' && msg.text) {
       this.recentToasts.push(msg.text);
+      if (/quá nhanh|chậm lại|đợi chút|bình tĩnh|thử lại/i.test(msg.text)) {
+        log.warn(`⚠️ Máy chủ nhắc nhở: "${msg.text}" - Hệ thống tự động điều chỉnh giãn cách an toàn.`);
+        this.practiceNext = Math.max(this.practiceNext, Date.now() + 2000);
+        this.postNext = Math.max(this.postNext || 0, Date.now() + 1500);
+      }
     }
   }
 
@@ -569,8 +589,11 @@ export class DiDenChuaClient {
       }
 
       try { await this.doQue(); } catch {}
+      await this.sleep(this.isTurbo() ? 100 : 400);
       try { await this.doBell(); } catch {}
+      await this.sleep(this.isTurbo() ? 100 : 400);
       try { await this.doWheel(); } catch {}
+      await this.sleep(this.isTurbo() ? 100 : 400);
       try { await this.fetchMe(); } catch {}
     }
     return checkinRes;
@@ -740,6 +763,7 @@ export class DiDenChuaClient {
     }
     log.temple('🌊', `Bắt đầu thời khóa Trăm lạy Vọng Hải (${targetCount} lạy tại Chùa Vọng Hải - đảm bảo hoàn thành)...`);
     const res = await this.doLay(targetCount, { ...options, temple: 'linhung' });
+    await this.sleep(400);
     if (this.token) {
       try { await this.post('/quests/a_bow_linhung/claim'); } catch {}
     }
@@ -766,6 +790,7 @@ export class DiDenChuaClient {
     }
     log.temple('⛰️', `Bắt đầu thời khóa Trăm lạy Thất Sơn (${targetCount} lạy tại Miếu Bà Thất Sơn - đảm bảo hoàn thành)...`);
     const res = await this.doLay(targetCount, { ...options, temple: 'nuisam' });
+    await this.sleep(400);
     if (this.token) {
       try { await this.post('/quests/a_bow_nuisam/claim'); } catch {}
     }
@@ -1045,7 +1070,10 @@ export class DiDenChuaClient {
     ];
     for (const rq of routeQuests) {
       if (this.token) {
-        try { await this.post(`/quests/${rq}/claim`); } catch {}
+        try {
+          await this.post(`/quests/${rq}/claim`);
+          await this.sleep(350);
+        } catch {}
       }
       this.send({ t: 'claim', q: rq });
     }
@@ -1289,7 +1317,7 @@ export class DiDenChuaClient {
       return { ok: false, error: err.message };
     }
 
-    const waitMs = options.fast || this.isTurbo() ? 100 : Math.max(1000, (startRes?.ms || 8000) + 200);
+    const waitMs = options.fast ? 100 : Math.max(1000, (startRes?.ms || 8000) + 200);
     log.info(`⏳ Đang tĩnh tâm đứng cạnh linh thú ${Math.round(waitMs / 1000)}s để tạo thiện duyên...`);
 
     const t0 = Date.now();
@@ -1451,12 +1479,6 @@ export class DiDenChuaClient {
           const res = await this.practice('plant');
           lastRes = res;
           totalGained += (res?.gained || 15);
-          if (res?.questsDone?.includes('d_plant')) {
-            try { await this.post('/quests/d_plant/claim'); } catch {}
-          }
-          if (res?.questsDone?.includes('a_plant30')) {
-            try { await this.post('/quests/a_plant30/claim'); } catch {}
-          }
         } catch (e) {
           log.warn(`Lỗi khi trồng cây công quả [${i}/${targetCount}]: ${e.message}`);
         }
@@ -1468,6 +1490,7 @@ export class DiDenChuaClient {
       if (isFinal || isInterval) {
         if (this.token) {
           try { await this.post('/quests/d_plant/claim'); } catch {}
+          await this.sleep(350);
           try { await this.post('/quests/a_plant30/claim'); } catch {}
         }
         this.send({ t: 'claim', q: 'd_plant' });
@@ -1476,7 +1499,7 @@ export class DiDenChuaClient {
       }
 
       if (i < targetCount) {
-        await this.sleep(options.intervalMs ?? (this.isTurbo() ? 80 : 1250));
+        await this.sleep(options.intervalMs ?? (this.isTurbo() ? 250 : 1350));
       }
     }
 
@@ -1565,6 +1588,7 @@ export class DiDenChuaClient {
               this.send({ t: 's', x: spawn.x, z: spawn.z, y: 0, r: 0, seat: -1, a: 0 });
               await this.sleep(this.isTurbo() ? 80 : 350);
             }
+            await this.sleep(this.isTurbo() ? 100 : 300);
 
             try {
               const res = await this.post('/loc/claim', { temple: currentTemple, id: spawn.id });
@@ -1572,6 +1596,7 @@ export class DiDenChuaClient {
               log.success(`🍀 Nhặt được lộc chùa (#${spawn.id}): ${res.label || 'Lộc phước'} - "${res.blessing || ''}"`);
               if (res?.questsDone) {
                 for (const qId of res.questsDone) {
+                  await this.sleep(350);
                   try { await this.post(`/quests/${qId}/claim`); } catch {}
                   this.send({ t: 'claim', q: qId });
                 }
@@ -1583,7 +1608,7 @@ export class DiDenChuaClient {
                 break;
               }
             }
-            await this.sleep(this.isTurbo() ? 100 : 600);
+            await this.sleep(options.intervalMs ?? (this.isTurbo() ? 200 : 1000));
           }
         }
         templeIdx++;
@@ -1594,6 +1619,7 @@ export class DiDenChuaClient {
 
     if (this.token) {
       try { await this.post('/quests/d_loc2/claim'); } catch {}
+      await this.sleep(350);
       try { await this.post('/quests/w_loc15/claim'); } catch {}
     }
     this.send({ t: 'claim', q: 'd_loc2' });
@@ -1616,12 +1642,16 @@ export class DiDenChuaClient {
     for (const templeId of strollTemples) {
       this.checkAborted();
       log.temple('🍀', `Dạo khuôn viên chùa [${templeId}] nhặt lộc sen vàng...`);
-      const res = await this.doLoc(5, { temple: templeId });
+      await this.doVisit(templeId);
+      await this.sleep(this.isTurbo() ? 100 : 800);
+      const res = await this.doLoc(5, { temple: templeId, intervalMs: this.isTurbo() ? 150 : 800 });
       if (res && res.claimed) totalClaimed += res.claimed;
       if (this.token) {
+        await this.sleep(350);
         try { await this.post(`/quests/a_loc_${templeId}/claim`); } catch {}
       }
       this.send({ t: 'claim', q: `a_loc_${templeId}` });
+      await this.sleep(this.isTurbo() ? 100 : 600);
       await this.sleep(this.isTurbo() ? 50 : 400);
     }
 
@@ -1691,11 +1721,14 @@ export class DiDenChuaClient {
       }
     }
 
-    // Claim tất cả nhiệm vụ tuần
+    // Claim tất cả nhiệm vụ tuần với giãn cách an toàn
     const weeklyIds = ['w_lay300', 'w_chuoi7', 'w_thien60', 'w_loc15'];
     for (const qId of weeklyIds) {
       if (this.token) {
-        try { await this.post(`/quests/${qId}/claim`); } catch {}
+        try {
+          await this.post(`/quests/${qId}/claim`);
+          await this.sleep(350);
+        } catch {}
       }
       this.send({ t: 'claim', q: qId });
     }
@@ -1826,6 +1859,7 @@ export class DiDenChuaClient {
               const res = await this.post(`/quests/${q.id}/claim`);
               claimed.push({ id: q.id, name: q.name, reward: res.reward });
               log.success(`🎁 Đã nhận thưởng nhiệm vụ [${q.name}]: +${res.reward?.sen || 10} Sen!`);
+              await this.sleep(350);
             } catch {}
           }
         }
